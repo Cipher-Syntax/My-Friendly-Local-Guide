@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'destinations_and_attractions',
     'accommodation_booking',
     'communication',
+    'report',
     'payment',
     'personalization',
     
