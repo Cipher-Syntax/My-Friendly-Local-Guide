@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     # OWN APPS
     'user_authentication',
     'destinations_and_attractions',
-    'booking_and_hosting',
+    'accommodation_booking',
     'communication',
     'payment',
     'personalization',
