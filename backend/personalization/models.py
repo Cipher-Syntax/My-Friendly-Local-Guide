@@ -8,3 +8,4 @@ class Personalization(models.Model):
     travel_categories = models.JSONField(blank=True, null=True)
     onboarding_completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    
