@@ -16,5 +16,9 @@ class Payment(models.Model):
     service_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     payment_method = models.CharField(max_length=20, default='GCash')
     gcash_transaction_id = models.CharField(max_length=255, blank=True, null=True)
+    gcash_response = models.JSONField(blank=True, null=True)
     receipt = models.FileField(upload_to='receipts/', blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.payment_type} - {self.payer.username} - {self.amount}"
