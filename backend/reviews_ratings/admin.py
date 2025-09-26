@@ -3,7 +3,7 @@ from .models import Review, DestinationReview
 
 # Register your models here.
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ('reviewer', 'destination', 'rating', 'timestamp')
+    list_display = ('reviewer', 'reviewed_user', 'rating', 'timestamp')
     list_filter = ('rating', 'timestamp')
     search_fields = ('reviewer__username', 'reviewed_user__username')
 
