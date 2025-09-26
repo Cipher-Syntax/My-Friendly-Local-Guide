@@ -47,7 +47,7 @@ INSTALLED_APPS = [
     'accommodation_booking',
     'communication',
     'report',
-    'reviews_rating',
+    'reviews_ratings',
     'payment',
     'personalization',
     
