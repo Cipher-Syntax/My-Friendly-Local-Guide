@@ -160,3 +160,6 @@ CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', cast=Csv())
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 AUTH_USER_MODEL = "user_authentication.User"
+
+PAYMONGO_SECRET_KEY = config('PAYMONGO_SECRET_KEY')
+PAYMONGO_PUBLIC_KEY = config('PAYMONGO_PUBLIC_KEY')
