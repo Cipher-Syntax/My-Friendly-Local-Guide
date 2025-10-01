@@ -4,9 +4,9 @@
   "settings": {
     "width": 2000,
     "height": 2000,
-    "scrollTop": -784.2298,
-    "scrollLeft": -373.5057,
-    "zoomLevel": 0.79,
+    "scrollTop": -715.4343,
+    "scrollLeft": -340.9826,
+    "zoomLevel": 0.25,
     "show": 431,
     "database": 16,
     "databaseName": "MyFriendly_LocalGuide_DB",
@@ -2534,34 +2534,6 @@
           "createAt": 1758624468286
         }
       },
-      "Sxji0kBHUn1VRFQjfgvl-": {
-        "id": "Sxji0kBHUn1VRFQjfgvl-",
-        "identification": false,
-        "relationshipType": 16,
-        "startRelationshipType": 2,
-        "start": {
-          "tableId": "TcA2fZtY5Qi-KBJy79FaT",
-          "columnIds": [
-            "hRtEfNedmKJw6_4_s2oX4"
-          ],
-          "x": 1003,
-          "y": 714,
-          "direction": 1
-        },
-        "end": {
-          "tableId": "akIuWFU2xQsUDj6jTB-Vv",
-          "columnIds": [
-            "nV7_CVrlKFK-KNRu6JIk3"
-          ],
-          "x": 459,
-          "y": 758,
-          "direction": 2
-        },
-        "meta": {
-          "updateAt": 1758624518510,
-          "createAt": 1758624518510
-        }
-      },
       "3jqOK3iZIqQfCgIPIo1u9": {
         "id": "3jqOK3iZIqQfCgIPIo1u9",
         "identification": false,
@@ -2957,23 +2929,6 @@
     },
     "indexEntities": {},
     "indexColumnEntities": {},
-    "memoEntities": {
-      "LYc33IaHuz1p3UQuD5o_p": {
-        "id": "LYc33IaHuz1p3UQuD5o_p",
-        "value": "",
-        "ui": {
-          "x": 256.4,
-          "y": 130,
-          "zIndex": 232,
-          "width": 116,
-          "height": 100,
-          "color": ""
-        },
-        "meta": {
-          "updateAt": 1758626312279,
-          "createAt": 1758626312279
-        }
-      }
-    }
+    "memoEntities": {}
   }
 }
