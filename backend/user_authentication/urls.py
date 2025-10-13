@@ -1,13 +1,15 @@
-from django.urls import path, include
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView #type: ignore
-from .views import UserViewSet
-from rest_framework.routers  import DefaultRouter #type: ignore
+from django.urls import path
+# from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView #type: ignore
+from .views import CreateUserView, UpdateUserView, PasswordResetRequestView, PasswordResetConfirmView, CookieTokenObtainPairView, CookieTokenRefreshView
 
-router = DefaultRouter()
-router.register(r'users', UserViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
-    path('token/', TokenObtainPairView.as_view(), name='get_token'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='refresh_token'),
+    path('register/', CreateUserView.as_view(), name='user-register'),
+    path('profile/', UpdateUserView.as_view(), name='user-update'),
+    # path('token/', TokenObtainPairView.as_view(), name='token-obtain-pair'),
+    # path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
+    path('token/', CookieTokenObtainPairView.as_view(), name='token-obtain-pair'),
+    path('token/refresh/', CookieTokenRefreshView.as_view(), name='token-refresh'),
+    path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
+    path('reset-password/<uid>/<token>/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
 ]
