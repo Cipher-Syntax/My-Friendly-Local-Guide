@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     # THIRD-PARTY-APPS
     'rest_framework',
     'corsheaders',
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 # DEFAULT PERMISSIONS
@@ -155,16 +156,20 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', cast=Csv())
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', cast=Csv())
+CORS_ALLOW_CREDENTIALS = config('CORS_ALLOW_CREDENTIALS', cast=bool)
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', cast=Csv())
+
 AUTH_USER_MODEL = "user_authentication.User"
 
 PAYMONGO_SECRET_KEY = config('PAYMONGO_SECRET_KEY')
 PAYMONGO_PUBLIC_KEY = config('PAYMONGO_PUBLIC_KEY')
 
 BACKEND_BASE_URL = config('BACKEND_BASE_URL')
+BLACKLIST_AFTER_ROTATION = config('BLACKLIST_AFTER_ROTATION', cast=bool)
 
 # EMAIL
 EMAIL_BACKEND = config('EMAIL_BACKEND')
