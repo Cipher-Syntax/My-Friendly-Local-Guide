@@ -3,6 +3,7 @@ import Login from "./Login";
 import Register from './Register';
 import NotFound from "./NotFound";
 import ForgotPassword from "./ForgotPassword";
+import Home from "./Home";
 
 export {
     LandingPage,
@@ -10,4 +11,5 @@ export {
     Register,
     NotFound,
     ForgotPassword,
+    Home,
 }
