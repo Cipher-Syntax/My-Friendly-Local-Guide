@@ -31,7 +31,7 @@ const Header = () => {
                 </div>
             </div>
             
-            <Slide duration={4000} transitionDuration={800} infinite indicators arrows autoplay>
+            <Slide duration={4000} transitionDuration={800} infinite indicators autoplay>
                 {dataSlider.map((imageSlider) => (
                     <div key={imageSlider.id}>
                         <div
