@@ -74,55 +74,55 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 
         return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
     
-class CookieTokenObtainPairView(TokenObtainPairView):
-    serializer_class = TokenObtainPairSerializer
+# class CookieTokenObtainPairView(TokenObtainPairView):
+#     serializer_class = TokenObtainPairSerializer
 
-    def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        data = response.data
-        access_token = data.get('access')
-        refresh_token = data.get('refresh')
+#     def post(self, request, *args, **kwargs):
+#         response = super().post(request, *args, **kwargs)
+#         data = response.data
+#         access_token = data.get('access')
+#         refresh_token = data.get('refresh')
         
-        response.set_cookie(
-            key='access_token',
-            value=access_token,
-            httponly=True,
-            secure=False,  # Change to True in production (https)
-            samesite='Lax',
-            max_age=60 * 5, 
-        )
-        response.set_cookie(
-            key='refresh_token',
-            value=refresh_token,
-            httponly=True,
-            secure=False, # Change to True in production (https)
-            samesite='Lax',  # change to none if backend and frontend are deployed separatedly
-            max_age=60 * 60 * 24 * 7,
-        )
+#         response.set_cookie(
+#             key='access_token',
+#             value=access_token,
+#             httponly=True,
+#             secure=False,  # Change to True in production (https)
+#             samesite='Lax',
+#             max_age=60 * 5, 
+#         )
+#         response.set_cookie(
+#             key='refresh_token',
+#             value=refresh_token,
+#             httponly=True,
+#             secure=False, # Change to True in production (https)
+#             samesite='Lax',  # change to none if backend and frontend are deployed separatedly
+#             max_age=60 * 60 * 24 * 7,
+#         )
 
-        return response
+#         return response
     
-class CookieTokenRefreshView(TokenRefreshView):
-    serializer_class = TokenRefreshSerializer
+# class CookieTokenRefreshView(TokenRefreshView):
+#     serializer_class = TokenRefreshSerializer
 
-    def post(self, request, *args, **kwargs):
-        refresh_token = request.COOKIES.get('refresh_token')
+#     def post(self, request, *args, **kwargs):
+#         refresh_token = request.COOKIES.get('refresh_token')
 
-        if not refresh_token:
-            raise AuthenticationFailed('Refresh token not found in cookies.')
+#         if not refresh_token:
+#             raise AuthenticationFailed('Refresh token not found in cookies.')
 
-        serializer = self.get_serializer(data={'refresh': refresh_token})
-        serializer.is_valid(raise_exception=True)
+#         serializer = self.get_serializer(data={'refresh': refresh_token})
+#         serializer.is_valid(raise_exception=True)
 
-        access_token = serializer.validated_data.get('access')
-        response = Response({'access': access_token}, status=status.HTTP_200_OK)
-        response.set_cookie(
-            key='access_token',
-            value=access_token,
-            httponly=True,
-            secure=False,  # change to True in production
-            samesite='Lax', # change to none if backend and frontend are deployed separatedly
-            max_age=60 * 5,
-        )
+#         access_token = serializer.validated_data.get('access')
+#         response = Response({'access': access_token}, status=status.HTTP_200_OK)
+#         response.set_cookie(
+#             key='access_token',
+#             value=access_token,
+#             httponly=True,
+#             secure=False,  # change to True in production
+#             samesite='Lax', # change to none if backend and frontend are deployed separatedly
+#             max_age=60 * 5,
+#         )
 
-        return response
+#         return response
