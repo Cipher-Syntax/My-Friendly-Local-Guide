@@ -1,7 +1,7 @@
 from django.db import models
 from user_authentication.models import User
 from accommodation_booking.models import Booking
-from django.contrib.postgres.fields import JSONField # Retained for crucial gateway response storage
+from django.db.models import JSONField
 
 class Payment(models.Model):
     PAYMENT_TYPE_CHOICES = [

@@ -1,6 +1,7 @@
 from django.db import models
 from user_authentication.models import User
-from django.contrib.postgres.fields import JSONField
+from django.db.models import JSONField
+
 
 class Personalization(models.Model):
     """Stores user preferences for recommendations and application state."""
