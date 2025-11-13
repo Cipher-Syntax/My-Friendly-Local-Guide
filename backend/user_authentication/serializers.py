@@ -1,23 +1,88 @@
 from rest_framework import serializers #type: ignore
 from django.contrib.auth import get_user_model
+from .models import FeaturedPlace, AccommodationImage, GuideApplication # NEW Import
 
 User = get_user_model()
 
+# --- Nested Utility Serializers ---
+class FeaturedPlaceSerializer(serializers.ModelSerializer):
+    """Serializes the FeaturedPlace images."""
+    class Meta:
+        model = FeaturedPlace
+        fields = ['id', 'image']
+        
+class AccommodationImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AccommodationImage
+        fields = ['id', 'image']
+
+
+# --- NEW: Guide Application Serializer ---
+
+class GuideApplicationSerializer(serializers.ModelSerializer):
+    """Handles validation and creation of a Guide Application, including document uploads."""
+    class Meta:
+        model = GuideApplication
+        # Note: 'user' field is omitted; it is set by the View
+        fields = [
+            'tour_guide_certificate', 
+            'proof_of_residency', 
+            'valid_id', 
+            'nbi_clearance',
+        ]
+
+    def validate(self, data):
+        # Ensure all required documents are provided
+        required_fields = ['tour_guide_certificate', 'proof_of_residency', 'valid_id', 'nbi_clearance']
+        for field in required_fields:
+            if not data.get(field):
+                 raise serializers.ValidationError({field: f"The {field.replace('_', ' ')} is required for the application."})
+        return data
+
+
+# --- Main User Serializer ---
+
 class UserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True, min_length=8)
-    confirm_password = serializers.CharField(write_only=True, required=True, min_length=8)
+    # Standard authentication fields
+    password = serializers.CharField(write_only=True, required=False, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, required=False, min_length=8)
+    
+    # Nested fields for related images (Read-only for GET requests)
+    featured_places = FeaturedPlaceSerializer(many=True, read_only=True)
+    accommodation_images = AccommodationImageSerializer(many=True, read_only=True)
+    
+    # Check if the user has an active application (Read-only for GET requests)
+    has_pending_application = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
+            # User & Profile Fields
             'id', 'username', 'email', 'password', 'confirm_password',
-            'first_name', 'last_name',
-            'is_tourist', 'is_local_guide', 'guide_approved',
+            'first_name', 'last_name', 'date_joined',
             'profile_picture', 'bio', 'phone_number', 'location',
-            'date_joined'
+            
+            # Role Fields
+            'is_tourist', 'is_local_guide', 'guide_approved',
+            
+            # Guide Detail Fields
+            'guide_rating', 'experience_years', 'languages', 'specialty',
+            'price_per_day', 'solo_price_per_day', 'multiple_additional_fee_per_head',
+
+            # Nested Fields
+            'featured_places', 'accommodation_images',
+            'has_pending_application', 
         ]
-        read_only_fields = ('guide_approved', 'date_joined')
-        
+        read_only_fields = ('guide_approved', 'date_joined', 'guide_rating')
+
+    def get_has_pending_application(self, obj):
+        """Checks if the user has a submitted application that hasn't been reviewed."""
+        try:
+            return obj.guide_application.is_reviewed == False
+        except GuideApplication.DoesNotExist:
+            return False
+
+    # --- Validation and CRUD Methods (Unchanged) ---
     def validate_username(self, value):
         queryset = User.objects.filter(username=value)
         if self.instance:
@@ -35,12 +100,15 @@ class UserSerializer(serializers.ModelSerializer):
         return value
     
     def validate(self, data):
-        if data.get('password') != data.get('confirm_password'):
-            raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
+        password = data.get('password')
+        confirm_password = data.get('confirm_password')
+        if password or confirm_password:
+            if password != confirm_password:
+                raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
         return data
     
     def create(self, validated_data):
-        validated_data.pop('confirm_password')
+        validated_data.pop('confirm_password', None)
         password = validated_data.pop('password')
         user = User(**validated_data)
         user.set_password(password)
@@ -59,7 +127,8 @@ class UserSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
-    
+
+# --- Authentication Serializers (Unchanged) ---
 class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
@@ -82,30 +151,3 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         user.set_password(password)
         user.save()
         return user
-
-
-
-    # def validate_username(self, value):
-    #     queryset = User.objects.filter(username=value)
-    #     if self.instance:
-    #         queryset = queryset.exclude(pk=self.instance.pk)
-    #     if queryset.exists():
-    #         raise serializers.ValidationError("That username already exists")
-    #     return value
-
-    # def create(self, validated_data):
-    #     password = validated_data.pop('password', None)
-    #     user = User(**validated_data)
-    #     if password:
-    #         user.set_password(password)
-    #     user.save()
-    #     return user
-
-    # def update(self, instance, validated_data):
-    #     password = validated_data.pop('password', None)
-    #     for attr, val in validated_data.items():
-    #         setattr(instance, attr, val)
-    #     if password:
-    #         instance.set_password(password)
-    #     instance.save()
-    #     return instance

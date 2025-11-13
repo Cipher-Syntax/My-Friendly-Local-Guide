@@ -1,23 +1,138 @@
-from rest_framework import viewsets, permissions #type: ignore
-from .models import Payment
-from .serializers import PaymentSerializer
-from decimal import Decimal
+from rest_framework import viewsets, generics, permissions, status #type: ignore
+from rest_framework.response import Response #type: ignore
+from rest_framework.views import APIView #type: ignore
 from rest_framework.exceptions import ValidationError #type: ignore
+from .models import Payment
+from .serializers import PaymentSerializer, PaymentInitiationSerializer
+from accommodation_booking.models import Booking
+from datetime import date
+import uuid
 
-class PaymentViewSet(viewsets.ModelViewSet):
-    queryset = Payment.objects.all().order_by('-timestamp')
+# --- Utility Functions (Payment Gateway Interaction) ---
+def create_payment_intent(amount):
+    """Simulates communication with a payment gateway."""
+    transaction_id = str(uuid.uuid4())
+    checkout_url = f"https://payment.gateway.com/checkout/{transaction_id}"
+    
+    return {
+        "transaction_id": transaction_id,
+        "amount": amount,
+        "checkout_url": checkout_url,
+    }
+# --- End Utility Functions ---
+
+
+# --- ViewSets for History ---
+
+class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Allows tourists to view their past payment records (Read Only).
+    """
     serializer_class = PaymentSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        # Users can only see payments they initiated
+        return Payment.objects.filter(payer=self.request.user).order_by('-timestamp')
+
+
+# --- Generic Views for Actions ---
+
+class PaymentInitiationView(generics.CreateAPIView):
+    """
+    Endpoint for a Tourist to initiate payment for an ACCEPTED Booking/Fee.
+    Creates a Payment record and returns the checkout URL.
+    """
+    serializer_class = PaymentInitiationSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        data = serializer.validated_data
-        ptype = data.get('payment_type')
-        amount = data.get('amount')
+        user = self.request.user
+        
+        # Data retrieved from the serializer's validation step
+        booking = serializer.booking_instance if hasattr(serializer, 'booking_instance') else None
+        final_amount = serializer.validated_data['final_amount']
+        
+        if final_amount <= 0:
+            raise ValidationError({"detail": "Payment amount must be greater than zero."})
 
-        if ptype == 'Accommodation':
-            if amount is None:
-                raise ValidationError("Amount is required for accommodation payments.")
-            service_fee = (Decimal('0.02') * amount).quantize(Decimal('0.01'))
-            serializer.save(payer=self.request.user, service_fee=service_fee, status="pending")
-        else:
-            serializer.save(payer=self.request.user, status="pending")
+        # 1. Simulate gateway interaction
+        gateway_data = create_payment_intent(amount=final_amount)
+        payment_method = serializer.validated_data['payment_method']
+
+        # 2. Create Payment Record (Status: pending)
+        payment = Payment.objects.create(
+            payer=user,
+            payment_type=serializer.validated_data['payment_type'], 
+            related_booking=booking,
+            amount=final_amount,
+            service_fee=0.00, # Simplified
+            payment_method=payment_method,
+            gateway_transaction_id=gateway_data['transaction_id'],
+            status='pending',
+            gateway_response={"checkout_url": gateway_data['checkout_url']}
+        )
+        
+        # 3. Update Booking status to 'Paid' (marking payment as handled)
+        if booking:
+            booking.status = 'Paid'
+            booking.save()
+
+        # 4. Return Checkout URL to the frontend
+        return Response({
+            "payment_id": payment.id,
+            "amount": payment.amount,
+            "checkout_url": gateway_data['checkout_url']
+        }, status=status.HTTP_201_CREATED)
+
+
+class PaymentWebhookView(APIView):
+    """
+    Handles webhook notification from the payment gateway.
+    Updates the Payment status and the associated Booking status upon SUCCESS.
+    """
+    permission_classes = [permissions.AllowAny] 
+
+    def post(self, request, *args, **kwargs):
+        # In a real app, strongly validate the webhook signature here!
+        
+        event_data = request.data
+        transaction_id = event_data.get('transaction_id') 
+        new_status = event_data.get('status') 
+
+        if not transaction_id or new_status not in ['succeeded', 'failed']:
+            return Response({"detail": "Invalid webhook payload."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            payment = Payment.objects.get(gateway_transaction_id=transaction_id)
+        except Payment.DoesNotExist:
+            return Response({"detail": "Payment record not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # 1. Handle Succeeded Status
+        if new_status == 'succeeded' and payment.status != 'succeeded':
+            payment.status = 'succeeded'
+            payment.gateway_response = event_data
+            payment.save()
+            
+            # 2. Update Booking Status to Paid
+            if payment.related_booking and payment.related_booking.status != 'Paid':
+                booking = payment.related_booking
+                booking.status = 'Paid'
+                booking.save()
+                
+            return Response({"detail": "Payment succeeded and status updated."}, status=status.HTTP_200_OK)
+
+        # 3. Handle Failed Status
+        elif new_status == 'failed' and payment.status != 'failed':
+            payment.status = 'failed'
+            payment.gateway_response = event_data
+            payment.save()
+            
+            # Revert Booking status to allow retry
+            if payment.related_booking:
+                 payment.related_booking.status = 'Accepted' 
+                 payment.related_booking.save()
+            
+            return Response({"detail": "Payment failed. Status updated."}, status=status.HTTP_200_OK)
+            
+        return Response({"detail": "Status unchanged."}, status=status.HTTP_200_OK)

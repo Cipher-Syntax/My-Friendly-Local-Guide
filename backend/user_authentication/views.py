@@ -1,29 +1,33 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, generics, permissions, status #type: ignore
 from rest_framework.response import Response #type: ignore
-from .serializers import UserSerializer, ForgotPasswordSerializer, PasswordResetConfirmSerializer
-from django.contrib.auth import  get_user_model
+from rest_framework.views import APIView #type: ignore
+from rest_framework.exceptions import PermissionDenied, ValidationError #type: ignore
+from .serializers import (
+    UserSerializer, ForgotPasswordSerializer, PasswordResetConfirmSerializer,
+    GuideApplicationSerializer # <-- NEW Import
+)
+from .models import GuideApplication # <-- NEW Import
+from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_encode
-from django.utils.http import urlsafe_base64_decode
-from django.utils.encoding import force_bytes
-from django.utils.encoding import force_str 
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str 
 from django.core.mail import send_mail
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView #type: ignore
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer #type: ignore
-from rest_framework.exceptions import AuthenticationFailed #type: ignore
 from django.conf import settings
-
 
 # Create your views here.
 User = get_user_model()
 
+# --- User & Authentication Views (Existing) ---
+
 class CreateUserView(generics.CreateAPIView):
+    """Handles user registration (default tourist role)."""
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
     
 class UpdateUserView(generics.RetrieveUpdateAPIView):
+    """Allows an authenticated user to view/update their own profile."""
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -32,6 +36,7 @@ class UpdateUserView(generics.RetrieveUpdateAPIView):
         return self.request.user
     
 class PasswordResetRequestView(generics.GenericAPIView):
+    """Handles sending a password reset email."""
     serializer_class = ForgotPasswordSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -42,6 +47,7 @@ class PasswordResetRequestView(generics.GenericAPIView):
         user = User.objects.get(email=email)
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
+        
         reset_link = f"{settings.BACKEND_BASE_URL}/api/reset-password/{uid}/{token}/"
 
         send_mail(
@@ -55,6 +61,7 @@ class PasswordResetRequestView(generics.GenericAPIView):
 
 
 class PasswordResetConfirmView(generics.GenericAPIView):
+    """Handles resetting the password using the token and UID."""
     serializer_class = PasswordResetConfirmSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -73,56 +80,74 @@ class PasswordResetConfirmView(generics.GenericAPIView):
         serializer.save(user=user)
 
         return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
-    
-# class CookieTokenObtainPairView(TokenObtainPairView):
-#     serializer_class = TokenObtainPairSerializer
 
-#     def post(self, request, *args, **kwargs):
-#         response = super().post(request, *args, **kwargs)
-#         data = response.data
-#         access_token = data.get('access')
-#         refresh_token = data.get('refresh')
+# --- Guide-Specific Views (Role Change) ---
+
+class ApplyAsGuideView(APIView):
+    """
+    Allows an authenticated user (tourist) to simply trigger the role change flag.
+    Documents should be submitted via GuideApplicationSubmissionView.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
         
-#         response.set_cookie(
-#             key='access_token',
-#             value=access_token,
-#             httponly=True,
-#             secure=False,  # Change to True in production (https)
-#             samesite='Lax',
-#             max_age=60 * 5, 
-#         )
-#         response.set_cookie(
-#             key='refresh_token',
-#             value=refresh_token,
-#             httponly=True,
-#             secure=False, # Change to True in production (https)
-#             samesite='Lax',  # change to none if backend and frontend are deployed separatedly
-#             max_age=60 * 60 * 24 * 7,
-#         )
+        if user.is_local_guide:
+            return Response(
+                {"detail": "You have already applied as a local guide. Status is pending or approved."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        user.apply_as_guide() 
+        
+        return Response(
+            {"detail": "Application role flag set successfully. Please submit documents.",
+             "is_local_guide": user.is_local_guide,
+             "guide_approved": user.guide_approved},
+            status=status.HTTP_200_OK
+        )
 
-#         return response
-    
-# class CookieTokenRefreshView(TokenRefreshView):
-#     serializer_class = TokenRefreshSerializer
+# --- Guide-Specific Views (Document Submission) ---
 
-#     def post(self, request, *args, **kwargs):
-#         refresh_token = request.COOKIES.get('refresh_token')
+class GuideApplicationSubmissionView(generics.CreateAPIView):
+    """
+    Handles the submission of guide application documents by an authenticated user.
+    """
+    serializer_class = GuideApplicationSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-#         if not refresh_token:
-#             raise AuthenticationFailed('Refresh token not found in cookies.')
+    def perform_create(self, serializer):
+        user = self.request.user
 
-#         serializer = self.get_serializer(data={'refresh': refresh_token})
-#         serializer.is_valid(raise_exception=True)
+        # 1. Prevent duplicate submissions
+        if GuideApplication.objects.filter(user=user, is_reviewed=False).exists():
+            raise ValidationError({"detail": "You already have a pending guide application awaiting review."})
+            
+        if user.is_local_guide and user.guide_approved:
+            raise PermissionDenied("You are already an approved local guide.")
 
-#         access_token = serializer.validated_data.get('access')
-#         response = Response({'access': access_token}, status=status.HTTP_200_OK)
-#         response.set_cookie(
-#             key='access_token',
-#             value=access_token,
-#             httponly=True,
-#             secure=False,  # change to True in production
-#             samesite='Lax', # change to none if backend and frontend are deployed separatedly
-#             max_age=60 * 5,
-#         )
+        # 2. Create the application record, linking it to the user
+        application = serializer.save(user=user)
+        
+        # 3. Update the user's role status (if not done previously)
+        if not user.is_local_guide:
+            user.apply_as_guide()
+        
+        # 4. Success Response
+        return Response(
+            {"detail": "Documents submitted successfully. Awaiting admin review.",
+             "application_id": application.id},
+            status=status.HTTP_201_CREATED
+        )
 
-#         return response
+
+class ApprovedLocalGuideListView(generics.ListAPIView):
+    """
+    Lists all local guides who have been approved by the admin.
+    """
+    serializer_class = UserSerializer
+    permission_classes = [permissions.AllowAny] 
+
+    def get_queryset(self):
+        return User.objects.filter(is_local_guide=True, guide_approved=True).order_by('-guide_rating')

@@ -1,11 +1,18 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter #type: ignore
-from .views import MessageViewSet
-
-router = DefaultRouter()
-router.register(r'messages', MessageViewSet)
+from django.urls import path
+from .views import ConversationListView, MessageThreadView
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # 1. List Conversations: GET /api/conversations/
+    path(
+        'conversations/', 
+        ConversationListView.as_view(), 
+        name='conversation-list'
+    ),
+    
+    # 2. Thread Read/Send: GET/POST /api/conversations/<partner_id>/messages/
+    path(
+        'conversations/<int:partner_id>/messages/',
+        MessageThreadView.as_view(),
+        name='message-thread'
+    ),
 ]
-

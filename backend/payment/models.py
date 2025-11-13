@@ -1,18 +1,18 @@
 from django.db import models
 from user_authentication.models import User
 from accommodation_booking.models import Booking
+from django.contrib.postgres.fields import JSONField # Retained for crucial gateway response storage
 
 class Payment(models.Model):
     PAYMENT_TYPE_CHOICES = [
-        ('Accommodation', 'Accommodation'),
-        ('Guide Registration', 'Guide Registration'),
+        ('Booking', 'Booking Payment'),
+        ('Fee', 'Service Fee'),
     ]
 
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('succeeded', 'Succeeded'),
         ('failed', 'Failed'),
-        ('cancelled', 'Cancelled'),
     ]
 
     payer = models.ForeignKey(User, on_delete=models.CASCADE, related_name="payments")
@@ -27,12 +27,11 @@ class Payment(models.Model):
 
     payment_method = models.CharField(max_length=20, default="GCash")
 
-    # PayMongo integration fields
-    paymongo_intent_id = models.CharField(max_length=255, blank=True, null=True)   # PaymentIntent ID
-    gcash_transaction_id = models.CharField(max_length=255, blank=True, null=True) # Source/Payment ID
+    # Simplified integration fields
+    gateway_transaction_id = models.CharField(max_length=255, blank=True, null=True, help_text="Generic gateway transaction ID.") 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
 
-    gcash_response = models.JSONField(blank=True, null=True)  # full API response storage
+    gateway_response = JSONField(blank=True, null=True, help_text="Full response payload from the payment gateway.") 
     receipt = models.FileField(upload_to="receipts/", blank=True, null=True)
 
     timestamp = models.DateTimeField(auto_now_add=True)

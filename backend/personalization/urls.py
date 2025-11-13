@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter #type: ignore
 from .views import PersonalizationViewSet
 
 router = DefaultRouter()
-router.register(r'personalizations', PersonalizationViewSet)
+# Registering the ViewSet. This will create routes like /personalizations/ and /personalizations/<pk>/
+router.register(r'personalizations', PersonalizationViewSet, basename='personalization')
 
 urlpatterns = [
     path('', include(router.urls)),
