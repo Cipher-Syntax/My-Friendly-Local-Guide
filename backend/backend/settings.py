@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'reviews_ratings',
     'payment',
     'personalization',
+    'system_management_module',
     
     # THIRD-PARTY-APPS
     'rest_framework',

@@ -49,7 +49,6 @@ class PaymentInitiationView(generics.CreateAPIView):
     def perform_create(self, serializer):
         user = self.request.user
         
-        # Data retrieved from the serializer's validation step
         booking = serializer.booking_instance if hasattr(serializer, 'booking_instance') else None
         final_amount = serializer.validated_data['final_amount']
         
@@ -59,22 +58,23 @@ class PaymentInitiationView(generics.CreateAPIView):
         # 1. Simulate gateway interaction
         gateway_data = create_payment_intent(amount=final_amount)
         payment_method = serializer.validated_data['payment_method']
+        payment_type = serializer.validated_data['payment_type']
 
         # 2. Create Payment Record (Status: pending)
         payment = Payment.objects.create(
             payer=user,
-            payment_type=serializer.validated_data['payment_type'], 
+            payment_type=payment_type, 
             related_booking=booking,
             amount=final_amount,
-            service_fee=0.00, # Simplified
+            service_fee=0.00, 
             payment_method=payment_method,
             gateway_transaction_id=gateway_data['transaction_id'],
             status='pending',
             gateway_response={"checkout_url": gateway_data['checkout_url']}
         )
         
-        # 3. Update Booking status to 'Paid' (marking payment as handled)
-        if booking:
+        # 3. Update Booking status to 'Paid'
+        if booking and payment_type != 'RegistrationFee': 
             booking.status = 'Paid'
             booking.save()
 
@@ -89,13 +89,11 @@ class PaymentInitiationView(generics.CreateAPIView):
 class PaymentWebhookView(APIView):
     """
     Handles webhook notification from the payment gateway.
-    Updates the Payment status and the associated Booking status upon SUCCESS.
+    Updates the Payment status and the associated Booking/User status upon SUCCESS.
     """
     permission_classes = [permissions.AllowAny] 
 
     def post(self, request, *args, **kwargs):
-        # In a real app, strongly validate the webhook signature here!
-        
         event_data = request.data
         transaction_id = event_data.get('transaction_id') 
         new_status = event_data.get('status') 
@@ -114,6 +112,15 @@ class PaymentWebhookView(APIView):
             payment.gateway_response = event_data
             payment.save()
             
+            # --- CRUCIAL LOGIC: FINAL GUIDE APPROVAL ---
+            if payment.payment_type == 'RegistrationFee':
+                user = payment.payer
+                # The user is now officially a guide!
+                if user.is_local_guide and not user.guide_approved:
+                    user.guide_approved = True  # FINAL APPROVAL
+                    user.save()
+            # ----------------------------------------
+            
             # 2. Update Booking Status to Paid
             if payment.related_booking and payment.related_booking.status != 'Paid':
                 booking = payment.related_booking
@@ -128,7 +135,7 @@ class PaymentWebhookView(APIView):
             payment.gateway_response = event_data
             payment.save()
             
-            # Revert Booking status to allow retry
+            # Revert Booking status to allow retry (if applicable)
             if payment.related_booking:
                  payment.related_booking.status = 'Accepted' 
                  payment.related_booking.save()

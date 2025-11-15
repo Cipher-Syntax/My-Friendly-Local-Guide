@@ -1,11 +1,7 @@
 from rest_framework import serializers #type: ignore
 from .models import Payment
 from accommodation_booking.models import Booking
-from datetime import date
-from django.contrib.auth import get_user_model # Ensure this is imported if needed
-
-# Assuming BookingSerializer is accessible from accommodation_booking.serializers
-# You would typically import it if you wanted deep nested details, but we'll keep it flat here.
+from django.contrib.auth import get_user_model 
 
 User = get_user_model()
 
@@ -29,7 +25,10 @@ class PaymentSerializer(serializers.ModelSerializer):
             'id', 'payer', 'payer_username', 'payment_type', 
             'related_booking_id', 
             'amount', 'service_fee', 'payment_method', 
-            'paymongo_intent_id', 'gcash_transaction_id', 
+            # Note: The fields below need correction based on your Payment model field names.
+            # Assuming your Payment model uses 'gateway_transaction_id' and 'gateway_response' 
+            # instead of 'paymongo_intent_id' and 'gcash_transaction_id'.
+            'gateway_transaction_id', 
             'status', 'receipt', 'timestamp'
         ]
         # All fields managed by the backend or database should be read-only for security
@@ -41,7 +40,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 class PaymentInitiationSerializer(serializers.Serializer):
     """
     Serializer used by the frontend to request payment. 
-    It focuses ONLY on the input fields needed from the Tourist.
+    Handles both Booking payments and the new Guide Registration Fee.
     """
     booking_id = serializers.IntegerField(
         write_only=True, 
@@ -49,16 +48,29 @@ class PaymentInitiationSerializer(serializers.Serializer):
         help_text="The ID of the Accepted Booking to be paid."
     )
     payment_method = serializers.CharField(max_length=20, default="GCash")
-    # amount field is included if it's a non-booking payment (e.g., Guide Registration Fee)
-    amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, help_text="Required for non-booking payments.")
+    
+    # The frontend is expected to explicitly pass the final amount for registration fees.
+    # This value will be validated against a known fixed value in a real-world scenario 
+    # to prevent tampering.
+    final_amount = serializers.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        write_only=True,
+        required=False, 
+        help_text="Required for non-booking payments (e.g., Guide Registration Fee)."
+    )
+    
+    # We explicitly define payment_type here as a hidden field set in validation
+    payment_type = serializers.CharField(max_length=50, write_only=True)
 
-    # Validation logic from your original model:
+
     def validate(self, data):
         booking_id = data.get('booking_id')
-        amount = data.get('amount')
-        
-        # 1. Determine Payment Type based on presence of booking ID
-        if booking_id:
+        final_amount = data.get('final_amount') # Use the name defined in the serializer fields
+
+        # Check the payment type to determine the flow
+        if booking_id is not None:
+            # --- Flow 1: Booking Payment ---
             try:
                 booking = Booking.objects.get(pk=booking_id)
             except Booking.DoesNotExist:
@@ -72,17 +84,28 @@ class PaymentInitiationSerializer(serializers.Serializer):
             
             # Store the instance and set the payment type/amount
             self.booking_instance = booking
-            data['payment_type'] = 'Accommodation' if booking.accommodation else 'Guide Tour'
-            data['final_amount'] = booking.total_price # Use secure price from booking model
             
-        elif amount is not None:
-            # Assumed to be a Guide Registration fee or similar one-off fee
-            data['payment_type'] = 'Guide Registration'
-            data['final_amount'] = amount
+            # Assuming the backend defines the exact price for security
+            data['final_amount'] = booking.total_price 
+            data['payment_type'] = 'Booking' # Simplified, consistent with Payment model choices
+
+        elif final_amount is not None:
+            # --- Flow 2: Guide Registration Fee Payment ---
+            
+            # Security Note: In a real system, you would check the user's status here 
+            # and verify `final_amount` against a hardcoded constant price on the backend.
+            if final_amount <= 0:
+                 raise serializers.ValidationError({"final_amount": "Payment amount must be greater than zero."})
+            
+            # No booking instance is related
+            self.booking_instance = None
+            
+            # Set the payment type explicitly based on the business case
+            data['payment_type'] = 'RegistrationFee' # Use the exact choice from payment/models.py
             
         else:
             raise serializers.ValidationError(
-                "Must provide either a 'booking_id' or 'amount' (for registration fee)."
+                "Must provide either a 'booking_id' or 'final_amount' (for registration fee)."
             )
             
         return data
