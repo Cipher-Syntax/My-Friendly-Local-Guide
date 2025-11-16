@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ForgotPassword, Home, LandingPage, Login, NotFound, Register } from './pages';
+import { AgencyDashboard } from './agency';
 import { ProtectedRoute } from './components';
 
 const App = () => {
@@ -10,7 +11,7 @@ const App = () => {
     return (
         <BrowserRouter>
             <Routes>
-                <Route path='/' element={
+                {/* <Route path='/' element={
                     <ProtectedRoute>
                         <Home></Home>
                     </ProtectedRoute>
@@ -19,8 +20,13 @@ const App = () => {
                 <Route path='/login' element={<Login></Login>}></Route>
                 <Route path='/register' element={<Register></Register>}></Route>
                 <Route path='/forgot-password' element={<ForgotPassword></ForgotPassword>}></Route>
-                <Route path='/landing_page' element={<LandingPage></LandingPage>}></Route>
+                <Route path='/landing_page' element={<LandingPage></LandingPage>}></Route> */}
                 <Route path='*' element={<NotFound></NotFound>}></Route>
+
+
+
+                {/* AGENCY */}
+                <Route path='/agency-dashboard' element={<AgencyDashboard />} />
             </Routes>
         </BrowserRouter>
     )
