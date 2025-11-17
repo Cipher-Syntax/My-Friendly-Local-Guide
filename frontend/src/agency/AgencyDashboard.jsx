@@ -124,8 +124,8 @@ export default function AgencyDashboard() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
             {/* Header */}
-            <header>
-                <div className="max-w-[1800px] mx-auto px-6 py-4" style={{
+            <header className='w-[100%]'>
+                <div className="w-[100%] mx-auto px-6 py-4" style={{
                     backgroundImage: `url(${AgencyHeader})`,
                     objectFit: "cover",
                     backgroundRepeat: "no-repeat"
