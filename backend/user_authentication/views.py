@@ -20,12 +20,50 @@ User = get_user_model()
 
 # --- User & Authentication Views (Existing) ---
 
+# class CreateUserView(generics.CreateAPIView):
+#     """Handles user registration (default tourist role)."""
+#     queryset = User.objects.all().order_by('-date_joined')
+#     serializer_class = UserSerializer
+#     permission_classes = [permissions.AllowAny]
 class CreateUserView(generics.CreateAPIView):
-    """Handles user registration (default tourist role)."""
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
-    
+
+    def perform_create(self, serializer):
+        user = serializer.save(is_active=False)  # user disabled until email is verified
+        
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        
+        verify_link = f"{settings.BACKEND_BASE_URL}/api/verify-email/{uid}/{token}/"
+
+        send_mail(
+            subject="Verify your LocaLynk account",
+            message=f"Hello {user.username},\n\nClick this link to verify your account:\n{verify_link}",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+
+class VerifyEmailView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, uid, token):
+        try:
+            uid_decoded = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=uid_decoded)
+        except:
+            return Response({"detail": "Invalid link."}, status=400)
+
+        if not default_token_generator.check_token(user, token):
+            return Response({"detail": "Invalid or expired token."}, status=400)
+
+        user.is_active = True
+        user.save()
+
+        return Response({"detail": "Email verified successfully!"}, status=200)
+
 class UpdateUserView(generics.RetrieveUpdateAPIView):
     """Allows an authenticated user to view/update their own profile."""
     queryset = User.objects.all()

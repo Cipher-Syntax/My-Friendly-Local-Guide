@@ -25,7 +25,7 @@ urlpatterns = [
     path('api/', include('destinations_and_attractions.urls')),
     path('api/', include('accommodation_booking.urls')),
     path('api/', include('communication.urls')),
-    path('api/', include('payment.urls')),
+    path('api/payments/', include('payment.urls')),
     path('api/', include('report.urls')),
     path('api/', include('personalization.urls')),
     path('api/', include('reviews_ratings.urls')),

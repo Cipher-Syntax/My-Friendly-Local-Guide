@@ -7,6 +7,7 @@ from .serializers import GuideApplicationSubmissionSerializer, GuideReviewUpdate
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db.models import Q # Import for complex lookups
+from rest_framework.views import APIView #type: ignore
 
 # --- 1. Endpoint for User Submitting Application (Unchanged) ---
 
@@ -149,3 +150,17 @@ class UserAlertMarkReadView(generics.UpdateAPIView):
         instance.is_read = True
         instance.save(update_fields=['is_read'])
         return Response(self.get_serializer(instance).data)
+
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from rest_framework.permissions import IsAuthenticated
+from .models import SystemAlert
+
+class UnreadAlertCountView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        # Count unread alerts specifically for this user
+        count = SystemAlert.objects.filter(recipient=user, is_read=False).count()
+        return Response({'unread_count': count})

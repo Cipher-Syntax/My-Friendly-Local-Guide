@@ -167,11 +167,17 @@ CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', cast=Csv())
 
 AUTH_USER_MODEL = "user_authentication.User"
 
+# PAYMONGO_SECRET_KEY = config('PAYMONGO_SECRET_KEY')
+# PAYMONGO_PUBLIC_KEY = config('PAYMONGO_PUBLIC_KEY')
+# PayMongo Test Keys
 PAYMONGO_SECRET_KEY = config('PAYMONGO_SECRET_KEY')
-PAYMONGO_PUBLIC_KEY = config('PAYMONGO_PUBLIC_KEY')
+PAYMONGO_BASE_URL = config('PAYMONGO_BASE_URL')
+PAYMONGO_RETURN_URL = config('PAYMONGO_RETURN_URL')
+PAYMONGO_API_URL = config('PAYMONGO_API_URL')
 
 BACKEND_BASE_URL = config('BACKEND_BASE_URL', cast=Csv())
 BLACKLIST_AFTER_ROTATION = config('BLACKLIST_AFTER_ROTATION', cast=bool)
+
 
 # EMAIL
 EMAIL_BACKEND = config('EMAIL_BACKEND')
@@ -183,3 +189,8 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+AUTHENTICATION_BACKENDS = [
+    'user_authentication.backends.CustomAuthBackend',  # Replace 'your_app_name' with your actual app name
+    'django.contrib.auth.backends.ModelBackend',  # Keep default as fallback
+]

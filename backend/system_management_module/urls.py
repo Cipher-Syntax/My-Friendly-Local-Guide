@@ -5,7 +5,8 @@ from .views import (
     GuideApplicationSubmissionView, 
     GuideReviewRequestViewSet,
     UserAlertListView,         # <-- Ensure this is correctly imported
-    UserAlertMarkReadView       # <-- Ensure this is correctly imported
+    UserAlertMarkReadView,      # <-- Ensure this is correctly imported
+    UnreadAlertCountView
 )
 
 urlpatterns = [
@@ -19,4 +20,5 @@ urlpatterns = [
     # User Alerts (User action)
     path('alerts/', UserAlertListView.as_view(), name='user-alerts-list'),
     path('alerts/<int:id>/read/', UserAlertMarkReadView.as_view(), name='user-alert-mark-read'),
+    path('alerts/unread-count/', UnreadAlertCountView.as_view(), name='unread-alert-count'),
 ]

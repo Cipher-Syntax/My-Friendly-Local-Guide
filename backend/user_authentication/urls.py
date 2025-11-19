@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 
 from .views import (
     CreateUserView, UpdateUserView, PasswordResetRequestView, PasswordResetConfirmView,
-    ApplyAsGuideView, ApprovedLocalGuideListView, GuideApplicationSubmissionView
+    ApplyAsGuideView, ApprovedLocalGuideListView, GuideApplicationSubmissionView, VerifyEmailView
 )
 
 
@@ -15,6 +15,7 @@ urlpatterns = [
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'), 
     # POST to get a new access token using the refresh token
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'), 
+    path('verify-email/<uid>/<token>/', VerifyEmailView.as_view(), name='verify-email'),
     
     # 2. AUTH & USER ENDPOINTS
     path('register/', CreateUserView.as_view(), name='register'),
