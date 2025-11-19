@@ -190,3 +190,4 @@ class PaymentStatusView(APIView):
             "payment_type": payment.payment_type,
             "amount": str(payment.amount), 
         })
+    
