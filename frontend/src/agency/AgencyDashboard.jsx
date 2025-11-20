@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Calendar, Users, Star, TrendingUp, Clock, MapPin, User, Plus, Search, Phone, Mail, Award, CheckCircle, UserX } from 'lucide-react';
 import { DashboardStats, BookingsList, TourGuideList } from '../components/agency';
 import AgencyHeader from '../assets/agencyHeader.png';
+import { Link } from 'react-router-dom';
 
 export default function AgencyDashboard() {
     // --- State & Data Setup ---
@@ -120,10 +121,11 @@ export default function AgencyDashboard() {
         }));
     };
 
-    // --- Render ---
+    // --- R,ender ---
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
             {/* Header */}
+            <Link to="/agency-draft">Agency Draft</Link>
             <header className='w-[100%]'>
                 <div className="w-[100%] mx-auto px-6 py-4" style={{
                     backgroundImage: `url(${AgencyHeader})`,
