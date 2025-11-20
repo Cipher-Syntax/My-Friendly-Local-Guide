@@ -130,7 +130,7 @@ class UserAlertListView(generics.ListAPIView):
         
         # Use Q objects for complex OR lookups
         return SystemAlert.objects.filter(
-            Q(recipient=user) | Q(recipient__isnull=True, target_type=target_role)
+            Q(recipient=user) | Q(recipient=user, target_type=target_role)
         ).order_by('-created_at')
 
 class UserAlertMarkReadView(generics.UpdateAPIView):

@@ -27,6 +27,8 @@ class Accommodation(models.Model):
     # Administrative control
     is_approved = models.BooleanField(default=False)
     average_rating = models.DecimalField(max_digits=2, decimal_places=1, default=0.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
 
     def __str__(self):
         return f'{self.title} ({self.host.username})'
@@ -72,6 +74,20 @@ class Booking(models.Model):
         blank=True,
         null=True
     )
+    agency = models.ForeignKey(
+        User,
+        limit_choices_to={'is_staff': True},
+        related_name='agency_bookings',
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True
+    )
+    assigned_guides = models.ManyToManyField(
+        User,
+        related_name='assigned_bookings',
+        blank=True,
+        limit_choices_to={'is_local_guide': True, 'guide_approved': True}
+    )
 
     # Core Details
     check_in = models.DateField()
@@ -87,14 +103,15 @@ class Booking(models.Model):
 
     # Custom validation ensures only one target is set
     def clean(self):
-        if self.accommodation and self.guide:
-            raise models.ValidationError("A booking must be for an Accommodation OR a Guide, not both.")
-        if not self.accommodation and not self.guide:
-            raise models.ValidationError("A booking must specify either an Accommodation or a Guide.")
+        targets = [self.accommodation, self.guide, self.agency]
+        if sum(x is not None for x in targets) != 1:
+            raise models.ValidationError("A booking must be for exactly one of: Accommodation, Guide, or Agency.")
             
     def __str__(self):
         if self.accommodation:
             return f'Accommodation Booking: {self.accommodation.title} ({self.status})'
         elif self.guide:
             return f'Guide Booking: {self.guide.username} ({self.status})'
+        elif self.agency:
+            return f'Agency Booking: {self.agency.username} ({self.status})'
         return f'Booking ID {self.id} - {self.status}'

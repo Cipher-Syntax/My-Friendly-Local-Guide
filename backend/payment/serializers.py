@@ -60,10 +60,6 @@ class PaymentInitiationSerializer(serializers.Serializer):
         help_text="Required for non-booking payments (e.g., Guide Registration Fee)."
     )
     
-    # We explicitly define payment_type here as a hidden field set in validation
-    payment_type = serializers.CharField(max_length=50, write_only=True)
-
-
     def validate(self, data):
         booking_id = data.get('booking_id')
         final_amount = data.get('final_amount') # Use the name defined in the serializer fields

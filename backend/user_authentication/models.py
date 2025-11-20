@@ -36,6 +36,11 @@ class User(AbstractUser):
         blank=True, 
         help_text="List of days guide is available, e.g., ['Mon', 'Wed', 'Fri']"
     )
+    specific_available_dates = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of specific dates guide is available, e.g., ['2025-12-25', '2026-01-01']"
+    )
 
     # Stores the textual description of their tour plan
     tour_itinerary = models.TextField(
@@ -45,7 +50,14 @@ class User(AbstractUser):
     )
 
     # --- Pricing Details ---
-    price_per_day = models.DecimalField(max_digits=10, decimal_places=2, default=500.00, help_text="Base guide price (₱ 500/day)")
+    # price_per_day = models.DecimalField(max_digits=10, decimal_places=2, default=500.00, help_text="Base guide price (₱ 500/day)")
+    price_per_day = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0.00,
+        null=True,  # Allows it to be empty for tourists
+        blank=True
+    )
     solo_price_per_day = models.DecimalField(max_digits=10, decimal_places=2, default=1500.00, help_text="Solo tourist price")
     multiple_additional_fee_per_head = models.DecimalField(max_digits=10, decimal_places=2, default=100.00, help_text="Additional fee per head for groups")
     

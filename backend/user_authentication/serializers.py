@@ -68,6 +68,7 @@ class UserSerializer(serializers.ModelSerializer):
             # Guide Detail Fields
             'guide_rating', 'experience_years', 'languages', 'specialty',
             'price_per_day', 'solo_price_per_day', 'multiple_additional_fee_per_head',
+            'available_days', 'specific_available_dates',
 
             # Nested Fields
             'featured_places', 'accommodation_images',

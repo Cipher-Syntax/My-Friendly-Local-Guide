@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter #type: ignore
 # IMPORT CHANGE: Ensure you import all necessary views, including the custom one
-from .views import AccommodationViewSet, BookingViewSet, BookingStatusUpdateView 
+from .views import AccommodationViewSet, BookingViewSet, BookingStatusUpdateView, AssignGuidesView 
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -21,6 +21,11 @@ urlpatterns = [
         'bookings/<int:pk>/status/', 
         BookingStatusUpdateView.as_view(), 
         name='booking-status-update'
+    ),
+    path(
+        'bookings/<int:pk>/assign-guides/',
+        AssignGuidesView.as_view(),
+        name='assign-guides'
     ),
 ]
 

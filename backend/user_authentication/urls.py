@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 
 from .views import (
     CreateUserView, UpdateUserView, PasswordResetRequestView, PasswordResetConfirmView,
-    ApplyAsGuideView, ApprovedLocalGuideListView, GuideApplicationSubmissionView, VerifyEmailView
+    ApplyAsGuideView, ApprovedLocalGuideListView, GuideDetailView, AgencyListView, GuideApplicationSubmissionView, VerifyEmailView, UpdateGuideInfoView, ResendVerificationEmailView
 )
 
 
@@ -16,6 +16,7 @@ urlpatterns = [
     # POST to get a new access token using the refresh token
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'), 
     path('verify-email/<uid>/<token>/', VerifyEmailView.as_view(), name='verify-email'),
+    path('resend-verify-email/', ResendVerificationEmailView.as_view(), name='resend-verify-email'),
     
     # 2. AUTH & USER ENDPOINTS
     path('register/', CreateUserView.as_view(), name='register'),
@@ -27,6 +28,10 @@ urlpatterns = [
     path('guide/apply/role/', ApplyAsGuideView.as_view(), name='apply-as-guide-role'),
     path('guide/apply/documents/', GuideApplicationSubmissionView.as_view(), name='apply-as-guide-documents'), 
     path('guides/', ApprovedLocalGuideListView.as_view(), name='approved-guide-list'),
+    path('guides/<int:pk>/', GuideDetailView.as_view(), name='guide-detail'),
+    path('agencies/', AgencyListView.as_view(), name='agency-list'),
+
+    path('guide/update-info/', UpdateGuideInfoView.as_view(), name='update-guide-info'),
 
     # 4. MEDIA FILES
 ]
