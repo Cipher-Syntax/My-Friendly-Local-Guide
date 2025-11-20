@@ -1,9 +1,12 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ForgotPassword, Home, LandingPage, Login, NotFound, Register } from './pages';
-import { AgencyDashboard } from './agency';
+// import { AgencyDashboard } from './agency';
 import { ProtectedRoute } from './components';
-
+import { AgencyDraft, AgencyDashboard } from './agency';
+import { Admindraft } from './admin';
+import { Adminsignin } from './admin';
+import { Agencysignin } from './agency';
 const App = () => {
     const Logout = () => {
         return <Navigate to="/login"></Navigate>
@@ -27,6 +30,16 @@ const App = () => {
 
                 {/* AGENCY */}
                 <Route path='/agency-dashboard' element={<AgencyDashboard />} />
+                <Route path='/agency-draft' element={<AgencyDraft />} />
+                
+                {/* ADMIN */}
+                <Route path='/admin-draft' element={<Admindraft />} />
+
+                {/* ADMIN SIGN IN*/}
+                <Route path='/admin-signin' element={<Adminsignin />} />
+
+                {/* AGENCY SIGN IN*/}
+                <Route path='/agency-signin' element={<Agencysignin />} />
             </Routes>
         </BrowserRouter>
     )
