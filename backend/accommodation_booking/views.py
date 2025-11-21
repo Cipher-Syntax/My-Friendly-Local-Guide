@@ -73,13 +73,12 @@ class BookingViewSet(viewsets.ModelViewSet):
     #     ).select_related('tourist', 'accommodation', 'guide', 'agency').order_by('-created_at')
     def get_queryset(self):
         user = self.request.user
-
-        # Only return bookings where this user is the GUIDE
         return Booking.objects.filter(
-            guide=user
-        ).select_related(
-            'tourist', 'accommodation', 'guide', 'agency'
-        ).order_by('-created_at')
+            Q(tourist=user) |
+            Q(accommodation__host=user) |
+            Q(guide=user) |
+            Q(agency=user)
+        ).select_related('tourist', 'accommodation', 'guide', 'agency').order_by('-created_at')
 
 
     def perform_create(self, serializer):

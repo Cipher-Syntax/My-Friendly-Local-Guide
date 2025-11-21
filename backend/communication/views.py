@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.contrib.auth import get_user_model
 from .models import Message
 from .serializers import MessageSerializer
+from system_management_module.models import SystemAlert
 
 User = get_user_model()
 
@@ -78,3 +79,12 @@ class MessageThreadView(generics.ListCreateAPIView):
 
         # Set the sender to the current user
         serializer.save(sender=user, receiver=receiver)
+        
+        # Create a notification for the receiver
+        SystemAlert.objects.create(
+            recipient=receiver,
+            title="New Message",
+            message=f"You have a new message from {user.get_full_name()}",
+            related_model='User',
+            related_object_id=user.id
+        )

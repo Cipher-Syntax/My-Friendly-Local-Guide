@@ -15,7 +15,7 @@ class MessageSerializer(serializers.ModelSerializer):
     
     # These primary key fields must be explicitly defined, but 'sender' will be read-only
     sender = serializers.PrimaryKeyRelatedField(read_only=True)
-    receiver = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    receiver = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Message

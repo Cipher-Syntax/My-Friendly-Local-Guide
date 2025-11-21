@@ -93,6 +93,7 @@ class Booking(models.Model):
     check_in = models.DateField()
     check_out = models.DateField()
     num_guests = models.IntegerField(default=1) 
+    tourist_valid_id_image = models.ImageField(upload_to='booking_ids/', blank=True, null=True)
     
     # Financials
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 

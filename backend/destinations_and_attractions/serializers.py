@@ -77,7 +77,6 @@
 #             # Requires 'request' in serializer context (e.g., from a ViewSet)
 #             return self.context['request'].build_absolute_uri(first_image.image.url)
 #         return None
-
 from rest_framework import serializers
 from .models import Destination, DestinationImage, Attraction, TourPackage, TourStop
 from django.contrib.auth import get_user_model
@@ -87,9 +86,17 @@ User = get_user_model()
 # --- 1. Destination Serializers (Global Data) ---
 
 class DestinationImageSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = DestinationImage
         fields = ['id', 'image', 'caption']
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return None
 
 class AttractionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -110,18 +117,38 @@ class DestinationSerializer(serializers.ModelSerializer):
         ]
 
 class DestinationListSerializer(serializers.ModelSerializer):
-    """Lean view for dropdowns and lists"""
+    """Lean view for the Home Screen Slider"""
+    # We add a custom field to get the first image URL
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = Destination
-        fields = ['id', 'name', 'location']
+        # We add 'category', 'average_rating', and 'image' here
+        fields = ['id', 'name', 'location', 'description', 'category', 'average_rating', 'image']
+
+    def get_image(self, obj):
+        # Get the first image associated with this destination
+        first_img = obj.images.first()
+        if first_img and first_img.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(first_img.image.url)
+        return None
 
 # --- 2. Tour Package Serializers (Guide Data) ---
 
 class TourStopSerializer(serializers.ModelSerializer):
     """Serializes the featured stops within a specific tour package"""
+    image = serializers.SerializerMethodField()
     class Meta:
         model = TourStop
         fields = ['id', 'name', 'image', 'order']
+    
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return None
 
 class TourPackageSerializer(serializers.ModelSerializer):
     """

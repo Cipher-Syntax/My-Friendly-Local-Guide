@@ -53,6 +53,9 @@ class UserSerializer(serializers.ModelSerializer):
     
     # Check if the user has an active application (Read-only for GET requests)
     has_pending_application = serializers.SerializerMethodField()
+    
+    # Add full_name field
+    full_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -66,13 +69,14 @@ class UserSerializer(serializers.ModelSerializer):
             'is_tourist', 'is_local_guide', 'guide_approved',
             
             # Guide Detail Fields
-            'guide_rating', 'experience_years', 'languages', 'specialty',
+            'guide_rating', 'experience_years', 'languages', 'specialty', 'tour_itinerary',
             'price_per_day', 'solo_price_per_day', 'multiple_additional_fee_per_head',
             'available_days', 'specific_available_dates',
 
             # Nested Fields
             'featured_places', 'accommodation_images',
             'has_pending_application', 
+            'full_name',
         ]
         read_only_fields = ('guide_approved', 'date_joined', 'guide_rating')
 
@@ -82,6 +86,9 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.guide_application.is_reviewed == False
         except GuideApplication.DoesNotExist:
             return False
+
+    def get_full_name(self, obj):
+        return obj.get_full_name()
 
     # --- Validation and CRUD Methods (Unchanged) ---
     def validate_username(self, value):

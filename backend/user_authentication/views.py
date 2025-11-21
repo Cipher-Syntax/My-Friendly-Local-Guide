@@ -257,3 +257,23 @@ class UpdateGuideInfoView(generics.UpdateAPIView):
         if not user.is_local_guide:
             raise PermissionDenied("Only local guides can update guide info.")
         return user
+
+    def partial_update(self, request, *args, **kwargs):
+        data = request.data.copy()
+        if 'experience' in data:
+            data['experience_years'] = data.pop('experience')
+        if 'price' in data:
+            data['price_per_day'] = data.pop('price')
+        if 'specific_dates' in data:
+            data['specific_available_dates'] = data.pop('specific_dates')
+        
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        if getattr(instance, '_prefetched_objects_cache', None):
+            # If 'prefetch_related' has been used, we need to manually update the instance's cache.
+            instance._prefetched_objects_cache = {}
+
+        return Response(serializer.data)

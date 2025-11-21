@@ -1,12 +1,21 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ForgotPassword, Home, LandingPage, Login, NotFound, Register } from './pages';
-// import { AgencyDashboard } from './agency';
 import { ProtectedRoute } from './components';
-import { AgencyDraft, AgencyDashboard } from './agency';
-import { Admindraft } from './admin';
+import { AgencyLayout, AgencyDashboard, Agencysignin } from './agency'; // Updated import for AgencyLayout
 import { Adminsignin } from './admin';
-import { Agencysignin } from './agency';
+
+// Import the modular admin components
+import AdminLayout from './components/admin/AdminLayout';
+import Dashboard from './components/admin/Dashboard';
+import AgencyManagement from './components/admin/AgencyManagement';
+import TourGuidesManagement from './components/admin/TourGuidesManagement';
+import UserManagement from './components/admin/UserManagement';
+import ContentManagement from './components/admin/ContentManagement';
+import AccommodationManagement from './components/admin/AccommodationManagement';
+import ReportsAndAnalysis from './components/admin/ReportsAndAnalysis';
+import Settings from './components/admin/Settings';
+
 const App = () => {
     const Logout = () => {
         return <Navigate to="/login"></Navigate>
@@ -14,6 +23,7 @@ const App = () => {
     return (
         <BrowserRouter>
             <Routes>
+                {/* User/Guest Routes (commented out for now as per previous context) */}
                 {/* <Route path='/' element={
                     <ProtectedRoute>
                         <Home></Home>
@@ -23,22 +33,29 @@ const App = () => {
                 <Route path='/login' element={<Login></Login>}></Route>
                 <Route path='/register' element={<Register></Register>}></Route>
                 <Route path='/forgot-password' element={<ForgotPassword></ForgotPassword>}></Route>
-                <Route path='/landing_page' element={<LandingPage></LandingPage>}></Route> */}
+                <Route path='/landing_page' element={'<LandingPage></LandingPage>'}></Route> */}
                 <Route path='*' element={<NotFound></NotFound>}></Route>
 
 
-
-                {/* AGENCY */}
-                <Route path='/agency-dashboard' element={<AgencyDashboard />} />
-                <Route path='/agency-draft' element={<AgencyDraft />} />
+                {/* AGENCY ROUTES */}
+                {/* <Route path='/agency-dashboard' element={<AgencyDashboard />} /> */}
+                <Route path='/agency' element={<AgencyLayout />} />
                 
-                {/* ADMIN */}
-                <Route path='/admin-draft' element={<Admindraft />} />
+                {/* ADMIN ROUTES - Component-based structure */}
+                <Route path='/admin' element={<AdminLayout />}>
+                    <Route index element={<Dashboard />} />
+                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="agency" element={<AgencyManagement />} />
+                    <Route path="guides" element={<TourGuidesManagement />} />
+                    <Route path="users" element={<UserManagement />} />
+                    <Route path="content" element={<ContentManagement />} />
+                    <Route path="accommodation" element={<AccommodationManagement />} />
+                    <Route path="reports" element={<ReportsAndAnalysis />} />
+                    <Route path="settings" element={<Settings />} />
+                </Route>
 
-                {/* ADMIN SIGN IN*/}
+                {/* SIGN IN PAGES */}
                 <Route path='/admin-signin' element={<Adminsignin />} />
-
-                {/* AGENCY SIGN IN*/}
                 <Route path='/agency-signin' element={<Agencysignin />} />
             </Routes>
         </BrowserRouter>

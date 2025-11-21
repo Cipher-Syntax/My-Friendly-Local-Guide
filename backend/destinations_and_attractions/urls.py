@@ -33,13 +33,14 @@ from rest_framework.routers import DefaultRouter
 from django.conf import settings
 from django.conf.urls.static import static
 
-# Import all views (Both Old and New)
+# Import all views
 from .views import (
     DestinationViewSet, 
     AttractionViewSet, 
     DestinationAttractionListView,
-    CreateTourView,     # NEW: Handles the React Native 'Add Tour' form
-    MyToursListView     # NEW: Lists tours owned by the specific guide
+    CreateTourView,
+    MyToursListView,
+    ToursByDestinationListView
 )
 
 # Initialize Router
@@ -50,31 +51,22 @@ router.register(r'attractions', AttractionViewSet, basename='attraction')
 # --- Main URL Patterns ---
 urlpatterns = [
     # 1. Router URLs (Destinations & Attractions CRUD)
-    # e.g., GET /api/tours/destinations/
     path('', include(router.urls)),
     
-    # 2. Nested Attraction List (Existing)
-    # e.g., GET /api/tours/destinations/1/attractions/
+    # 2. Nested Attraction List
     path(
         'destinations/<int:destination_pk>/attractions/', 
         DestinationAttractionListView.as_view(), 
         name='destination-attraction-list'
     ),
 
-    # 3. Tour Packages (NEW ADDITIONS)
-    
-    # POST /api/tours/create/
-    # Used by React Native 'AddTour.js' to upload text + images
+    # 3. Tour Packages
     path('create/', CreateTourView.as_view(), name='create-tour'),
-
-    # GET /api/tours/my-tours/
-    # Used to show the guide their own created tours
     path('my-tours/', MyToursListView.as_view(), name='my-tours'),
-    
+    path(
+        'destinations/<int:destination_id>/tours/',
+        ToursByDestinationListView.as_view(),
+        name='tours-by-destination'
+    ),
 ]
-
-# Note: Usually, static/media serving is done in the PROJECT-level urls.py, 
-# not the APP-level urls.py. But if you are including this in the main project,
-# ensure this line exists somewhere in your url configuration.
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns = urlpatterns + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -19,7 +19,7 @@ const Adminsignin = () => {
   ];
 
   const handleSubmit = () => {
-    navigate('/admin-draft');
+    navigate('/admin-dashboard');
     console.log('Login submitted:', formData);
   };
 
@@ -141,7 +141,7 @@ const Adminsignin = () => {
                     onChange={handleChange}
                     onKeyPress={handleKeyPress}
                     placeholder="Enter password"
-                    className="w-full px-5 py-4 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:bg-white outline-none transition-all pr-12 text-base"
+                    className="w-full px-5 py-4 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:bg-white outline-none transition-all pr-12 text-base"
                   />
                   <button
                     type="button"
