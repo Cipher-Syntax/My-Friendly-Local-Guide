@@ -194,3 +194,11 @@ AUTHENTICATION_BACKENDS = [
     'user_authentication.backends.CustomAuthBackend',  # Replace 'your_app_name' with your actual app name
     'django.contrib.auth.backends.ModelBackend',  # Keep default as fallback
 ]
+
+from corsheaders.defaults import default_headers #type: ignore
+
+# 1. Allow the specific header
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "ngrok-skip-browser-warning",
+]
+CORS_ALLOW_ALL_ORIGINS = True

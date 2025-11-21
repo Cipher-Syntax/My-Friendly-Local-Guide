@@ -1,6 +1,7 @@
 from rest_framework import serializers #type: ignore
 from django.contrib.auth import get_user_model
-from .models import FeaturedPlace, AccommodationImage, GuideApplication # NEW Import
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer #type: ignore
+from .models import FeaturedPlace, AccommodationImage, GuideApplication
 
 User = get_user_model()
 
@@ -17,7 +18,7 @@ class AccommodationImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'image']
 
 
-# --- NEW: Guide Application Serializer ---
+# --- Guide Application Serializer ---
 
 class GuideApplicationSerializer(serializers.ModelSerializer):
     """Handles validation and creation of a Guide Application, including document uploads."""
@@ -90,7 +91,7 @@ class UserSerializer(serializers.ModelSerializer):
     def get_full_name(self, obj):
         return obj.get_full_name()
 
-    # --- Validation and CRUD Methods (Unchanged) ---
+    # --- Validation and CRUD Methods ---
     def validate_username(self, value):
         queryset = User.objects.filter(username=value)
         if self.instance:
@@ -136,7 +137,7 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
-# --- Authentication Serializers (Unchanged) ---
+# --- Authentication Serializers ---
 class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
@@ -159,3 +160,43 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         user.set_password(password)
         user.save()
         return user
+
+# --- ADMIN / SUPERUSER LOGIN SERIALIZER ---
+class AdminTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['username'] = user.username
+        token['email'] = user.email
+        token['is_superuser'] = user.is_superuser
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        
+        if not self.user.is_superuser:
+            raise serializers.ValidationError(
+                {"detail": "Access restricted. Only administrators can log in here."}
+            )
+
+        return data
+
+class AgencyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['username'] = user.username
+        token['email'] = user.email
+        token['is_staff'] = user.is_staff
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        
+        # STRICTLY CHECK FOR STAFF STATUS
+        if not self.user.is_staff:
+            raise serializers.ValidationError(
+                {"detail": "Access restricted. Only authorized Agency Staff can log in here."}
+            )
+
+        return data

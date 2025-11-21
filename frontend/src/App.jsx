@@ -42,14 +42,20 @@ const App = () => {
                 <Route path='/agency' element={<AgencyLayout />} />
                 
                 {/* ADMIN ROUTES - Component-based structure */}
-                <Route path='/admin' element={<AdminLayout />}>
+                <Route path='/' element={<LandingPage />} />
+                <Route path='/admin' element={
+                    <ProtectedRoute>
+                        <AdminLayout />
+                    </ProtectedRoute>
+                    
+                }>
                     <Route index element={<Dashboard />} />
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="agency" element={<AgencyManagement />} />
                     <Route path="guides" element={<TourGuidesManagement />} />
                     <Route path="users" element={<UserManagement />} />
                     <Route path="content" element={<ContentManagement />} />
-                    <Route path="accommodation" element={<AccommodationManagement />} />
+                    {/* <Route path="accommodation" element={<AccommodationManagement />} /> */}
                     <Route path="reports" element={<ReportsAndAnalysis />} />
                     <Route path="settings" element={<Settings />} />
                 </Route>

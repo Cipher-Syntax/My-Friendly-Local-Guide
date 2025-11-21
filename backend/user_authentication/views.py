@@ -1,16 +1,4 @@
-from django.contrib.auth import get_user_model
-User = get_user_model()
-
 from django.shortcuts import render, get_object_or_404
-from rest_framework import viewsets, generics, permissions, status #type: ignore
-from rest_framework.response import Response #type: ignore
-from rest_framework.views import APIView #type: ignore
-from rest_framework.exceptions import PermissionDenied, ValidationError #type: ignore
-from .serializers import (
-    UserSerializer, ForgotPasswordSerializer, PasswordResetConfirmSerializer,
-    GuideApplicationSerializer # <-- NEW Import
-)
-from .models import GuideApplication # <-- NEW Import
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -18,16 +6,27 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
 
-# Create your views here.
+from rest_framework import viewsets, generics, permissions, status #type: ignore
+from rest_framework.response import Response #type: ignore
+from rest_framework.views import APIView #type: ignore
+from rest_framework.exceptions import PermissionDenied, ValidationError #type: ignore
+from rest_framework_simplejwt.views import TokenObtainPairView #type: ignore
+
+
+from .serializers import (
+    UserSerializer, 
+    ForgotPasswordSerializer, 
+    PasswordResetConfirmSerializer,
+    GuideApplicationSerializer,
+    AdminTokenObtainPairSerializer,
+    AgencyTokenObtainPairSerializer
+)
+from .models import GuideApplication
+
 User = get_user_model()
 
-# --- User & Authentication Views (Existing) ---
+# --- User & Authentication Views ---
 
-# class CreateUserView(generics.CreateAPIView):
-#     """Handles user registration (default tourist role)."""
-#     queryset = User.objects.all().order_by('-date_joined')
-#     serializer_class = UserSerializer
-#     permission_classes = [permissions.AllowAny]
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = UserSerializer
@@ -154,6 +153,15 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 
         return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
 
+# --- ADMIN LOGIN VIEW (NEW) ---
+class AdminTokenObtainPairView(TokenObtainPairView):
+    """
+    Login view specifically for Superusers (Admins).
+    Uses AdminTokenObtainPairSerializer to enforce is_superuser check.
+    """
+    serializer_class = AdminTokenObtainPairSerializer
+
+
 # --- Guide-Specific Views (Role Change) ---
 
 class ApplyAsGuideView(APIView):
@@ -242,7 +250,6 @@ class AgencyListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
 
-
 class UpdateGuideInfoView(generics.UpdateAPIView):
     """
     Allows an authenticated guide to update their guide-specific info:
@@ -277,3 +284,11 @@ class UpdateGuideInfoView(generics.UpdateAPIView):
             instance._prefetched_objects_cache = {}
 
         return Response(serializer.data)
+
+
+# --- AGENCY LOGIN VIEW ---
+class AgencyTokenObtainPairView(TokenObtainPairView):
+    """
+    Login view specifically for Agency Staff (is_staff=True).
+    """
+    serializer_class = AgencyTokenObtainPairSerializer

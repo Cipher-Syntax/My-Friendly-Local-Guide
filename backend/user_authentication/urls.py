@@ -4,17 +4,34 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from .views import (
-    CreateUserView, UpdateUserView, PasswordResetRequestView, PasswordResetConfirmView,
-    ApplyAsGuideView, ApprovedLocalGuideListView, GuideDetailView, AgencyListView, GuideApplicationSubmissionView, VerifyEmailView, UpdateGuideInfoView, ResendVerificationEmailView
+    CreateUserView, 
+    UpdateUserView, 
+    PasswordResetRequestView, 
+    PasswordResetConfirmView,
+    ApplyAsGuideView, 
+    ApprovedLocalGuideListView, 
+    GuideDetailView, 
+    AgencyListView, 
+    GuideApplicationSubmissionView, 
+    VerifyEmailView, 
+    UpdateGuideInfoView, 
+    ResendVerificationEmailView,
+    AdminTokenObtainPairView,
+    AgencyTokenObtainPairView
 )
 
 
 urlpatterns = [
     # 1. JWT TOKEN ENDPOINTS (CRITICAL FOR AUTHENTICATION)
-    # POST to get access and refresh tokens (Login)
+    # POST to get access and refresh tokens (Regular User Login)
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'), 
     # POST to get a new access token using the refresh token
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'), 
+    
+    # --- NEW ADMIN LOGIN ENDPOINT ---
+    path('auth/admin/login/', AdminTokenObtainPairView.as_view(), name='admin_login'),
+    path('auth/agency/login/', AgencyTokenObtainPairView.as_view(), name='agency_login'),
+
     path('verify-email/<uid>/<token>/', VerifyEmailView.as_view(), name='verify-email'),
     path('resend-verify-email/', ResendVerificationEmailView.as_view(), name='resend-verify-email'),
     
@@ -32,8 +49,8 @@ urlpatterns = [
     path('agencies/', AgencyListView.as_view(), name='agency-list'),
 
     path('guide/update-info/', UpdateGuideInfoView.as_view(), name='update-guide-info'),
-
-    # 4. MEDIA FILES
+    
 ]
 
+# 4. MEDIA FILES
 urlpatterns = urlpatterns + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
