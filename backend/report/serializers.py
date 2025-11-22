@@ -12,6 +12,8 @@ class ReportSerializer(serializers.ModelSerializer):
     # Read-only fields for display
     reporter_username = serializers.CharField(source='reporter.username', read_only=True)
     reported_username = serializers.CharField(source='reported_user.username', read_only=True)
+    reported_user_is_active = serializers.BooleanField(source='reported_user.is_active', read_only=True)
+    reported_user_type = serializers.SerializerMethodField()
     
     # Primary key fields (maintaining your structure)
     # Reporter is read-only (set by request.user)
@@ -25,9 +27,18 @@ class ReportSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'reporter', 'reporter_username', 
             'reported_user', 'reported_username', 
-            'reason', 'timestamp'
+            'reason', 'timestamp', 'reported_user_is_active',
+            'reported_user_type'
         ]
-        read_only_fields = ['timestamp', 'reporter_username', 'reported_username'] # Added display fields here
+        read_only_fields = ['timestamp', 'reporter_username', 'reported_username', 'reported_user_is_active', 'reported_user_type'] # Added display fields here
+
+    def get_reported_user_type(self, obj):
+        if obj.reported_user.is_local_guide:
+            return 'Guide'
+        elif obj.reported_user.is_staff:
+            return 'Agency'
+        else:
+            return 'Tourist'
 
     def validate(self, data):
         # Your custom self-reporting validation logic

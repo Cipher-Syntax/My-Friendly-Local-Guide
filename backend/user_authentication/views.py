@@ -11,6 +11,7 @@ from rest_framework.response import Response #type: ignore
 from rest_framework.views import APIView #type: ignore
 from rest_framework.exceptions import PermissionDenied, ValidationError #type: ignore
 from rest_framework_simplejwt.views import TokenObtainPairView #type: ignore
+from system_management_module.models import SystemAlert
 
 
 from .serializers import (
@@ -106,7 +107,49 @@ class UpdateUserView(generics.RetrieveUpdateAPIView):
     
     def get_object(self):
         return self.request.user
+
+# class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
+#     """Allows an admin to view/update/delete any user's profile."""
+#     queryset = User.objects.all()
+#     serializer_class = UserSerializer
+#     permission_classes = [permissions.IsAdminUser]
+#     lookup_field = 'pk'
     
+# from .models import SystemAlert # Make sure to import SystemAlert if you want to notify the user
+
+class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
+    """Allows an admin to view/update/delete any user's profile."""
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAdminUser]
+    lookup_field = 'pk'
+
+    def perform_update(self, serializer):
+        # 1. Save the standard fields handled by the serializer
+        user_instance = serializer.save()
+
+        # 2. Manually handle 'is_active' because UserSerializer likely ignores it
+        #    We check if 'is_active' was actually sent in the request body
+        if 'is_active' in self.request.data:
+            new_status = self.request.data['is_active']
+            
+            # Only save and alert if the status is actually changing
+            if user_instance.is_active != new_status:
+                user_instance.is_active = new_status
+                user_instance.save()
+
+                # 3. (Optional) Create a System Alert so the user knows why
+                #    This connects to your Notification system
+                try:
+                    status_msg = "reactivated" if new_status else "restricted"
+                    SystemAlert.objects.create(
+                        target_type=user_instance.type if hasattr(user_instance, 'type') else 'Tourist',
+                        recipient=user_instance,
+                        title=f"Account {status_msg.capitalize()}",
+                        message=f"Your account has been {status_msg} by an administrator."
+                    )
+                except Exception as e:
+                    print(f"Could not send alert: {e}")
 class PasswordResetRequestView(generics.GenericAPIView):
     """Handles sending a password reset email."""
     serializer_class = ForgotPasswordSerializer

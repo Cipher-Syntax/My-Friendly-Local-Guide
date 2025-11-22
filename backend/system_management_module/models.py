@@ -1,13 +1,12 @@
 from django.db import models
 from user_authentication.models import User
-from accommodation_booking.models import Booking # Assuming this is accessible
+# from accommodation_booking.models import Booking # Uncomment if needed
 
 # --- 1. System Alert Model (General Notifications) ---
 
 class SystemAlert(models.Model):
     """
     General purpose alerts or notifications for users.
-    (e.g., 'Your booking status changed', 'Payment confirmed')
     """
     TARGET_CHOICES = [
         ('Tourist', 'Tourist'),
@@ -15,10 +14,8 @@ class SystemAlert(models.Model):
         ('Admin', 'Administrator'),
     ]
     
-    # We use CharField for target_type since one alert might go to many people of that type
     target_type = models.CharField(max_length=20, choices=TARGET_CHOICES) 
     
-    # Optional: Link to a specific user if the alert is personalized
     recipient = models.ForeignKey(
         User, 
         on_delete=models.CASCADE, 
@@ -33,7 +30,6 @@ class SystemAlert(models.Model):
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     
-    # Optional: Link to an external object like a Booking if relevant
     related_object_id = models.IntegerField(null=True, blank=True)
     related_model = models.CharField(max_length=50, null=True, blank=True)
     
@@ -45,7 +41,6 @@ class SystemAlert(models.Model):
 class GuideReviewRequest(models.Model):
     """
     A persistent record and queue item for Admin to review a new Guide Application.
-    This links directly to the pending GuideApplication object.
     """
     STATUS_CHOICES = [
         ('Pending', 'Pending Review'),
@@ -53,7 +48,6 @@ class GuideReviewRequest(models.Model):
         ('Rejected', 'Rejected'),
     ]
     
-    # Links to the User who submitted the GuideApplication
     applicant = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -65,7 +59,6 @@ class GuideReviewRequest(models.Model):
     submission_date = models.DateTimeField(auto_now_add=True)
     admin_notes = models.TextField(blank=True, null=True)
     
-    # The Admin user who took action on the request
     reviewed_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -78,11 +71,21 @@ class GuideReviewRequest(models.Model):
         return f"Guide Review: {self.applicant.username} - {self.status}"
 
     def save(self, *args, **kwargs):
+        # 1. Capture previous state to detect status changes
+        if self.pk:
+            try:
+                previous = GuideReviewRequest.objects.get(pk=self.pk)
+                previous_status = previous.status
+            except GuideReviewRequest.DoesNotExist:
+                previous_status = None
+        else:
+            previous_status = None
+
         is_new = self._state.adding
         super().save(*args, **kwargs)
 
+        # --- SCENARIO A: APPROVED ---
         if not is_new and self.status == 'Approved' and self.applicant.is_local_guide:
-            # Trigger System Alert for the applicant upon final review approval
             SystemAlert.objects.create(
                 target_type='Guide',
                 recipient=self.applicant,
@@ -91,13 +94,34 @@ class GuideReviewRequest(models.Model):
                 related_model='GuideReviewRequest',
                 related_object_id=self.pk
             )
-            # You would typically also fire an email or push notification here.
+
+        # --- SCENARIO B: REJECTED (This triggers 'Warning from Admin') ---
+        elif not is_new and self.status == 'Rejected' and previous_status != 'Rejected':
+            SystemAlert.objects.create(
+                target_type='Tourist',
+                recipient=self.applicant,
+                title="Warning from Admin",  # Matches Frontend Key
+                message=f"Application Rejected: {self.admin_notes or 'Verification failed. Please check your documents.'}",
+                related_model='GuideReviewRequest',
+                related_object_id=self.pk
+            )
+
+        # --- SCENARIO C: NEW SUBMISSION ---
         elif is_new:
-            # Trigger System Alert for the Admin when a new request comes in
+            # Alert for Admin
             SystemAlert.objects.create(
                 target_type='Admin',
                 title="New Guide Application",
                 message=f"New application submitted by {self.applicant.username}. Review required.",
+                related_model='GuideReviewRequest',
+                related_object_id=self.pk
+            )
+            # Alert for User (Waiting for Admin)
+            SystemAlert.objects.create(
+                target_type='Tourist',
+                recipient=self.applicant,
+                title="Application Submitted", # Matches Frontend Key (Added below)
+                message="Your guide application has been submitted and is waiting for admin review.",
                 related_model='GuideReviewRequest',
                 related_object_id=self.pk
             )

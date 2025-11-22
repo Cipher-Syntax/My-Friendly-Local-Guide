@@ -79,4 +79,10 @@ class SystemAlertSerializer(serializers.ModelSerializer):
     class Meta:
         model = SystemAlert
         fields = ['id', 'title', 'message', 'is_read', 'created_at', 'related_model', 'related_object_id']
-        read_only_fields = ['title', 'message', 'created_at', 'related_model', 'related_object_id']
+        read_only_fields = ['created_at']
+
+# --- 4. Create System Alert Serializer ---
+class CreateSystemAlertSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SystemAlert
+        fields = ['recipient', 'title', 'message', 'target_type', 'related_model', 'related_object_id']

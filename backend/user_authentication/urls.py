@@ -6,6 +6,7 @@ from django.conf.urls.static import static
 from .views import (
     CreateUserView, 
     UpdateUserView, 
+    AdminUpdateUserView,
     PasswordResetRequestView, 
     PasswordResetConfirmView,
     ApplyAsGuideView, 
@@ -38,6 +39,7 @@ urlpatterns = [
     # 2. AUTH & USER ENDPOINTS
     path('register/', CreateUserView.as_view(), name='register'),
     path('profile/', UpdateUserView.as_view(), name='profile-update'),
+    path('admin/users/<int:pk>/', AdminUpdateUserView.as_view(), name='admin-user-update'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password-reset/confirm/<str:uid>/<str:token>/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     

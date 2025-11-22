@@ -1,19 +1,19 @@
 from rest_framework import generics, permissions, status, viewsets #type: ignore
 from rest_framework.response import Response #type: ignore
-from django.db import transaction
+from django.db import transaction #type: ignore
 from django.db.models import Q
 from rest_framework.views import APIView #type: ignore
 
 from .models import GuideReviewRequest, SystemAlert
 from user_authentication.models import GuideApplication
-# Import the new serializer
 from .serializers import (
     GuideApplicationSubmissionSerializer, 
-    AdminGuideReviewSerializer,  # <--- Use this one
-    SystemAlertSerializer
+    AdminGuideReviewSerializer,
+    SystemAlertSerializer,
+    CreateSystemAlertSerializer
 )
 
-# --- 1. User Submission View (Unchanged) ---
+# --- 1. User Submission View ---
 class GuideApplicationSubmissionView(generics.CreateAPIView):
     serializer_class = GuideApplicationSubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -64,28 +64,18 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
-# --- 2. Admin Review ViewSet (UPDATED) ---
-
+# --- 2. Admin Review ViewSet ---
 class GuideReviewRequestViewSet(viewsets.ModelViewSet):
-    """
-    Admin-only ViewSet.
-    GET / -> Lists all applications (uses AdminGuideReviewSerializer)
-    PATCH /:id/ -> Updates status (Approve/Reject)
-    """
-    serializer_class = AdminGuideReviewSerializer # <--- Uses the new serializer
+    serializer_class = AdminGuideReviewSerializer
     permission_classes = [permissions.IsAdminUser] 
-    http_method_names = ['get', 'patch', 'head', 'options'] # Restrict methods
+    http_method_names = ['get', 'patch', 'head', 'options']
 
     def get_queryset(self):
-        # Return all requests, typically Pending ones first
         return GuideReviewRequest.objects.select_related('applicant', 'applicant__guide_application').all().order_by('submission_date')
     
     @transaction.atomic
     def update(self, request, *args, **kwargs):
-        # This handles the PATCH request from React
         instance = self.get_object()
-        
-        # We use partial=True because React might only send {'status': 'Approved'}
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
 
@@ -96,20 +86,19 @@ class GuideReviewRequestViewSet(viewsets.ModelViewSet):
 
         # 2. Handle Role Logic based on Status
         if new_status == 'Approved':
-            # Validates the guide logic defined in your model
-            # Triggers the SystemAlert via the Model's save method logic you wrote previously
-            pass 
+            pass # Handled in models.py save()
             
         elif new_status == 'Rejected':
             user = instance.applicant
             user.is_local_guide = False
             user.guide_approved = False
             user.save()
+            # Warning Handled in models.py save()
 
         return Response(serializer.data)
 
 
-# --- 3. User Alerts Views (Unchanged) ---
+# --- 3. User Alerts Views (UPDATED QUERY) ---
 
 class UserAlertListView(generics.ListAPIView):
     serializer_class = SystemAlertSerializer
@@ -117,9 +106,14 @@ class UserAlertListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        target_role = 'Guide' if user.guide_approved else 'Tourist'
+        # Determine user type safely
+        target_role = 'Guide' if getattr(user, 'is_local_guide', False) else 'Tourist'
+        
+        # Return alerts sent specifically to ME (recipient=user)
+        # OR alerts sent to EVERYONE of my type (target_type=role AND recipient is NULL)
         return SystemAlert.objects.filter(
-            Q(recipient=user) | Q(recipient=user, target_type=target_role)
+            Q(recipient=user) | 
+            Q(target_type=target_role, recipient__isnull=True)
         ).order_by('-created_at')
 
 class UserAlertMarkReadView(generics.UpdateAPIView):
@@ -143,3 +137,11 @@ class UnreadAlertCountView(APIView):
         user = request.user
         count = SystemAlert.objects.filter(recipient=user, is_read=False).count()
         return Response({'unread_count': count})
+
+class CreateSystemAlertView(generics.CreateAPIView):
+    serializer_class = CreateSystemAlertSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        print("CreateSystemAlertView POST request data:", request.data)
+        return super().post(request, *args, **kwargs)
