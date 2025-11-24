@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'payment',
     'personalization',
     'system_management_module',
+    'agency_management_module',
     
     # THIRD-PARTY-APPS
     'rest_framework',
