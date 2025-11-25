@@ -13,7 +13,6 @@ from rest_framework.exceptions import PermissionDenied, ValidationError #type: i
 from rest_framework_simplejwt.views import TokenObtainPairView #type: ignore
 from system_management_module.models import SystemAlert
 
-
 from .serializers import (
     UserSerializer, 
     ForgotPasswordSerializer, 
@@ -34,7 +33,7 @@ class CreateUserView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
 
     def perform_create(self, serializer):
-        user = serializer.save(is_active=False)  # user disabled until email is verified
+        user = serializer.save(is_active=False) # user disabled until email is verified
         
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
@@ -83,7 +82,6 @@ class ResendVerificationEmailView(APIView):
         if user.is_active:
             return Response({"detail": "Account is already verified."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Generate new token and send email
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         
@@ -108,15 +106,6 @@ class UpdateUserView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
-# class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
-#     """Allows an admin to view/update/delete any user's profile."""
-#     queryset = User.objects.all()
-#     serializer_class = UserSerializer
-#     permission_classes = [permissions.IsAdminUser]
-#     lookup_field = 'pk'
-    
-# from .models import SystemAlert # Make sure to import SystemAlert if you want to notify the user
-
 class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
     """Allows an admin to view/update/delete any user's profile."""
     queryset = User.objects.all()
@@ -125,21 +114,13 @@ class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'pk'
 
     def perform_update(self, serializer):
-        # 1. Save the standard fields handled by the serializer
         user_instance = serializer.save()
 
-        # 2. Manually handle 'is_active' because UserSerializer likely ignores it
-        #    We check if 'is_active' was actually sent in the request body
         if 'is_active' in self.request.data:
             new_status = self.request.data['is_active']
-            
-            # Only save and alert if the status is actually changing
             if user_instance.is_active != new_status:
                 user_instance.is_active = new_status
                 user_instance.save()
-
-                # 3. (Optional) Create a System Alert so the user knows why
-                #    This connects to your Notification system
                 try:
                     status_msg = "reactivated" if new_status else "restricted"
                     SystemAlert.objects.create(
@@ -150,6 +131,7 @@ class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
                     )
                 except Exception as e:
                     print(f"Could not send alert: {e}")
+
 class PasswordResetRequestView(generics.GenericAPIView):
     """Handles sending a password reset email."""
     serializer_class = ForgotPasswordSerializer
@@ -198,33 +180,21 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 
 # --- ADMIN LOGIN VIEW (NEW) ---
 class AdminTokenObtainPairView(TokenObtainPairView):
-    """
-    Login view specifically for Superusers (Admins).
-    Uses AdminTokenObtainPairSerializer to enforce is_superuser check.
-    """
     serializer_class = AdminTokenObtainPairSerializer
-
 
 # --- Guide-Specific Views (Role Change) ---
 
 class ApplyAsGuideView(APIView):
-    """
-    Allows an authenticated user (tourist) to simply trigger the role change flag.
-    Documents should be submitted via GuideApplicationSubmissionView.
-    """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         user = request.user
-        
         if user.is_local_guide:
             return Response(
                 {"detail": "You have already applied as a local guide. Status is pending or approved."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
         user.apply_as_guide() 
-        
         return Response(
             {"detail": "Application role flag set successfully. Please submit documents.",
              "is_local_guide": user.is_local_guide,
@@ -235,68 +205,43 @@ class ApplyAsGuideView(APIView):
 # --- Guide-Specific Views (Document Submission) ---
 
 class GuideApplicationSubmissionView(generics.CreateAPIView):
-    """
-    Handles the submission of guide application documents by an authenticated user.
-    """
     serializer_class = GuideApplicationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
         user = self.request.user
-
-        # 1. Prevent duplicate submissions
         if GuideApplication.objects.filter(user=user, is_reviewed=False).exists():
             raise ValidationError({"detail": "You already have a pending guide application awaiting review."})
-            
         if user.is_local_guide and user.guide_approved:
             raise PermissionDenied("You are already an approved local guide.")
-
-        # 2. Create the application record, linking it to the user
         application = serializer.save(user=user)
-        
-        # 3. Update the user's role status (if not done previously)
         if not user.is_local_guide:
             user.apply_as_guide()
-        
-        # 4. Success Response
         return Response(
             {"detail": "Documents submitted successfully. Awaiting admin review.",
              "application_id": application.id},
             status=status.HTTP_201_CREATED
         )
 
-
 class ApprovedLocalGuideListView(generics.ListAPIView):
-    """
-    Lists all local guides who have been approved by the admin.
-    """
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny] 
-
     def get_queryset(self):
         return User.objects.filter(is_local_guide=True, guide_approved=True).order_by('-guide_rating')
 
 class GuideDetailView(generics.RetrieveAPIView):
-    """
-    Fetches details of a single approved local guide.
-    """
     queryset = User.objects.filter(is_local_guide=True, guide_approved=True)
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
 
 class AgencyListView(generics.ListAPIView):
-    """
-    Lists all agencies (staff users).
-    """
     queryset = User.objects.filter(is_staff=True)
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
 
-
 class UpdateGuideInfoView(generics.UpdateAPIView):
     """
-    Allows an authenticated guide to update their guide-specific info:
-    languages, specialty, tour itinerary, price, available days.
+    Allows an authenticated guide to update their guide-specific info.
     """
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -310,10 +255,16 @@ class UpdateGuideInfoView(generics.UpdateAPIView):
 
     def partial_update(self, request, *args, **kwargs):
         data = request.data.copy()
+
+        # 1. Experience Mapping
         if 'experience' in data:
             data['experience_years'] = data.pop('experience')
+
+        # 2. Price Mapping
         if 'price' in data:
             data['price_per_day'] = data.pop('price')
+        
+        # 3. Dates Mapping
         if 'specific_dates' in data:
             data['specific_available_dates'] = data.pop('specific_dates')
         
@@ -323,15 +274,10 @@ class UpdateGuideInfoView(generics.UpdateAPIView):
         self.perform_update(serializer)
 
         if getattr(instance, '_prefetched_objects_cache', None):
-            # If 'prefetch_related' has been used, we need to manually update the instance's cache.
             instance._prefetched_objects_cache = {}
 
         return Response(serializer.data)
 
-
 # --- AGENCY LOGIN VIEW ---
 class AgencyTokenObtainPairView(TokenObtainPairView):
-    """
-    Login view specifically for Agency Staff (is_staff=True).
-    """
     serializer_class = AgencyTokenObtainPairSerializer

@@ -1,89 +1,11 @@
-# from rest_framework import serializers #type: ignore
-# from .models import Destination, DestinationImage, Attraction
-# from django.contrib.auth import get_user_model
-
-# # Assuming 'user_auth' is the app where your main UserSerializer resides, 
-# # you'd ideally import and reuse it. For simplicity and to avoid circular imports, 
-# # we'll define a minimal User representation method here.
-
-# User = get_user_model()
-
-
-# # --- 1. Nested Serializers (Read-Only) ---
-
-# class DestinationImageSerializer(serializers.ModelSerializer):
-#     """Serializes the Destination Image model (for the image list)."""
-#     class Meta:
-#         model = DestinationImage
-#         fields = ['id', 'image', 'caption']
-
-
-# class AttractionSerializer(serializers.ModelSerializer):
-#     """Serializes the Attraction model (for points of interest within a Destination)."""
-#     class Meta:
-#         model = Attraction
-#         # 'destination' field is omitted because it's the parent of this nested data
-#         fields = ['id', 'name', 'description', 'photo', 'average_rating']
-
-# # --- 2. Main Destination Serializers ---
-
-# class DestinationSerializer(serializers.ModelSerializer):
-#     """
-#     Serializer for Destination details (Retrieve, Create, Update).
-#     Includes nested data for images, attractions, and the creator guide.
-#     """
-    
-#     # Nested related models
-#     images = DestinationImageSerializer(many=True, read_only=True)
-#     attractions = AttractionSerializer(many=True, read_only=True)
-    
-#     # Creator Guide Details (Minimal representation)
-#     creator = serializers.SerializerMethodField(read_only=True)
-    
-#     class Meta:
-#         model = Destination
-#         fields = [
-#             'id', 'name', 'description', 'category', 'location', 
-#             'latitude', 'longitude', 'average_rating', 'created_at',
-#             'creator', 'images', 'attractions',
-#         ]
-        
-#     def get_creator(self, obj):
-#         """Returns minimal information about the guide who created the destination."""
-#         if obj.creator:
-#             return {
-#                 'id': obj.creator.id,
-#                 'username': obj.creator.username,
-#                 'full_name': obj.creator.get_full_name(),
-#                 'profile_picture': obj.creator.profile_picture.url if obj.creator.profile_picture else None,
-#             }
-#         return None
-
-
-# class DestinationListSerializer(serializers.ModelSerializer):
-#     """
-#     Lean serializer for listing multiple destinations (used for feeds/search). 
-#     """
-#     first_image = serializers.SerializerMethodField()
-    
-#     class Meta:
-#         model = Destination
-#         fields = ['id', 'name', 'location', 'category', 'average_rating', 'first_image']
-        
-#     def get_first_image(self, obj):
-#         """Returns the absolute URL of the first image for the list thumbnail."""
-#         first_image = obj.images.first()
-#         if first_image:
-#             # Requires 'request' in serializer context (e.g., from a ViewSet)
-#             return self.context['request'].build_absolute_uri(first_image.image.url)
-#         return None
-from rest_framework import serializers
+from rest_framework import serializers #type: ignore
 from .models import Destination, DestinationImage, Attraction, TourPackage, TourStop
 from django.contrib.auth import get_user_model
+import json
 
 User = get_user_model()
 
-# --- 1. Destination Serializers (Global Data) ---
+# --- Destination Serializers ---
 
 class DestinationImageSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
@@ -117,17 +39,14 @@ class DestinationSerializer(serializers.ModelSerializer):
         ]
 
 class DestinationListSerializer(serializers.ModelSerializer):
-    """Lean view for the Home Screen Slider"""
-    # We add a custom field to get the first image URL
+    """Lean view for the Home Screen Slider / Dropdown"""
     image = serializers.SerializerMethodField()
 
     class Meta:
         model = Destination
-        # We add 'category', 'average_rating', and 'image' here
         fields = ['id', 'name', 'location', 'description', 'category', 'average_rating', 'image']
 
     def get_image(self, obj):
-        # Get the first image associated with this destination
         first_img = obj.images.first()
         if first_img and first_img.image:
             request = self.context.get('request')
@@ -135,11 +54,12 @@ class DestinationListSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(first_img.image.url)
         return None
 
-# --- 2. Tour Package Serializers (Guide Data) ---
+# --- Tour Package Serializers ---
 
 class TourStopSerializer(serializers.ModelSerializer):
     """Serializes the featured stops within a specific tour package"""
     image = serializers.SerializerMethodField()
+    
     class Meta:
         model = TourStop
         fields = ['id', 'name', 'image', 'order']
@@ -160,15 +80,23 @@ class TourPackageSerializer(serializers.ModelSerializer):
     guide_avatar = serializers.SerializerMethodField()
     destination_name = serializers.CharField(source='main_destination.name', read_only=True)
 
+    # Write-only fields for Create Form
+    stops_images = serializers.ListField(child=serializers.ImageField(), write_only=True, required=False)
+    stops_names = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
+    destination_id = serializers.PrimaryKeyRelatedField(queryset=Destination.objects.all(), source='main_destination', write_only=True)
+
     class Meta:
         model = TourPackage
         fields = [
             'id', 'guide', 'guide_name', 'guide_avatar',
-            'main_destination', 'destination_name',
+            'destination_id', 'main_destination', 'destination_name',
             'name', 'description', 'duration', 'max_group_size', 'what_to_bring',
             'price_per_day', 'solo_price', 'additional_fee_per_head',
-            'stops', 'created_at'
+            'itinerary_timeline',
+            'stops', 'stops_images', 'stops_names',
+            'created_at'
         ]
+        read_only_fields = ['guide', 'created_at', 'main_destination']
 
     def get_guide_avatar(self, obj):
         if obj.guide.profile_picture:
@@ -176,3 +104,58 @@ class TourPackageSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.guide.profile_picture.url)
         return None
+
+    def create(self, validated_data):
+        stops_images = validated_data.pop('stops_images', [])
+        stops_names = validated_data.pop('stops_names', [])
+        
+        itinerary_raw = validated_data.get('itinerary_timeline', [])
+        if isinstance(itinerary_raw, str):
+            validated_data['itinerary_timeline'] = json.loads(itinerary_raw)
+
+        tour = TourPackage.objects.create(**validated_data)
+
+        for index, image in enumerate(stops_images):
+            name = stops_names[index] if index < len(stops_names) else f"Stop {index + 1}"
+            TourStop.objects.create(
+                tour=tour,
+                name=name,
+                image=image,
+                order=index
+            )
+
+        return tour
+
+
+# ===== NEW: Guide Serializer =====
+class GuideSerializer(serializers.ModelSerializer):
+    """Serializer for Guide/User with their tour packages for a specific destination"""
+    tours = serializers.SerializerMethodField()
+    guide_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = [
+            'id', 'first_name', 'last_name', 'guide_name',
+            'location', 'guide_rating', 'available_days', 
+            'languages', 'specialty', 'experience_years', 
+            'price_per_day', 'profile_picture', 'tours',
+            'is_guide_visible'
+        ]
+        read_only_fields = ['id', 'tours']
+    
+    def get_guide_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}"
+    
+    def get_tours(self, obj):
+        """Return only tours for the requested destination"""
+        request = self.context.get('request')
+        destination_id = request.query_params.get('main_destination') if request else None
+        
+        if destination_id:
+            # Filter tours for this specific destination
+            tours = obj.tours.filter(main_destination__id=destination_id)
+        else:
+            tours = obj.tours.all()
+        
+        return TourPackageSerializer(tours, many=True, context=self.context).data

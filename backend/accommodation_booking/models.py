@@ -4,34 +4,31 @@ from user_authentication.models import User
 # ===============================================
 #          ACCOMMODATION MODEL
 # ===============================================
-
 class Accommodation(models.Model):
-    """Represents a listing offered by an approved local guide."""
+    host = models.ForeignKey(User, on_delete=models.CASCADE, related_name="accommodations")
     
-    host = models.ForeignKey(
-        User, 
-        limit_choices_to={'is_local_guide': True, 'guide_approved': True}, 
-        related_name='hosted_accommodations',
-        on_delete=models.CASCADE
-    )
     title = models.CharField(max_length=255)
     description = models.TextField()
     location = models.CharField(max_length=255)
-    
-    # Simplified Pricing
-    price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Price per night for the whole unit.")
-    
-    # Simplified Image Field
-    photo = models.ImageField(upload_to='accommodations/', blank=True, null=True)
-    
-    # Administrative control
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    photo = models.ImageField(upload_to="accommodations/")
+
+    # 🔥 ADD THESE ↓↓↓
+    accommodation_type = models.CharField(max_length=100, null=True, blank=True)
+    room_type = models.CharField(max_length=100, null=True, blank=True)
+    amenities = models.JSONField(default=dict, null=True, blank=True)
+
+    offer_transportation = models.BooleanField(default=False)
+    vehicle_type = models.CharField(max_length=100, null=True, blank=True)
+    transport_capacity = models.IntegerField(null=True, blank=True)
+
+    room_image = models.ImageField(upload_to='accommodations/rooms/', null=True, blank=True)
+    transport_image = models.ImageField(upload_to='accommodations/transport/', null=True, blank=True)
+    # 🔥 END OF NEW FIELDS
+
     is_approved = models.BooleanField(default=False)
     average_rating = models.DecimalField(max_digits=2, decimal_places=1, default=0.0)
     created_at = models.DateTimeField(auto_now_add=True)
-
-
-    def __str__(self):
-        return f'{self.title} ({self.host.username})'
 
 
 # ===============================================

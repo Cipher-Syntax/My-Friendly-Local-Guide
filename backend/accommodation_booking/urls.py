@@ -1,22 +1,28 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter #type: ignore
-# IMPORT CHANGE: Ensure you import all necessary views, including the custom one
-from .views import AccommodationViewSet, BookingViewSet, BookingStatusUpdateView, AssignGuidesView 
+from .views import (
+    AccommodationViewSet, 
+    BookingViewSet, 
+    BookingStatusUpdateView, 
+    AssignGuidesView,
+    AccommodationDropdownListView
+)
 from django.conf import settings
 from django.conf.urls.static import static
 
 router = DefaultRouter()
-# Added basename for clarity
 router.register(r'accommodations', AccommodationViewSet, basename='accommodation')
 router.register(r'bookings', BookingViewSet, basename='booking')
 
 urlpatterns = [
-    # 1. Router URLs (Handles List, Retrieve, Create, Delete for Accommodations & Bookings)
-    path('', include(router.urls)),
+    # --- 1. SPECIFIC ENDPOINTS (MUST BE FIRST) ---
+    # If this is below router.urls, Django thinks "list" is an ID and crashes.
+    path('accommodations/list/', AccommodationDropdownListView.as_view(), name='accommodation-dropdown-list'),
+
+    # --- 2. ROUTER URLS (GENERIC CRUD) ---
     
-    # 2. Custom Action URL (Host/Guide Status Management)
-    # This endpoint handles logic for Accepted, Declined, Paid, and Completed status changes.
-    # Example: POST/PUT to /api/bookings/1/status/
+    
+    # --- 3. CUSTOM ACTIONS ---
     path(
         'bookings/<int:pk>/status/', 
         BookingStatusUpdateView.as_view(), 
@@ -27,7 +33,7 @@ urlpatterns = [
         AssignGuidesView.as_view(),
         name='assign-guides'
     ),
+    path('', include(router.urls)),
 ]
 
-# Add Media URL patterns for serving images
 urlpatterns = urlpatterns + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

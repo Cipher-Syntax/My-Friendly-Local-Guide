@@ -31,6 +31,10 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 # ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 # print(ALLOWED_HOSTS)
 ALLOWED_HOSTS = ['*']
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', cast=Csv())
+CORS_ALLOW_CREDENTIALS = config('CORS_ALLOW_CREDENTIALS', default=True, cast=bool)
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', cast=Csv())
 
 # Application definition
 
@@ -58,6 +62,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     "rest_framework_simplejwt.token_blacklist",
+    'django_filters',
 ]
 
 # DEFAULT PERMISSIONS
@@ -68,6 +73,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ],
+
 }
 
 # TOKEN LIFETIMES
@@ -162,9 +171,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', cast=Csv())
-CORS_ALLOW_CREDENTIALS = config('CORS_ALLOW_CREDENTIALS', default=True, cast=bool)
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', cast=Csv())
+
 
 AUTH_USER_MODEL = "user_authentication.User"
 
@@ -176,7 +183,7 @@ PAYMONGO_BASE_URL = config('PAYMONGO_BASE_URL')
 PAYMONGO_RETURN_URL = config('PAYMONGO_RETURN_URL')
 PAYMONGO_API_URL = config('PAYMONGO_API_URL')
 
-BACKEND_BASE_URL = config('BACKEND_BASE_URL', cast=Csv())
+BACKEND_BASE_URL = config('BACKEND_BASE_URL')
 BLACKLIST_AFTER_ROTATION = config('BLACKLIST_AFTER_ROTATION', cast=bool)
 
 
@@ -202,4 +209,3 @@ from corsheaders.defaults import default_headers #type: ignore
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "ngrok-skip-browser-warning",
 ]
-CORS_ALLOW_ALL_ORIGINS = True

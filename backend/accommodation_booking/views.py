@@ -1,11 +1,12 @@
 from rest_framework import viewsets, permissions, generics, status #type: ignore
 from rest_framework.response import Response #type: ignore
 from rest_framework.exceptions import PermissionDenied, ValidationError #type: ignore
+from rest_framework.parsers import MultiPartParser, FormParser #type: ignore
 from django.db.models import Q
+from datetime import date
 
 from .models import Accommodation, Booking
 from .serializers import AccommodationSerializer, BookingSerializer
-from datetime import date
 
 
 # -----------------------
@@ -28,23 +29,30 @@ class IsHostOrReadOnly(permissions.BasePermission):
         return obj.host == request.user
 
 
-
 # -----------------------
-#   ACCOMMODATION VIEWSET
+#   ACCOMMODATION VIEWS
 # -----------------------
 
 class AccommodationViewSet(viewsets.ModelViewSet):
     serializer_class = AccommodationSerializer
     permission_classes = [IsHostOrReadOnly]
+    # MultiPartParser is needed to handle image uploads + JSON fields together
+    parser_classes = (MultiPartParser, FormParser) 
 
     def get_queryset(self):
         qs = Accommodation.objects.all().select_related('host')
         if not self.request.user.is_staff:
-            qs = qs.filter(is_approved=True)
+            # For the general API, we might want to see public approved ones
+            # But if the guide is managing them, they need to see their own unapproved ones
+            if self.action in ['list', 'retrieve']:
+                 # Logic: Show mine (approved or not) OR show others (only approved)
+                 # For simplicity here: Hosts see only their own in this dashboard view
+                 qs = qs.filter(host=self.request.user)
         return qs.order_by('-created_at')
 
     def perform_create(self, serializer):
         user = self.request.user
+        # Ensure amenities are saved correctly if passed as dict
         serializer.save(host=user, is_approved=False)
 
     def perform_update(self, serializer):
@@ -54,23 +62,26 @@ class AccommodationViewSet(viewsets.ModelViewSet):
         serializer.save()
 
 
+class AccommodationDropdownListView(generics.ListAPIView):
+    """
+    Public/Guide accessible list of ALL approved accommodations.
+    Used by AddTour.js.
+    """
+    serializer_class = AccommodationSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        return Accommodation.objects.filter(is_approved=True).order_by('title')
+
 
 # -----------------------
-#   BOOKING VIEWSET
+#   BOOKING VIEWS
 # -----------------------
 
 class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    # def get_queryset(self):
-    #     user = self.request.user
-    #     return Booking.objects.filter(
-    #         Q(tourist=user) |
-    #         Q(accommodation__host=user) |
-    #         Q(guide=user) |
-    #         Q(agency=user)
-    #     ).select_related('tourist', 'accommodation', 'guide', 'agency').order_by('-created_at')
     def get_queryset(self):
         user = self.request.user
         return Booking.objects.filter(
@@ -80,7 +91,6 @@ class BookingViewSet(viewsets.ModelViewSet):
             Q(agency=user)
         ).select_related('tourist', 'accommodation', 'guide', 'agency').order_by('-created_at')
 
-
     def perform_create(self, serializer):
         user = self.request.user
         instance = serializer.save(tourist=user, status='Pending')
@@ -88,6 +98,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         instance.total_price = self.calculate_booking_price(instance)
         instance.save()
 
+        # Validation
         target = None
         if instance.accommodation:
             target = instance.accommodation.host
@@ -129,11 +140,9 @@ class BookingViewSet(viewsets.ModelViewSet):
             return instance.guide.price_per_day * days
         
         if instance.agency:
-            # For now, let's assume a fixed price for agency bookings
             return 1000 * days
 
         return 0
-
 
 
 # -----------------------
@@ -182,6 +191,7 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
         instance.status = new_status
         instance.save()
         return Response(self.get_serializer(instance).data)
+
 
 class AssignGuidesView(generics.UpdateAPIView):
     queryset = Booking.objects.all()
