@@ -12,6 +12,7 @@ class User(AbstractUser):
     bio = models.TextField(blank=True, null=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     location = models.CharField(max_length=255, blank=True, null=True, help_text="e.g., City, Province")
+    valid_id_image = models.ImageField(upload_to='user_kyc/', null=True, blank=True)
     
     # --- Guide Specific Details ---
     guide_rating = models.DecimalField(

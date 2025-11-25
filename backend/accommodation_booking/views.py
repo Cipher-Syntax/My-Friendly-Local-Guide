@@ -52,8 +52,8 @@ class AccommodationViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = self.request.user
-        # Ensure amenities are saved correctly if passed as dict
-        serializer.save(host=user, is_approved=False)
+        # 🔥 UPDATE: Set is_approved=True to skip admin approval
+        serializer.save(host=user, is_approved=True)
 
     def perform_update(self, serializer):
         instance = serializer.instance
@@ -71,7 +71,9 @@ class AccommodationDropdownListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        return Accommodation.objects.filter(is_approved=True).order_by('title')
+        # 🔥 UPDATE: Removed .filter(is_approved=True)
+        # Now it returns all accommodations immediately
+        return Accommodation.objects.all().order_by('title')
 
 
 # -----------------------
@@ -81,6 +83,9 @@ class AccommodationDropdownListView(generics.ListAPIView):
 class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    # 🔥 ADDED: MultiPartParser to handle Image Uploads in Bookings
+    parser_classes = (MultiPartParser, FormParser)
 
     def get_queryset(self):
         user = self.request.user
@@ -93,12 +98,31 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = self.request.user
+        
+        # --- 🔥 KYC LOGIC START 🔥 ---
+        # 1. Check if an image is being uploaded with this booking
+        uploaded_id_image = self.request.data.get('tourist_valid_id_image')
+
+        # 2. If the User profile doesn't have a Valid ID yet, save this one permanently
+        # (Assumes your User model has 'valid_id_image' field)
+        if uploaded_id_image and not user.valid_id_image:
+            user.valid_id_image = uploaded_id_image
+            user.save() 
+            # This ensures next time they book, user.valid_id_image is already there.
+        # --- 🔥 KYC LOGIC END 🔥 ---
+
+        # 3. Create the booking
         instance = serializer.save(tourist=user, status='Pending')
 
+        # 4. Calculate Price
         instance.total_price = self.calculate_booking_price(instance)
         instance.save()
 
-        # Validation
+        # 5. Validate Targets
+        self.validate_booking_target(instance)
+
+    def validate_booking_target(self, instance):
+        """Helper method to validate booking targets"""
         target = None
         if instance.accommodation:
             target = instance.accommodation.host

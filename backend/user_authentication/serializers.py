@@ -42,7 +42,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'password', 'confirm_password',
             'first_name', 'last_name', 'date_joined',
-            'profile_picture', 'bio', 'phone_number', 'location',
+            'profile_picture', 'bio', 'phone_number', 'location', 'valid_id_image',
             
             # Roles
             'is_tourist', 'is_local_guide', 'guide_approved',
