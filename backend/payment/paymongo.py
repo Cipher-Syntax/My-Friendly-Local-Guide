@@ -6,7 +6,7 @@ from requests.exceptions import RequestException
 PAYMONGO_API_URL = settings.PAYMONGO_API_URL
 PAYMONGO_SECRET_KEY = settings.PAYMONGO_SECRET_KEY 
 
-def create_payment_link(amount: Decimal, description: str, external_id: str, billing: dict):
+def create_payment_link(amount: Decimal, description: str, external_id: str, billing: dict, method_types: list = None):
     """
     Creates a PayMongo payment link using the API, utilizing Basic Auth.
     """
@@ -17,23 +17,24 @@ def create_payment_link(amount: Decimal, description: str, external_id: str, bil
     # PayMongo requires the amount to be an integer in centavos.
     amount_in_centavos = int(amount.quantize(Decimal('0.01')) * 100)
     
-    payload = {
-        "data": {
-            "attributes": {
-                "amount": amount_in_centavos,
-                "description": description,
-                "external_id": external_id,
-                "currency": "PHP",
-                "send_email_receipt": True,
-                "show_description": True,
-                "billing": {
-                    "email": billing.get("email"),
-                    "name": billing.get("name"),
-                    "phone": billing.get("phone")
-                }
-            }
+    attributes = {
+        "amount": amount_in_centavos,
+        "description": description,
+        "external_id": external_id,
+        "currency": "PHP",
+        "send_email_receipt": True,
+        "show_description": True,
+        "billing": {
+            "email": billing.get("email"),
+            "name": billing.get("name"),
+            "phone": billing.get("phone")
         }
     }
+
+    if method_types:
+        attributes["payment_method_types"] = method_types
+
+    payload = {"data": {"attributes": attributes}}
 
     # --- CRITICAL FIX: PayMongo uses Basic Auth with SECRET_KEY as username and empty password ---
     auth_tuple = (PAYMONGO_SECRET_KEY, "") 

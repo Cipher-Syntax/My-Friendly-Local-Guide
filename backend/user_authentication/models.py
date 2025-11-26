@@ -7,6 +7,11 @@ class User(AbstractUser):
     is_local_guide = models.BooleanField(default=False)
     guide_approved = models.BooleanField(default=False)
 
+    # --- Freemium Tier ---
+    guide_tier = models.CharField(max_length=10, choices=[('free', 'Free'), ('paid', 'Paid')], default='free')
+    booking_count = models.IntegerField(default=0)
+    subscription_end_date = models.DateField(null=True, blank=True)
+
     # --- General Profile Details ---
     profile_picture = models.ImageField(upload_to='profiles/', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)

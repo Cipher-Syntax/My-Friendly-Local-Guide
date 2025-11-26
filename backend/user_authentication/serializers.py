@@ -52,6 +52,7 @@ class UserSerializer(serializers.ModelSerializer):
             # ----------------------------
 
             # Guide Details
+            'guide_tier', 'subscription_end_date',
             'guide_rating', 'experience_years', 'languages', 'specialty', 'tour_itinerary',
             'price_per_day', 'solo_price_per_day', 'multiple_additional_fee_per_head',
             'available_days', 'specific_available_dates',

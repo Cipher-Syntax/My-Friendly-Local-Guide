@@ -7,7 +7,7 @@ class Payment(models.Model):
     PAYMENT_TYPE_CHOICES = [
         ('Booking', 'Booking Payment'),
         ('Fee', 'Service Fee'),
-        ('RegistrationFee', 'Guide Registration Fee'), # <-- NEW CHOICE
+        ('YearlySubscription', 'Yearly Subscription'),
     ]
 
     STATUS_CHOICES = [

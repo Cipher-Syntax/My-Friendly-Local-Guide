@@ -64,16 +64,15 @@ class AccommodationViewSet(viewsets.ModelViewSet):
 
 class AccommodationDropdownListView(generics.ListAPIView):
     """
-    Public/Guide accessible list of ALL approved accommodations.
+    Guide-specific list of THEIR OWN accommodations.
     Used by AddTour.js.
     """
     serializer_class = AccommodationSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # 🔥 UPDATE: Removed .filter(is_approved=True)
-        # Now it returns all accommodations immediately
-        return Accommodation.objects.all().order_by('title')
+        # Return only the accommodations owned by the currently authenticated guide.
+        return Accommodation.objects.filter(host=self.request.user).order_by('title')
 
 
 # -----------------------
@@ -124,14 +123,19 @@ class BookingViewSet(viewsets.ModelViewSet):
     def validate_booking_target(self, instance):
         """Helper method to validate booking targets"""
         target = None
-        if instance.accommodation:
-            target = instance.accommodation.host
-            if not target or not (target.is_local_guide and target.guide_approved):
-                raise ValidationError("Target is not an approved guide/host.")
-        elif instance.guide:
+        if instance.guide:
+            if instance.guide.guide_tier == 'free' and instance.guide.booking_count >= 1:
+                raise ValidationError("This guide is not accepting new bookings. Please upgrade their plan.")
+            
             target = instance.guide
             if not target or not (target.is_local_guide and target.guide_approved):
                 raise ValidationError("Target is not an approved guide.")
+        
+        elif instance.accommodation:
+            target = instance.accommodation.host
+            if not target or not (target.is_local_guide and target.guide_approved):
+                raise ValidationError("Target is not an approved guide/host.")
+
         elif instance.agency:
             target = instance.agency
             if not target or not target.is_staff:
@@ -211,6 +215,11 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
                 {"status": f"Cannot change from '{instance.status}' to '{new_status}'."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        if new_status == 'Accepted':
+            if instance.guide:
+                instance.guide.booking_count += 1
+                instance.guide.save()
 
         instance.status = new_status
         instance.save()

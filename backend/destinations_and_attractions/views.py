@@ -4,6 +4,7 @@ from rest_framework.response import Response #type: ignore
 from rest_framework.parsers import MultiPartParser, FormParser #type: ignore
 from django_filters.rest_framework import DjangoFilterBackend #type: ignore
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 
 from .models import Destination, Attraction, TourPackage, TourStop
 from .serializers import (
@@ -108,11 +109,16 @@ class GuideListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        # Filter: Only active guides who are local guides
+        # Base filter: Only approved, visible, local guides
         queryset = User.objects.filter(
             is_local_guide=True,
-            is_guide_visible=True,  # Only show ACTIVE/ONLINE guides
-            guide_approved=True  # Only approved guides
+            is_guide_visible=True,
+            guide_approved=True
+        )
+
+        # Tier filter: Paid guides OR Free guides with no bookings
+        queryset = queryset.filter(
+            Q(guide_tier='paid') | Q(booking_count=0)
         ).prefetch_related('tours').distinct()
         
         # REQUIRED: Filter by destination - don't return all guides

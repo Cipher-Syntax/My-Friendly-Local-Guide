@@ -47,6 +47,7 @@ class PaymentInitiationSerializer(serializers.Serializer):
         required=False,
         help_text="The ID of the Accepted Booking to be paid."
     )
+    payment_type = serializers.CharField(max_length=50, required=False)
     payment_method = serializers.CharField(max_length=20, default="GCash")
     
     # The frontend is expected to explicitly pass the final amount for registration fees.
@@ -61,8 +62,13 @@ class PaymentInitiationSerializer(serializers.Serializer):
     )
     
     def validate(self, data):
+        # If payment_type is 'YearlySubscription', let the view handle it.
+        if data.get('payment_type') == 'YearlySubscription':
+            self.booking_instance = None
+            return data
+
         booking_id = data.get('booking_id')
-        final_amount = data.get('final_amount') # Use the name defined in the serializer fields
+        final_amount = data.get('final_amount')
 
         # Check the payment type to determine the flow
         if booking_id is not None:
@@ -97,11 +103,12 @@ class PaymentInitiationSerializer(serializers.Serializer):
             self.booking_instance = None
             
             # Set the payment type explicitly based on the business case
-            data['payment_type'] = 'RegistrationFee' # Use the exact choice from payment/models.py
+            # This logic is now mostly legacy, as YearlySubscription is preferred.
+            data['payment_type'] = 'YearlySubscription' 
             
         else:
             raise serializers.ValidationError(
-                "Must provide either a 'booking_id' or 'final_amount' (for registration fee)."
+                "Must provide either a 'booking_id' or 'payment_type'."
             )
             
         return data

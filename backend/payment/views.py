@@ -1,5 +1,6 @@
 import uuid
 from decimal import Decimal
+from datetime import date, timedelta
 from django.conf import settings
 from rest_framework import generics, permissions, status, viewsets #type: ignore
 from rest_framework.response import Response #type: ignore
@@ -30,98 +31,77 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
 class PaymentInitiationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    REGISTRATION_DETAILS = {
-        "base_amount": Decimal("500.00"),
-        "service_fee": Decimal("50.00")
-    }
-    
+    SUBSCRIPTION_PRICE = Decimal("3000.00")  # Yearly subscription price
+
     def post(self, request, *args, **kwargs):
         serializer = PaymentInitiationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         user = request.user
-        booking = getattr(serializer, "booking_instance", None)
-        booking_id = booking.id if booking else None
-        
         payment_type = serializer.validated_data["payment_type"]
+        
         payment_method = serializer.validated_data["payment_method"]
+        
+        description = ""
+        final_amount = Decimal("0.00")
+        method_types = [] # Default to all payment methods
 
-        # ----- Calculate final amount -----
-        if payment_type == "RegistrationFee":
-            base = self.REGISTRATION_DETAILS["base_amount"]
-            fee = self.REGISTRATION_DETAILS["service_fee"]
-            final = base + fee
+        if payment_type == "YearlySubscription":
+            final_amount = self.SUBSCRIPTION_PRICE
+            description = "Guide Yearly Subscription"
+            if payment_method == 'GCash':
+                method_types = ['gcash']
+        elif payment_type == "Booking":
+            booking = getattr(serializer, "booking_instance", None)
+            if not booking:
+                raise ValidationError({"detail": "Booking is required for this payment type."})
+            final_amount = serializer.validated_data["final_amount"]
+            description = f"Booking Payment for Booking #{booking.id}"
+            if payment_method == 'GCash':
+                method_types = ['gcash']
         else:
-            final = serializer.validated_data["final_amount"]
-            fee = Decimal("0.00")
+            raise ValidationError({"detail": "Invalid payment type."})
 
-        if final <= 0:
+        if final_amount <= 0:
             raise ValidationError({"detail": "Invalid payment amount."})
 
-        # Generate UUID for PayMongo API call (as external_id)
         transaction_uuid = str(uuid.uuid4())
 
-        # Prepare billing info
         billing_data = {
             "name": f"{user.first_name} {user.last_name}",
             "email": user.email,
             "phone": getattr(user, "phone_number", "")
         }
 
-        # Description for PayMongo
-        description = (
-            "Guide Registration Fee"
-            if payment_type == "RegistrationFee"
-            else f"Booking Payment for Booking #{booking_id}"
-        )
-
-        # ----- Call PayMongo API -----
         try:
             paymongo_response = create_payment_link(
-                amount=final,
+                amount=final_amount,
                 description=description,
-                external_id=transaction_uuid, # Pass the UUID here
-                billing=billing_data
+                external_id=transaction_uuid,
+                billing=billing_data,
+                method_types=method_types
             )
         except RuntimeError as e:
-            print(f"PAYMONGO CALL FAILED: {str(e)}")
             raise ValidationError({"detail": str(e)})
 
-        # Get the two necessary IDs from PayMongo
         checkout_url = paymongo_response.get("data", {}).get("attributes", {}).get("checkout_url")
-        # FIX: Extract the PayMongo generated 'reference_number' (e.g., X2HAWBL)
         paymongo_ref_id = paymongo_response.get("data", {}).get("attributes", {}).get("reference_number")
         
-        if not checkout_url:
-            print("PAYMONGO RESPONSE MISSING checkout_url", paymongo_response)
-            raise ValidationError({"detail": "No checkout URL returned from PayMongo."})
-            
-        if not paymongo_ref_id:
-             print("PAYMONGO RESPONSE MISSING reference_number", paymongo_response)
-             raise ValidationError({"detail": "No reference number returned from PayMongo."})
+        if not checkout_url or not paymongo_ref_id:
+            raise ValidationError({"detail": "Failed to create payment link."})
 
-        print(f"PayMongo Success - Checkout URL: {checkout_url}")
-
-        # ----- Save Payment -----
-        payment = Payment.objects.create(
+        Payment.objects.create(
             payer=user,
             payment_type=payment_type,
-            related_booking=booking,
-            amount=final,
-            service_fee=fee,
-            payment_method=payment_method,
-            # FIX: Store the short PayMongo reference_number for webhook matching
-            gateway_transaction_id=paymongo_ref_id, 
+            related_booking=getattr(serializer, "booking_instance", None),
+            amount=final_amount,
+            payment_method=serializer.validated_data["payment_method"],
+            gateway_transaction_id=paymongo_ref_id,
             status="pending",
             gateway_response=paymongo_response
         )
 
-        # ----- FINAL RESPONSE TO FRONTEND -----
         return Response({
-            "payment_id": payment.id,
-            # Return the short PayMongo ID to the frontend (used as transaction_id)
-            "transaction_id": paymongo_ref_id, 
-            "amount": str(final.quantize(Decimal('0.01'))), 
             "checkout_url": checkout_url
         }, status=status.HTTP_201_CREATED)
 
@@ -131,17 +111,26 @@ class PaymentWebhookView(APIView):
 
     def post(self, request):
         data = request.data
+        print(f"--- PAYMONGO WEBHOOK RECEIVED ---")
+        print(f"DATA: {data}")
         
         # Access the Link object attributes within the event data
         event_data = data.get("data", {})
-        link_attributes = event_data.get("attributes", {}).get("data", {}).get("attributes", {})
+        attributes = event_data.get("attributes", {})
+        # The actual resource object (like a payment or link) is nested inside 'data'
+        resource = attributes.get("data", {})
+        resource_attributes = resource.get("attributes", {})
         
         # FIX: Extract the reference_number that was saved to the DB
-        external_id = link_attributes.get("reference_number") 
+        # For links, the ref number is in the resource itself.
+        external_id = resource_attributes.get("reference_number") 
         
         # Determine the status based on the Link object status
-        status_check = link_attributes.get("status")
-        paid = (status_check == 'paid')
+        status_check = resource_attributes.get("status")
+        
+        # More robust status check
+        successful_statuses = ['paid', 'succeeded', 'successful']
+        paid = status_check in successful_statuses
 
         if not external_id:
             # If still missing, log the error and return 400
@@ -167,12 +156,12 @@ class PaymentWebhookView(APIView):
             booking.status = "Paid"
             booking.save()
 
-        # Approve guide if registration fee succeeded
-        if payment.payment_type == "RegistrationFee" and payment.status == "succeeded":
+        # Approve guide if yearly subscription succeeded
+        if payment.payment_type == "YearlySubscription" and payment.status == "succeeded":
             user = payment.payer
-            if user.is_local_guide and not user.guide_approved:
-                user.guide_approved = True
-                user.save()
+            user.guide_tier = 'paid'
+            user.subscription_end_date = date.today() + timedelta(days=365)
+            user.save()
 
         return Response({"status": "Webhook processed"}, status=200)
     

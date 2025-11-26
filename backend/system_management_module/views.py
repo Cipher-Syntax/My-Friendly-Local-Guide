@@ -75,24 +75,29 @@ class GuideReviewRequestViewSet(viewsets.ModelViewSet):
     
     @transaction.atomic
     def update(self, request, *args, **kwargs):
+        print("--- ADMIN APPROVAL UPDATE METHOD CALLED ---")
+        print(f"--- REQUEST DATA: {request.data} ---")
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
 
         new_status = serializer.validated_data.get('status')
+        print(f"--- NEW STATUS: {new_status} ---")
         
         # 1. Save the changes
         serializer.save(reviewed_by=request.user)
 
         # 2. Handle Role Logic based on Status
         if new_status == 'Approved':
-            pass # Handled in models.py save()
+            user_to_approve = instance.applicant
+            user_to_approve.guide_approved = True
+            user_to_approve.save(update_fields=['guide_approved'])
             
         elif new_status == 'Rejected':
-            user = instance.applicant
-            user.is_local_guide = False
-            user.guide_approved = False
-            user.save()
+            user_to_reject = instance.applicant
+            user_to_reject.is_local_guide = False
+            user_to_reject.guide_approved = False
+            user_to_reject.save(update_fields=['is_local_guide', 'guide_approved'])
             # Warning Handled in models.py save()
 
         return Response(serializer.data)
