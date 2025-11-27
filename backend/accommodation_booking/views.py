@@ -7,7 +7,7 @@ from datetime import date
 
 from .models import Accommodation, Booking
 from .serializers import AccommodationSerializer, BookingSerializer
-
+from system_management_module.models import SystemAlert
 
 # -----------------------
 #   PERMISSIONS
@@ -120,6 +120,40 @@ class BookingViewSet(viewsets.ModelViewSet):
         # 5. Validate Targets
         self.validate_booking_target(instance)
 
+        # 6. --- 🔥 NEW NOTIFICATION LOGIC START 🔥 ---
+        # This calls the helper function below to create the SystemAlert
+        self.create_booking_alert(instance)
+        # --- 🔥 NEW NOTIFICATION LOGIC END 🔥 ---
+
+    def create_booking_alert(self, booking):
+        """
+        Creates a SystemAlert for the Guide, Agency, or Host.
+        """
+        try:
+            recipient = None
+            if booking.guide:
+                recipient = booking.guide
+            elif booking.agency:
+                recipient = booking.agency
+            elif booking.accommodation:
+                recipient = booking.accommodation.host
+
+            if recipient:
+                tourist_name = f"{booking.tourist.first_name} {booking.tourist.last_name}".strip() or booking.tourist.username
+                
+                SystemAlert.objects.create(
+                    recipient=recipient,
+                    target_type='Guide', # Indicates this is for a service provider
+                    title="New Booking Request", # MUST MATCH the frontend key exactly
+                    message=f"You have a new booking request from {tourist_name} for {booking.check_in}.",
+                    related_object_id=booking.id,
+                    related_model='Booking',
+                    is_read=False
+                )
+                print(f"Alert created for {recipient.username}")
+        except Exception as e:
+            print(f"Error creating booking alert: {e}")
+
     def validate_booking_target(self, instance):
         """Helper method to validate booking targets"""
         target = None
@@ -216,10 +250,34 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # --- UPDATE: SEND ALERT TO TOURIST WHEN GUIDE ACCEPTS ---
         if new_status == 'Accepted':
             if instance.guide:
                 instance.guide.booking_count += 1
                 instance.guide.save()
+            
+            # Create Alert for Tourist
+            SystemAlert.objects.create(
+                recipient=instance.tourist,
+                target_type='Tourist',
+                title="Booking Accepted!",
+                message=f"Your booking with {instance.guide.username if instance.guide else 'your host'} has been accepted!",
+                related_object_id=instance.id,
+                related_model='Booking',
+                is_read=False
+            )
+
+        elif new_status == 'Declined':
+             # Create Alert for Tourist
+            SystemAlert.objects.create(
+                recipient=instance.tourist,
+                target_type='Tourist',
+                title="Booking Declined",
+                message=f"Your booking request was declined.",
+                related_object_id=instance.id,
+                related_model='Booking',
+                is_read=False
+            )
 
         instance.status = new_status
         instance.save()
