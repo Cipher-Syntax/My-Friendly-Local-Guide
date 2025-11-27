@@ -180,3 +180,8 @@ class PaymentStatusView(APIView):
             "amount": str(payment.amount), 
         })
     
+class SubscriptionPriceView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        return Response({"price": PaymentInitiationView.SUBSCRIPTION_PRICE})
