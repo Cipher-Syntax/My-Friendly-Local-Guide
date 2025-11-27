@@ -41,7 +41,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'password', 'confirm_password',
-            'first_name', 'last_name', 'date_joined',
+            'first_name', 'middle_name', 'last_name', 'date_joined',
             'profile_picture', 'bio', 'phone_number', 'location', 'valid_id_image',
             
             'is_tourist', 'is_local_guide', 'guide_approved',

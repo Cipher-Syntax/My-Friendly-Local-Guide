@@ -12,7 +12,7 @@ class UserAdmin(BaseUserAdmin):
 
     list_display = ('username', 'email', 'is_tourist', 'is_local_guide', 'guide_approved', 'is_staff')
     list_filter = ('is_tourist', 'is_local_guide', 'guide_approved', 'is_staff', 'is_superuser')
-    search_fields = ('username', 'email', 'first_name', 'last_name')
+    search_fields = ('username', 'email', 'first_name', 'middle_name', 'last_name')
     ordering = ('username',)
 
     fieldsets = (
@@ -20,7 +20,7 @@ class UserAdmin(BaseUserAdmin):
 
         ('Personal Info', {
             'fields': (
-                'first_name', 'last_name', 'email',
+                'first_name', 'middle_name', 'last_name', 'email',
                 'profile_picture', 'bio', 'phone_number', 'location'
             )
         }),
