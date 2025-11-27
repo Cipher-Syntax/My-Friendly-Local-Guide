@@ -25,15 +25,13 @@ from .models import GuideApplication
 
 User = get_user_model()
 
-# --- User & Authentication Views ---
-
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
 
     def perform_create(self, serializer):
-        user = serializer.save(is_active=False) # user disabled until email is verified
+        user = serializer.save(is_active=False) 
         
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
@@ -178,11 +176,9 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 
         return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
 
-# --- ADMIN LOGIN VIEW (NEW) ---
 class AdminTokenObtainPairView(TokenObtainPairView):
     serializer_class = AdminTokenObtainPairSerializer
 
-# --- Guide-Specific Views (Role Change) ---
 
 class ApplyAsGuideView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -202,7 +198,6 @@ class ApplyAsGuideView(APIView):
             status=status.HTTP_200_OK
         )
 
-# --- Guide-Specific Views (Document Submission) ---
 
 class GuideApplicationSubmissionView(generics.CreateAPIView):
     serializer_class = GuideApplicationSerializer
@@ -256,15 +251,12 @@ class UpdateGuideInfoView(generics.UpdateAPIView):
     def partial_update(self, request, *args, **kwargs):
         data = request.data.copy()
 
-        # 1. Experience Mapping
         if 'experience' in data:
             data['experience_years'] = data.pop('experience')
 
-        # 2. Price Mapping
         if 'price' in data:
             data['price_per_day'] = data.pop('price')
         
-        # 3. Dates Mapping
         if 'specific_dates' in data:
             data['specific_available_dates'] = data.pop('specific_dates')
         
@@ -278,6 +270,5 @@ class UpdateGuideInfoView(generics.UpdateAPIView):
 
         return Response(serializer.data)
 
-# --- AGENCY LOGIN VIEW ---
 class AgencyTokenObtainPairView(TokenObtainPairView):
     serializer_class = AgencyTokenObtainPairSerializer

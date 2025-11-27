@@ -13,7 +13,6 @@ class Accommodation(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     photo = models.ImageField(upload_to="accommodations/")
 
-    # 🔥 ADD THESE ↓↓↓
     accommodation_type = models.CharField(max_length=100, null=True, blank=True)
     room_type = models.CharField(max_length=100, null=True, blank=True)
     amenities = models.JSONField(default=dict, null=True, blank=True)
@@ -24,7 +23,6 @@ class Accommodation(models.Model):
 
     room_image = models.ImageField(upload_to='accommodations/rooms/', null=True, blank=True)
     transport_image = models.ImageField(upload_to='accommodations/transport/', null=True, blank=True)
-    # 🔥 END OF NEW FIELDS
 
     is_approved = models.BooleanField(default=False)
     average_rating = models.DecimalField(max_digits=2, decimal_places=1, default=0.0)
@@ -38,7 +36,6 @@ class Accommodation(models.Model):
 class Booking(models.Model):
     """Represents a booking request or confirmed reservation."""
     
-    # SIMPLIFIED STATUS CHOICES
     STATUS_CHOICE = [
         ('Pending', 'Pending'),
         ('Accepted', 'Accepted'),
@@ -48,7 +45,6 @@ class Booking(models.Model):
         ('Cancelled', 'Cancelled'),
     ]
     
-    # Links to the Tourist
     tourist = models.ForeignKey(
         User, 
         limit_choices_to={'is_tourist': True}, 
@@ -56,7 +52,6 @@ class Booking(models.Model):
         on_delete=models.CASCADE
     )
     
-    # Booking Target (must be EITHER accommodation OR guide)
     accommodation = models.ForeignKey(
         Accommodation, 
         on_delete=models.CASCADE, 
@@ -86,20 +81,16 @@ class Booking(models.Model):
         limit_choices_to={'is_local_guide': True, 'guide_approved': True}
     )
 
-    # Core Details
     check_in = models.DateField()
     check_out = models.DateField()
     num_guests = models.IntegerField(default=1) 
     tourist_valid_id_image = models.ImageField(upload_to='booking_ids/', blank=True, null=True)
     
-    # Financials
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 
 
-    # Status
     status = models.CharField(max_length=50, choices=STATUS_CHOICE, default='Pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # Custom validation ensures only one target is set
     def clean(self):
         targets = [self.accommodation, self.guide, self.agency]
         if sum(x is not None for x in targets) != 1:

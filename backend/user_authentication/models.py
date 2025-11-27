@@ -2,24 +2,20 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
-    # --- Existing Roles ---
     is_tourist = models.BooleanField(default=True)
     is_local_guide = models.BooleanField(default=False)
     guide_approved = models.BooleanField(default=False)
 
-    # --- Freemium Tier ---
     guide_tier = models.CharField(max_length=10, choices=[('free', 'Free'), ('paid', 'Paid')], default='free')
     booking_count = models.IntegerField(default=0)
     subscription_end_date = models.DateField(null=True, blank=True)
 
-    # --- General Profile Details ---
     profile_picture = models.ImageField(upload_to='profiles/', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     location = models.CharField(max_length=255, blank=True, null=True, help_text="e.g., City, Province")
     valid_id_image = models.ImageField(upload_to='user_kyc/', null=True, blank=True)
     
-    # --- Guide Specific Details ---
     guide_rating = models.DecimalField(
         max_digits=2, 
         decimal_places=1, 
@@ -30,13 +26,11 @@ class User(AbstractUser):
     )
     experience_years = models.IntegerField(default=0, blank=True, null=True)
     
-    # --- NEW FIELD: GUIDE ONLINE STATUS ---
     is_guide_visible = models.BooleanField(
         default=False,
         help_text="True = Online (Visible to tourists), False = Offline (Hidden)"
     )
 
-    # --- Availability & Itinerary ---
     available_days = models.JSONField(
         default=list, 
         blank=True, 
@@ -48,10 +42,8 @@ class User(AbstractUser):
         help_text="List of specific dates guide is available, e.g., ['2025-12-25']"
     )
 
-    # tour_itinerary is kept for backward compatibility
     tour_itinerary = models.TextField(blank=True, null=True)
 
-    # --- Pricing Details ---
     price_per_day = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
@@ -75,7 +67,6 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
 
-# --- Guide Application Documents Model ---
 class GuideApplication(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='guide_application')
     tour_guide_certificate = models.FileField(upload_to='guide_docs/certs/', blank=True, null=True)
@@ -89,7 +80,6 @@ class GuideApplication(models.Model):
     def __str__(self):
         return f"Application for {self.user.username}"
 
-# --- Accessory Models ---
 class FeaturedPlace(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='featured_places_user')
     image = models.ImageField(upload_to='featured_places_user/')
