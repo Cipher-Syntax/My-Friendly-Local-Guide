@@ -5,6 +5,7 @@ from .serializers import ReviewSerializer, DestinationReviewSerializer
 from user_authentication.models import User 
 # Import Destination model assuming it's available in the Django project scope
 from destinations_and_attractions.models import Destination
+from system_management_module.models import SystemAlert
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
@@ -30,6 +31,17 @@ class ReviewViewSet(viewsets.ModelViewSet):
         
         # 2. Update the reviewed user's average rating
         self._update_guide_rating(review.reviewed_user)
+
+        # 3. Create a notification for the guide
+        if review.reviewed_user:
+            SystemAlert.objects.create(
+                recipient=review.reviewed_user,
+                target_type='Guide',
+                title='You have a new review!',
+                message=f'A tourist has left a {review.rating}-star review for you.',
+                related_object_id=review.id,
+                related_model='Review'
+            )
 
     def perform_update(self, serializer):
         # Update the review

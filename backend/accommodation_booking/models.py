@@ -1,11 +1,13 @@
 from django.db import models
 from user_authentication.models import User 
+from destinations_and_attractions.models import Destination
 
 # ===============================================
 #          ACCOMMODATION MODEL
 # ===============================================
 class Accommodation(models.Model):
     host = models.ForeignKey(User, on_delete=models.CASCADE, related_name="accommodations")
+    destination = models.ForeignKey(Destination, on_delete=models.SET_NULL, null=True, blank=True, related_name="accommodations")
     
     title = models.CharField(max_length=255)
     description = models.TextField()
@@ -74,6 +76,13 @@ class Booking(models.Model):
         blank=True,
         null=True
     )
+    destination = models.ForeignKey(
+        Destination,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bookings"
+    )
     assigned_guides = models.ManyToManyField(
         User,
         related_name='assigned_bookings',
@@ -90,15 +99,27 @@ class Booking(models.Model):
 
     status = models.CharField(max_length=50, choices=STATUS_CHOICE, default='Pending')
     created_at = models.DateTimeField(auto_now_add=True)
+    review_notification_sent = models.BooleanField(default=False)
 
     def clean(self):
-        targets = [self.accommodation, self.guide, self.agency]
-        if sum(x is not None for x in targets) != 1:
+        is_accommodation = self.accommodation is not None
+        is_guide = self.guide is not None
+        is_agency = self.agency is not None
+
+        if sum([is_accommodation, is_guide, is_agency]) != 1:
             raise models.ValidationError("A booking must be for exactly one of: Accommodation, Guide, or Agency.")
+
+        if (is_guide or is_agency) and self.destination is None:
+            raise models.ValidationError("A destination is required when booking a guide or agency.")
+        
+        if is_accommodation and self.destination is not None:
+            raise models.ValidationError("A destination should not be specified directly for an accommodation booking, as it's linked via the accommodation itself.")
             
     def __str__(self):
         if self.accommodation:
             return f'Accommodation Booking: {self.accommodation.title} ({self.status})'
+        elif self.guide and self.destination:
+            return f'Guide Booking for {self.destination.name} with {self.guide.username} ({self.status})'
         elif self.guide:
             return f'Guide Booking: {self.guide.username} ({self.status})'
         elif self.agency:

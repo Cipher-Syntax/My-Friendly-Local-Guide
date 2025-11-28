@@ -1,10 +1,20 @@
 from rest_framework import serializers #type: ignore
 from .models import Accommodation, Booking
+from destinations_and_attractions.models import Destination
 from django.contrib.auth import get_user_model
 from datetime import date
 import json
 
 User = get_user_model()
+
+# -----------------------
+#  SIMPLE NESTED SERIALIZERS
+# -----------------------
+
+class SimpleDestinationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Destination
+        fields = ['id', 'name']
 
 # -----------------------
 #  ACCOMMODATION SERIALIZER
@@ -14,20 +24,24 @@ class AccommodationSerializer(serializers.ModelSerializer):
     host_id = serializers.PrimaryKeyRelatedField(source='host', read_only=True)
     host_username = serializers.CharField(source='host.username', read_only=True)
     host_full_name = serializers.CharField(source='host.get_full_name', read_only=True)
+    destination_detail = SimpleDestinationSerializer(source='destination', read_only=True)
 
     class Meta:
         model = Accommodation
         fields = [
             'id', 'host_id', 'host_username', 'host_full_name',
             'title', 'description', 'location', 'price', 'photo',
-            # --- NEW FIELDS ---
             'accommodation_type', 'room_type', 'amenities',
             'offer_transportation', 'vehicle_type', 'transport_capacity',
             'transport_image', 'room_image',
-            # ------------------
+            'destination', 'destination_detail',
             'is_approved', 'average_rating', 'created_at'
         ]
-        read_only_fields = ['is_approved', 'average_rating', 'created_at']
+        read_only_fields = ['is_approved', 'average_rating', 'created_at', 'destination_detail']
+        extra_kwargs = {
+            'destination': {'write_only': True, 'required': False}
+        }
+
 
     def create(self, validated_data):
         # Fix for Multipart Form Data:
@@ -53,6 +67,7 @@ class BookingSerializer(serializers.ModelSerializer):
     accommodation_detail = AccommodationSerializer(source='accommodation', read_only=True)
     guide_detail = serializers.SerializerMethodField(read_only=True)
     agency_detail = serializers.SerializerMethodField(read_only=True)
+    destination_detail = SimpleDestinationSerializer(source='destination', read_only=True)
     
     assigned_guides_detail = serializers.SerializerMethodField(read_only=True)
 
@@ -60,13 +75,13 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = [
             'id', 'tourist_id', 'tourist_username',
-            'accommodation', 'guide', 'agency',
-            'accommodation_detail', 'guide_detail', 'agency_detail',
+            'accommodation', 'guide', 'agency', 'destination',
+            'accommodation_detail', 'guide_detail', 'agency_detail', 'destination_detail',
             'assigned_guides', 'assigned_guides_detail',
             'check_in', 'check_out', 'num_guests', 'tourist_valid_id_image', 'total_price',
             'status', 'created_at'
         ]
-        read_only_fields = ['status', 'created_at', 'total_price', 'assigned_guides']
+        read_only_fields = ['status', 'created_at', 'total_price', 'assigned_guides', 'destination_detail']
 
     def get_guide_detail(self, obj):
         if obj.guide:
@@ -98,22 +113,32 @@ class BookingSerializer(serializers.ModelSerializer):
         return guides_data
 
     def validate(self, data):
-        check_in = data.get('check_in')
-        check_out = data.get('check_out')
+        # Using .get() is safer as it won't raise a KeyError if a field isn't present
         accommodation = data.get('accommodation')
         guide = data.get('guide')
         agency = data.get('agency')
+        destination = data.get('destination')
+        check_in = data.get('check_in')
+        check_out = data.get('check_out')
 
-        # Dates
+        # Date validation
         if check_in and check_out and check_out <= check_in:
             raise serializers.ValidationError({"check_out": "Check-out must be after check-in."})
-
         if check_in and check_in < date.today():
             raise serializers.ValidationError({"check_in": "Check-in date cannot be in the past."})
 
-        # Mutually exclusive targets
-        targets = [accommodation, guide, agency]
-        if sum(x is not None for x in targets) != 1:
+        # Target validation
+        is_accommodation = accommodation is not None
+        is_guide = guide is not None
+        is_agency = agency is not None
+
+        if sum([is_accommodation, is_guide, is_agency]) != 1:
             raise serializers.ValidationError("A booking must be for exactly one of: Accommodation, Guide, or Agency.")
+
+        if (is_guide or is_agency) and destination is None:
+            raise serializers.ValidationError({"destination": "A destination is required when booking a guide or agency."})
+        
+        if is_accommodation and destination is not None:
+            raise serializers.ValidationError({"destination": "A destination cannot be specified directly for an accommodation booking."})
 
         return data

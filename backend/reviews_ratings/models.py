@@ -1,47 +1,43 @@
 from django.db import models
 from user_authentication.models import User
-# Assuming your destination app is named 'destination'
 from destinations_and_attractions.models import Destination
+from accommodation_booking.models import Booking
 
 class Review(models.Model):
-    """Represents a review and rating given to another User (typically a Guide)."""
+    """Represents a review and rating given by a tourist to a guide for a specific booking."""
     
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='guide_reviews')
     reviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_given')
+    reviewed_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_received')
     
-    # The user being reviewed (must be an approved guide if business logic is enforced)
-    reviewed_user = models.ForeignKey(User, related_name='reviews_received', on_delete=models.CASCADE)
-    
-    # Rating field: Restricted to 1-5
     rating = models.IntegerField(choices=[(i, str(i)) for i in range(1, 6)]) 
     comment = models.TextField(blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-timestamp']
-        # Prevent one user from reviewing another user multiple times (optional, but common)
-        unique_together = ('reviewer', 'reviewed_user') 
-        verbose_name = "User Review"
+        unique_together = ('booking', 'reviewer')
+        verbose_name = "Guide Review"
 
     def __str__(self):
-        return f"Rating {self.rating} by {self.reviewer.username} for {self.reviewed_user.username}"
+        return f"Guide review for Booking ID {self.booking.id} by {self.reviewer.username}"
 
 
 class DestinationReview(models.Model):
-    """Represents a review and rating given to a specific Destination."""
+    """Represents a review and rating given to a specific Destination for a booking."""
     
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='destination_reviews')
     reviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='destination_reviews_given')
-    destination = models.ForeignKey(Destination, related_name='reviews', on_delete=models.CASCADE)
+    destination = models.ForeignKey(Destination, on_delete=models.CASCADE, related_name='reviews')
     
-    # Rating field: Restricted to 1-5
     rating = models.IntegerField(choices=[(i, str(i)) for i in range(1, 6)])
     comment = models.TextField(blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-timestamp']
-        # Prevent one user from reviewing one destination multiple times
-        unique_together = ('reviewer', 'destination')
+        unique_together = ('booking', 'reviewer')
         verbose_name = "Destination Review"
 
     def __str__(self):
-        return f"Rating {self.rating} for {self.destination.name} by {self.reviewer.username}"
+        return f"Destination review for Booking ID {self.booking.id} by {self.reviewer.username}"
