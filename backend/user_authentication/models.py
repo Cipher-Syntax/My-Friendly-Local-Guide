@@ -6,6 +6,7 @@ class User(AbstractUser):
     is_tourist = models.BooleanField(default=True)
     is_local_guide = models.BooleanField(default=False)
     guide_approved = models.BooleanField(default=False)
+    has_accepted_terms = models.BooleanField(default=False)
 
     guide_tier = models.CharField(max_length=10, choices=[('free', 'Free'), ('paid', 'Paid')], default='free')
     booking_count = models.IntegerField(default=0)

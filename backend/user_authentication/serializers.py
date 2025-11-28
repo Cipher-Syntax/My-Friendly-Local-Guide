@@ -44,7 +44,7 @@ class UserSerializer(serializers.ModelSerializer):
             'first_name', 'middle_name', 'last_name', 'date_joined',
             'profile_picture', 'bio', 'phone_number', 'location', 'valid_id_image',
             
-            'is_tourist', 'is_local_guide', 'guide_approved',
+            'is_tourist', 'is_local_guide', 'guide_approved', 'has_accepted_terms',
             
             'is_guide_visible', 
 

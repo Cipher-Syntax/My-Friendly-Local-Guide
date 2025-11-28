@@ -18,7 +18,8 @@ from .views import (
     UpdateGuideInfoView, 
     ResendVerificationEmailView,
     AdminTokenObtainPairView,
-    AgencyTokenObtainPairView
+    AgencyTokenObtainPairView,
+    AcceptTermsView
 )
 
 
@@ -39,6 +40,7 @@ urlpatterns = [
     # 2. AUTH & USER ENDPOINTS
     path('register/', CreateUserView.as_view(), name='register'),
     path('profile/', UpdateUserView.as_view(), name='profile-update'),
+    path('accept-terms/', AcceptTermsView.as_view(), name='accept-terms'),
     path('admin/users/<int:pk>/', AdminUpdateUserView.as_view(), name='admin-user-update'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password-reset/confirm/<str:uid>/<str:token>/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),

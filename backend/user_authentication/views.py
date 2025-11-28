@@ -272,3 +272,16 @@ class UpdateGuideInfoView(generics.UpdateAPIView):
 
 class AgencyTokenObtainPairView(TokenObtainPairView):
     serializer_class = AgencyTokenObtainPairSerializer
+
+class AcceptTermsView(APIView):
+    """
+    An endpoint for a logged-in user to accept the terms and conditions.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        if not user.has_accepted_terms:
+            user.has_accepted_terms = True
+            user.save(update_fields=['has_accepted_terms'])
+        return Response({"detail": "Terms and conditions accepted successfully."}, status=status.HTTP_200_OK)
