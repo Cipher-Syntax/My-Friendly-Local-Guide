@@ -1,24 +1,30 @@
 import uuid
+import os
 from decimal import Decimal
 from datetime import date, timedelta
 from django.conf import settings
-from rest_framework import generics, permissions, status, viewsets #type: ignore
-from rest_framework.response import Response #type: ignore
-from rest_framework.views import APIView #type: ignore
-from rest_framework.exceptions import ValidationError #type: ignore
+from rest_framework import generics, permissions, status, viewsets
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
+from django.shortcuts import get_object_or_404
 from django.apps import apps 
-# from rest_framework.permissions import AllowAny  #type: ignore
+from requests.exceptions import RequestException
+
+# NEW IMPORTS FOR WEBHOOK
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 
 from .models import Payment
 from .serializers import PaymentSerializer, PaymentInitiationSerializer
-from .paymongo import create_payment_link
 
-# Safely get Booking model reference, required for ForeignKey creation
+# IMPORTS FROM YOUR PAYMONGO FILE
+from .paymongo import create_checkout_session, retrieve_checkout_session
+
 try:
     Booking = apps.get_model('accommodation_booking', 'Booking')
 except LookupError:
     Booking = None 
-
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PaymentSerializer
@@ -27,159 +33,187 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return Payment.objects.filter(payer=self.request.user).order_by("-timestamp")
 
-
 class PaymentInitiationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-
-    SUBSCRIPTION_PRICE = Decimal("3000.00")  # Yearly subscription price
+    SUBSCRIPTION_PRICE = Decimal("3000.00")
 
     def post(self, request, *args, **kwargs):
         serializer = PaymentInitiationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         user = request.user
-        payment_type = serializer.validated_data["payment_type"]
+        payment_type = serializer.validated_data.get("payment_type")
+        raw_method = serializer.validated_data.get("payment_method", "").lower()
         
-        payment_method = serializer.validated_data["payment_method"]
-        
+        # --- 1. CONFIGURATION ---
         description = ""
         final_amount = Decimal("0.00")
-        method_types = [] # Default to all payment methods
 
+        booking_instance = None
         if payment_type == "YearlySubscription":
             final_amount = self.SUBSCRIPTION_PRICE
             description = "Guide Yearly Subscription"
-            if payment_method == 'GCash':
-                method_types = ['gcash']
         elif payment_type == "Booking":
-            booking = getattr(serializer, "booking_instance", None)
-            if not booking:
-                raise ValidationError({"detail": "Booking is required for this payment type."})
+            booking_instance = serializer.booking_instance
+            if not booking_instance:
+                raise ValidationError({"detail": "Booking is required."})
             final_amount = serializer.validated_data["final_amount"]
-            description = f"Booking Payment for Booking #{booking.id}"
-            if payment_method == 'GCash':
-                method_types = ['gcash']
+            description = f"Booking Payment #{booking_instance.id}"
         else:
             raise ValidationError({"detail": "Invalid payment type."})
 
         if final_amount <= 0:
             raise ValidationError({"detail": "Invalid payment amount."})
 
-        transaction_uuid = str(uuid.uuid4())
+        # --- 2. CREATE DB RECORD FIRST (To get the Integer ID) ---
+        payment = Payment.objects.create(
+            payer=user,
+            payment_type=payment_type,
+            related_booking=booking_instance,
+            amount=final_amount,
+            payment_method=raw_method,
+            status="pending",
+        )
 
         billing_data = {
             "name": f"{user.first_name} {user.last_name}",
             "email": user.email,
-            "phone": getattr(user, "phone_number", "")
+            "phone": user.phone_number or ""
         }
-
+        
         try:
-            paymongo_response = create_payment_link(
+            # --- 3. MAP METHOD TO PAYMONGO TYPES ---
+            paymongo_types = []
+            if 'card' in raw_method: paymongo_types = ['card']
+            elif 'maya' in raw_method: paymongo_types = ['paymaya']
+            elif 'grab' in raw_method: paymongo_types = ['grab_pay']
+            elif 'gcash' in raw_method: paymongo_types = ['gcash']
+            elif 'shopee' in raw_method: paymongo_types = ['grab_pay'] 
+            else: paymongo_types = ['gcash'] 
+
+            # Call PayMongo
+            result = create_checkout_session(
                 amount=final_amount,
                 description=description,
-                external_id=transaction_uuid,
                 billing=billing_data,
-                method_types=method_types
+                payment_method_types=paymongo_types
             )
+                
+            checkout_url = result['checkout_url']
+            transaction_id = result['transaction_id'] 
+
+            # Update DB with the PayMongo ID
+            payment.gateway_transaction_id = transaction_id
+            payment.save()
+
+            if not checkout_url:
+                raise ValidationError({"detail": "Failed to generate redirect URL."})
+
+            # --- 4. RETURN THE INTERNAL DB ID (FIXES 404) ---
+            return Response({
+                "checkout_url": checkout_url, 
+                "payment_id": payment.id  # Returning Integer ID
+            }, status=status.HTTP_201_CREATED)
+
         except RuntimeError as e:
+            payment.status = 'failed'
+            payment.save()
             raise ValidationError({"detail": str(e)})
 
-        checkout_url = paymongo_response.get("data", {}).get("attributes", {}).get("checkout_url")
-        paymongo_ref_id = paymongo_response.get("data", {}).get("attributes", {}).get("reference_number")
-        
-        if not checkout_url or not paymongo_ref_id:
-            raise ValidationError({"detail": "Failed to create payment link."})
 
-        Payment.objects.create(
-            payer=user,
-            payment_type=payment_type,
-            related_booking=getattr(serializer, "booking_instance", None),
-            amount=final_amount,
-            payment_method=serializer.validated_data["payment_method"],
-            gateway_transaction_id=paymongo_ref_id,
-            status="pending",
-            gateway_response=paymongo_response
-        )
-
-        return Response({
-            "checkout_url": checkout_url
-        }, status=status.HTTP_201_CREATED)
-
-
+@method_decorator(csrf_exempt, name='dispatch')
 class PaymentWebhookView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         data = request.data
-        print(f"--- PAYMONGO WEBHOOK RECEIVED ---")
-        print(f"DATA: {data}")
-        
-        # Access the Link object attributes within the event data
-        event_data = data.get("data", {})
-        attributes = event_data.get("attributes", {})
-        # The actual resource object (like a payment or link) is nested inside 'data'
-        resource = attributes.get("data", {})
-        resource_attributes = resource.get("attributes", {})
-        
-        # FIX: Extract the reference_number that was saved to the DB
-        # For links, the ref number is in the resource itself.
-        external_id = resource_attributes.get("reference_number") 
-        
-        # Determine the status based on the Link object status
-        status_check = resource_attributes.get("status")
-        
-        # More robust status check
-        successful_statuses = ['paid', 'succeeded', 'successful']
-        paid = status_check in successful_statuses
+        event_type = data.get("data", {}).get("attributes", {}).get("type")
+        if not event_type: event_type = data.get("type")
 
-        if not external_id:
-            # If still missing, log the error and return 400
-            print("WEBHOOK ERROR: Missing external_id (reference_number) in payload:", data)
-            return Response({"detail": "Missing external_id"}, status=400) 
+        transaction_id = None
+        if 'checkout_session' in event_type:
+             transaction_id = data.get("data", {}).get("attributes", {}).get("data", {}).get("id")
+             if not transaction_id: transaction_id = data.get("data", {}).get("id")
+
+        if not transaction_id:
+             return Response({"detail": "Could not identify transaction ID"}, status=400)
 
         try:
-            # Match the PayMongo reference_number to your gateway_transaction_id
-            payment = Payment.objects.get(gateway_transaction_id=external_id)
+            payment = Payment.objects.get(gateway_transaction_id=transaction_id)
         except Payment.DoesNotExist:
-            # This is what generates the 404 Not Found response
-            print(f"WEBHOOK ERROR: Payment not found for ID: {external_id}")
             return Response({"detail": "Payment not found"}, status=404)
 
-        # Update payment record
-        payment.status = "succeeded" if paid else "failed"
-        payment.gateway_response = data
-        payment.save()
-
-        # Update booking if applicable
-        if payment.related_booking and payment.status == "succeeded":
-            booking = payment.related_booking
-            booking.status = "Paid"
-            booking.save()
-
-        # Approve guide if yearly subscription succeeded
-        if payment.payment_type == "YearlySubscription" and payment.status == "succeeded":
-            user = payment.payer
-            user.guide_tier = 'paid'
-            user.subscription_end_date = date.today() + timedelta(days=365)
-            user.save()
+        if 'paid' in event_type or 'succeeded' in event_type:
+            self._handle_success(payment, data)
+        elif 'failed' in event_type:
+            payment.status = "failed"
+            payment.save()
 
         return Response({"status": "Webhook processed"}, status=200)
-    
+
+    def _handle_success(self, payment, data):
+        """Helper to handle success logic so we don't duplicate code"""
+        if payment.status != 'succeeded':
+            payment.status = "succeeded"
+            payment.gateway_response = data
+            payment.save()
+
+            if payment.related_booking:
+                payment.related_booking.status = "Paid"
+                payment.related_booking.save()
+
+            if payment.payment_type == "YearlySubscription":
+                user = payment.payer
+                user.guide_tier = 'paid'
+                user.subscription_end_date = date.today() + timedelta(days=365)
+                user.save()
+
+
 class PaymentStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, payment_id):
-        try:
-            payment = Payment.objects.get(id=payment_id, payer=request.user)
-        except Payment.DoesNotExist:
-            return Response({"detail": "Payment not found."}, status=404)
-        
+        # 1. Look up by Integer ID (Standard)
+        payment = get_object_or_404(Payment, id=payment_id, payer=request.user)
+
+        # 2. ACTIVE POLLING (Fixes Pending Loop on Localhost)
+        if payment.status == 'pending' and payment.gateway_transaction_id:
+            # Ask PayMongo for status using the function from paymongo.py
+            pm_data = retrieve_checkout_session(payment.gateway_transaction_id)
+            
+            if pm_data:
+                attributes = pm_data.get('data', {}).get('attributes', {})
+                checkout_status = attributes.get('payment_status') # 'paid', 'unpaid'
+                
+                # Check main status or individual payments
+                is_paid = (checkout_status == 'paid')
+                if not is_paid:
+                    payments_list = attributes.get('payments', [])
+                    if payments_list and payments_list[0]['attributes']['status'] == 'paid':
+                        is_paid = True
+
+                if is_paid:
+                    # REUSE SUCCESS LOGIC
+                    payment.status = "succeeded"
+                    payment.gateway_response = pm_data
+                    payment.save()
+
+                    if payment.related_booking:
+                        payment.related_booking.status = "Paid"
+                        payment.related_booking.save()
+
+                    if payment.payment_type == "YearlySubscription":
+                        user = payment.payer
+                        user.guide_tier = 'paid'
+                        user.subscription_end_date = date.today() + timedelta(days=365)
+                        user.save()
+
         return Response({
             "status": payment.status,
             "payment_type": payment.payment_type,
             "amount": str(payment.amount), 
         })
-    
+
 class SubscriptionPriceView(APIView):
     permission_classes = [permissions.AllowAny]
 

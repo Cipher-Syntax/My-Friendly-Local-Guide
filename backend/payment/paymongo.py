@@ -3,66 +3,82 @@ from django.conf import settings
 from decimal import Decimal
 from requests.exceptions import RequestException
 
-PAYMONGO_API_URL = settings.PAYMONGO_API_URL
+# Ensure these are in your settings.py
+PAYMONGO_API_URL = "https://api.paymongo.com/v1"
 PAYMONGO_SECRET_KEY = settings.PAYMONGO_SECRET_KEY 
 
-def create_payment_link(amount: Decimal, description: str, external_id: str, billing: dict, method_types: list = None):
+def create_checkout_session(amount: Decimal, description: str, billing: dict, payment_method_types: list):
     """
-    Creates a PayMongo payment link using the API, utilizing Basic Auth.
+    Creates a PayMongo Checkout Session.
     """
-
     if not PAYMONGO_SECRET_KEY:
-        raise RuntimeError("PayMongo Secret Key is not configured in Django settings.")
+        raise RuntimeError("PayMongo Secret Key is not configured.")
 
-    # PayMongo requires the amount to be an integer in centavos.
+    auth_tuple = (PAYMONGO_SECRET_KEY, "")
+    headers = {"Content-Type": "application/json"}
     amount_in_centavos = int(amount.quantize(Decimal('0.01')) * 100)
-    
-    attributes = {
-        "amount": amount_in_centavos,
-        "description": description,
-        "external_id": external_id,
-        "currency": "PHP",
-        "send_email_receipt": True,
-        "show_description": True,
-        "billing": {
-            "email": billing.get("email"),
-            "name": billing.get("name"),
-            "phone": billing.get("phone")
+
+    payload = {
+        "data": {
+            "attributes": {
+                "billing": billing,
+                "line_items": [
+                    {
+                        "currency": "PHP",
+                        "amount": amount_in_centavos,
+                        "description": description,
+                        "name": "Localynk Payment",
+                        "quantity": 1
+                    }
+                ],
+                "payment_method_types": payment_method_types, 
+                "description": description,
+                "send_email_receipt": True,
+                "show_description": True,
+                "show_line_items": True,
+            }
         }
-    }
-
-    if method_types:
-        attributes["payment_method_types"] = method_types
-
-    payload = {"data": {"attributes": attributes}}
-
-    # --- CRITICAL FIX: PayMongo uses Basic Auth with SECRET_KEY as username and empty password ---
-    auth_tuple = (PAYMONGO_SECRET_KEY, "") 
-    
-    headers = {
-        "Content-Type": "application/json",
     }
 
     try:
         response = requests.post(
-            PAYMONGO_API_URL,
-            headers=headers,
-            json=payload,
-            auth=auth_tuple  # <--- CORRECT BASIC AUTH
+            f"{PAYMONGO_API_URL}/checkout_sessions",
+            json=payload, headers=headers, auth=auth_tuple
         )
-        response_data = response.json()
         
         if not response.ok:
-            # Handle PayMongo's error format
-            error_msg = "Unknown PayMongo Error"
-            if "errors" in response_data:
-                error_msg = response_data["errors"][0].get("detail", error_msg)
-            
-            # This raises the error that PaymentInitiationView catches
-            raise RuntimeError(f"PayMongo API error: {response.status_code} {error_msg}")
+            data = response.json()
+            detail = data.get('errors', [{}])[0].get('detail', 'Unknown Error')
+            raise RuntimeError(f"Checkout Session Error: {detail}")
 
-        return response_data
-        
+        data = response.json()
+        return {
+            "checkout_url": data['data']['attributes']['checkout_url'],
+            "transaction_id": data['data']['id']
+        }
+
     except RequestException as e:
-        # Catch connection errors
-        raise RuntimeError(f"Network Error: Failed to connect to PayMongo API: {e}")
+        raise RuntimeError(f"Network Error: {e}")
+
+
+def retrieve_checkout_session(checkout_session_id):
+    """
+    Fetches the current status of a Checkout Session from PayMongo directly.
+    Used for manual polling when Webhooks are not available (localhost).
+    """
+    if not PAYMONGO_SECRET_KEY:
+        raise RuntimeError("PayMongo Secret Key is not configured.")
+
+    auth_tuple = (PAYMONGO_SECRET_KEY, "")
+    headers = {"Content-Type": "application/json"}
+
+    try:
+        url = f"{PAYMONGO_API_URL}/checkout_sessions/{checkout_session_id}"
+        response = requests.get(url, headers=headers, auth=auth_tuple)
+        
+        if not response.ok:
+            return None
+            
+        return response.json()
+    except RequestException:
+        return None
