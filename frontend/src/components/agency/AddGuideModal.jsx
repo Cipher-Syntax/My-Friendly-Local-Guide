@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Check, Award } from 'lucide-react'; // Added Award for potential future use or consistency
+import { X } from 'lucide-react';
 
 export default function AddGuideModal({
     isAddGuideModalOpen,
@@ -20,7 +20,7 @@ export default function AddGuideModal({
                 <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
                     <div>
                         <h3 className="text-xl font-bold text-white">Add New Tour Guide</h3>
-                        <p className="text-slate-400 text-sm mt-1">Fill in the guide information</p>
+                        <p className="text-slate-400 text-sm mt-1">Fill in the guide's professional details</p>
                     </div>
                     <button
                         onClick={closeAddGuideModal}
@@ -40,7 +40,7 @@ export default function AddGuideModal({
                                 type="text"
                                 value={newGuideForm.fullName}
                                 onChange={(e) => setNewGuideForm(prev => ({ ...prev, fullName: e.target.value }))}
-                                placeholder="Enter full name"
+                                placeholder="e.g. Juan Dela Cruz"
                                 className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors text-base"
                             />
                         </div>
@@ -52,7 +52,7 @@ export default function AddGuideModal({
                                 type="text"
                                 value={newGuideForm.specialty}
                                 onChange={(e) => setNewGuideForm(prev => ({ ...prev, specialty: e.target.value }))}
-                                placeholder="e.g., Historical Tours, Art & Culture"
+                                placeholder="e.g. Historical Tours, Hiking, Food Crawl"
                                 className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors text-base"
                             />
                         </div>
@@ -66,7 +66,7 @@ export default function AddGuideModal({
                                     value={newGuideForm.languageSearchTerm}
                                     onChange={(e) => setNewGuideForm(prev => ({ ...prev, languageSearchTerm: e.target.value, showLanguageDropdown: true }))}
                                     onFocus={() => setNewGuideForm(prev => ({ ...prev, showLanguageDropdown: true }))}
-                                    placeholder="Search and select languages..."
+                                    placeholder="Type to search languages..."
                                     className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors text-base"
                                 />
                                 {newGuideForm.showLanguageDropdown && filteredLanguages.length > 0 && (
@@ -76,7 +76,7 @@ export default function AddGuideModal({
                                                 key={idx}
                                                 onClick={() => {
                                                     handleAddLanguage(lang);
-                                                    setNewGuideForm(prev => ({ ...prev, showLanguageDropdown: false }));
+                                                    setNewGuideForm(prev => ({ ...prev, showLanguageDropdown: false, languageSearchTerm: '' }));
                                                 }}
                                                 className="w-full text-left px-4 py-2 hover:bg-cyan-500/20 text-white transition-colors hover:text-cyan-400 text-sm"
                                             >
@@ -87,47 +87,25 @@ export default function AddGuideModal({
                                 )}
                             </div>
                             <div className="flex flex-wrap gap-2">
-                                {newGuideForm.languages.length > 0 ? (
-                                    newGuideForm.languages.map((lang, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="flex items-center gap-2 px-3 py-2 bg-cyan-500/20 border border-cyan-500/50 rounded-full text-cyan-400 text-sm font-medium"
-                                        >
-                                            {lang}
-                                            <button
-                                                onClick={() => handleRemoveLanguage(lang)}
-                                                className="hover:text-cyan-300 transition-colors ml-1"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <span className="text-slate-500 text-sm">No languages selected</span>
-                                )}
+                                {newGuideForm.languages.map((lang, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-cyan-500/20 border border-cyan-500/50 rounded-full text-cyan-400 text-sm font-medium">
+                                        {lang}
+                                        <button onClick={() => handleRemoveLanguage(lang)} className="hover:text-cyan-300">
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
                         {/* Phone Number */}
                         <div>
-                            <label className="block text-white text-base font-semibold mb-3">Phone Number</label>
+                            <label className="block text-white text-base font-semibold mb-3">Contact Number</label>
                             <input
                                 type="tel"
                                 value={newGuideForm.phone}
                                 onChange={(e) => setNewGuideForm(prev => ({ ...prev, phone: e.target.value }))}
-                                placeholder="e.g., +33 6 12 34 56 78"
-                                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors text-base"
-                            />
-                        </div>
-
-                        {/* Email */}
-                        <div>
-                            <label className="block text-white text-base font-semibold mb-3">Email</label>
-                            <input
-                                type="email"
-                                value={newGuideForm.email}
-                                onChange={(e) => setNewGuideForm(prev => ({ ...prev, email: e.target.value }))}
-                                placeholder="e.g., guide@example.com"
+                                placeholder="e.g. 0912 345 6789"
                                 className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors text-base"
                             />
                         </div>
@@ -144,7 +122,7 @@ export default function AddGuideModal({
                     </button>
                     <button
                         onClick={handleSubmitNewGuide}
-                        disabled={!newGuideForm.fullName || !newGuideForm.specialty || newGuideForm.languages.length === 0 || !newGuideForm.phone || !newGuideForm.email}
+                        disabled={!newGuideForm.fullName || !newGuideForm.specialty || newGuideForm.languages.length === 0 || !newGuideForm.phone}
                         className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
                     >
                         Add Guide

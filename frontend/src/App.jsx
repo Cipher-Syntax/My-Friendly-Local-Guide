@@ -41,7 +41,6 @@ const App = () => {
                 {/* <Route path='/agency-dashboard' element={<AgencyDashboard />} /> */}
                 <Route path='/agency' element={<AgencyLayout />} />
                 
-                {/* ADMIN ROUTES - Component-based structure */}
                 <Route path='/' element={<LandingPage />} />
                 <Route path='/admin' element={
                     <ProtectedRoute>
@@ -53,7 +52,7 @@ const App = () => {
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="agency" element={<AgencyManagement />} />
                     <Route path="guides" element={<TourGuidesManagement />} />
-                    <Route path="users" element={<UserManagement />} />
+                    {/* <Route path="users" element={<UserManagement />} /> */}
                     <Route path="content" element={<ContentManagement />} />
                     {/* <Route path="accommodation" element={<AccommodationManagement />} /> */}
                     <Route path="reports" element={<ReportsAndAnalysis />} />

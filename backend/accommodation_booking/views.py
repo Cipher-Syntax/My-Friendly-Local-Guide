@@ -36,23 +36,17 @@ class IsHostOrReadOnly(permissions.BasePermission):
 class AccommodationViewSet(viewsets.ModelViewSet):
     serializer_class = AccommodationSerializer
     permission_classes = [IsHostOrReadOnly]
-    # MultiPartParser is needed to handle image uploads + JSON fields together
     parser_classes = (MultiPartParser, FormParser) 
 
     def get_queryset(self):
         qs = Accommodation.objects.all().select_related('host')
         if not self.request.user.is_staff:
-            # For the general API, we might want to see public approved ones
-            # But if the guide is managing them, they need to see their own unapproved ones
             if self.action in ['list', 'retrieve']:
-                 # Logic: Show mine (approved or not) OR show others (only approved)
-                 # For simplicity here: Hosts see only their own in this dashboard view
                  qs = qs.filter(host=self.request.user)
         return qs.order_by('-created_at')
 
     def perform_create(self, serializer):
         user = self.request.user
-        # 🔥 UPDATE: Set is_approved=True to skip admin approval
         serializer.save(host=user, is_approved=True)
 
     def perform_update(self, serializer):
@@ -63,15 +57,10 @@ class AccommodationViewSet(viewsets.ModelViewSet):
 
 
 class AccommodationDropdownListView(generics.ListAPIView):
-    """
-    Guide-specific list of THEIR OWN accommodations.
-    Used by AddTour.js.
-    """
     serializer_class = AccommodationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Return only the accommodations owned by the currently authenticated guide.
         return Accommodation.objects.filter(host=self.request.user).order_by('title')
 
 
@@ -82,53 +71,53 @@ class AccommodationDropdownListView(generics.ListAPIView):
 class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
-    # 🔥 ADDED: MultiPartParser to handle Image Uploads in Bookings
     parser_classes = (MultiPartParser, FormParser)
 
     def get_queryset(self):
         user = self.request.user
-        return Booking.objects.filter(
+        qs = Booking.objects.select_related('tourist', 'accommodation', 'guide', 'agency')
+        
+        # 🔥 FIX: Allow filtering by role to prevent "Tourist" bookings appearing in "Guide" dashboard
+        view_as = self.request.query_params.get('view_as')
+
+        if view_as == 'guide':
+            # Show bookings where I am the Provider (Guide, Host, Agency, or Assigned Guide)
+            return qs.filter(
+                Q(accommodation__host=user) |
+                Q(guide=user) |
+                Q(agency=user) |
+                Q(assigned_guides=user) 
+            ).distinct().order_by('-created_at')
+            
+        elif view_as == 'tourist':
+             # Show bookings where I am the Tourist
+             return qs.filter(tourist=user).order_by('-created_at')
+
+        # Default (Mixed View)
+        return qs.filter(
             Q(tourist=user) |
             Q(accommodation__host=user) |
             Q(guide=user) |
-            Q(agency=user)
-        ).select_related('tourist', 'accommodation', 'guide', 'agency').order_by('-created_at')
+            Q(agency=user) |
+            Q(assigned_guides=user)
+        ).distinct().order_by('-created_at')
 
     def perform_create(self, serializer):
         user = self.request.user
         
-        # --- 🔥 KYC LOGIC START 🔥 ---
-        # 1. Check if an image is being uploaded with this booking
         uploaded_id_image = self.request.data.get('tourist_valid_id_image')
-
-        # 2. If the User profile doesn't have a Valid ID yet, save this one permanently
-        # (Assumes your User model has 'valid_id_image' field)
         if uploaded_id_image and not user.valid_id_image:
             user.valid_id_image = uploaded_id_image
             user.save() 
-            # This ensures next time they book, user.valid_id_image is already there.
-        # --- 🔥 KYC LOGIC END 🔥 ---
 
-        # 3. Create the booking
         instance = serializer.save(tourist=user, status='Pending')
-
-        # 4. Calculate Price
         instance.total_price = self.calculate_booking_price(instance)
         instance.save()
-
-        # 5. Validate Targets
+        
         self.validate_booking_target(instance)
-
-        # 6. --- 🔥 NEW NOTIFICATION LOGIC START 🔥 ---
-        # This calls the helper function below to create the SystemAlert
         self.create_booking_alert(instance)
-        # --- 🔥 NEW NOTIFICATION LOGIC END 🔥 ---
 
     def create_booking_alert(self, booking):
-        """
-        Creates a SystemAlert for the Guide, Agency, or Host.
-        """
         try:
             recipient = None
             if booking.guide:
@@ -143,24 +132,21 @@ class BookingViewSet(viewsets.ModelViewSet):
                 
                 SystemAlert.objects.create(
                     recipient=recipient,
-                    target_type='Guide', # Indicates this is for a service provider
-                    title="New Booking Request", # MUST MATCH the frontend key exactly
+                    target_type='Guide',
+                    title="New Booking Request",
                     message=f"You have a new booking request from {tourist_name} for {booking.check_in}.",
                     related_object_id=booking.id,
                     related_model='Booking',
                     is_read=False
                 )
-                print(f"Alert created for {recipient.username}")
         except Exception as e:
             print(f"Error creating booking alert: {e}")
 
     def validate_booking_target(self, instance):
-        """Helper method to validate booking targets"""
         target = None
         if instance.guide:
             if instance.guide.guide_tier == 'free' and instance.guide.booking_count >= 1:
                 raise ValidationError("This guide is not accepting new bookings. Please upgrade their plan.")
-            
             target = instance.guide
             if not target or not (target.is_local_guide and target.guide_approved):
                 raise ValidationError("Target is not an approved guide.")
@@ -192,18 +178,14 @@ class BookingViewSet(viewsets.ModelViewSet):
     def calculate_booking_price(self, instance):
         if not instance.check_in or not instance.check_out:
             return 0
-
         days = (instance.check_out - instance.check_in).days + 1
 
         if instance.accommodation:
             return instance.accommodation.price * days
-
         if instance.guide:
             return instance.guide.price_per_day * days
-        
         if instance.agency:
             return 1000 * days
-
         return 0
 
 
@@ -219,11 +201,13 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
     def get_object(self):
         booking = super().get_object()
         user = self.request.user
-
+        
+        # Check if user is the provider OR in the assigned guides
         is_owner = (
             booking.guide == user or
             (booking.accommodation and booking.accommodation.host == user) or
-            booking.agency == user
+            booking.agency == user or
+            booking.assigned_guides.filter(id=user.id).exists()
         )
 
         if not is_owner:
@@ -250,34 +234,10 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # --- UPDATE: SEND ALERT TO TOURIST WHEN GUIDE ACCEPTS ---
         if new_status == 'Accepted':
             if instance.guide:
                 instance.guide.booking_count += 1
                 instance.guide.save()
-            
-            # Create Alert for Tourist
-            SystemAlert.objects.create(
-                recipient=instance.tourist,
-                target_type='Tourist',
-                title="Booking Accepted!",
-                message=f"Your booking with {instance.guide.username if instance.guide else 'your host'} has been accepted!",
-                related_object_id=instance.id,
-                related_model='Booking',
-                is_read=False
-            )
-
-        elif new_status == 'Declined':
-             # Create Alert for Tourist
-            SystemAlert.objects.create(
-                recipient=instance.tourist,
-                target_type='Tourist',
-                title="Booking Declined",
-                message=f"Your booking request was declined.",
-                related_object_id=instance.id,
-                related_model='Booking',
-                is_read=False
-            )
 
         instance.status = new_status
         instance.save()
@@ -296,10 +256,10 @@ class AssignGuidesView(generics.UpdateAPIView):
         if booking.agency != user:
             raise PermissionDenied("You are not the agency for this booking.")
 
-        guide_ids = request.data.get('guide_ids', [])
+        agency_guide_ids = request.data.get('agency_guide_ids', [])
         
-        booking.assigned_guides.clear()
-        for guide_id in guide_ids:
-            booking.assigned_guides.add(guide_id)
+        booking.assigned_agency_guides.clear()
+        for guide_id in agency_guide_ids:
+            booking.assigned_agency_guides.add(guide_id)
 
         return Response(self.get_serializer(booking).data)

@@ -1,6 +1,6 @@
 from rest_framework import serializers #type: ignore
 from django.contrib.auth import get_user_model
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer #type: ignore
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  #type: ignore
 from .models import FeaturedPlace, AccommodationImage, GuideApplication
 
 User = get_user_model()
@@ -15,10 +15,18 @@ class AccommodationImageSerializer(serializers.ModelSerializer):
         model = AccommodationImage
         fields = ['id', 'image']
 
+# 1. Define this BEFORE UserSerializer
 class GuideApplicationSerializer(serializers.ModelSerializer):
+    # These fields will return the full URL string (e.g., "/media/guide_docs/...")
+    tour_guide_certificate = serializers.FileField(use_url=True)
+    proof_of_residency = serializers.FileField(use_url=True)
+    valid_id = serializers.FileField(use_url=True)
+    nbi_clearance = serializers.FileField(use_url=True)
+
     class Meta:
         model = GuideApplication
         fields = ['tour_guide_certificate', 'proof_of_residency', 'valid_id', 'nbi_clearance']
+    
     def validate(self, data):
         required_fields = ['tour_guide_certificate', 'proof_of_residency', 'valid_id', 'nbi_clearance']
         for field in required_fields:
@@ -34,6 +42,10 @@ class UserSerializer(serializers.ModelSerializer):
     
     featured_places = FeaturedPlaceSerializer(many=True, read_only=True)
     accommodation_images = AccommodationImageSerializer(many=True, read_only=True)
+    
+    # 2. VITAL: Explicitly nest the serializer to get URLs, not just IDs
+    guide_application = GuideApplicationSerializer(read_only=True)
+    
     has_pending_application = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
 
@@ -45,7 +57,6 @@ class UserSerializer(serializers.ModelSerializer):
             'profile_picture', 'bio', 'phone_number', 'location', 'valid_id_image',
             
             'is_tourist', 'is_local_guide', 'guide_approved', 'has_accepted_terms',
-            
             'is_guide_visible', 
 
             'guide_tier', 'subscription_end_date',
@@ -54,6 +65,10 @@ class UserSerializer(serializers.ModelSerializer):
             'available_days', 'specific_available_dates',
 
             'featured_places', 'accommodation_images',
+            
+            # 3. Add 'guide_application' here
+            'guide_application', 
+            
             'has_pending_application', 'full_name',
         ]
         read_only_fields = ('guide_approved', 'date_joined', 'guide_rating')
@@ -67,6 +82,7 @@ class UserSerializer(serializers.ModelSerializer):
     def get_full_name(self, obj):
         return obj.get_full_name()
 
+    # ... (Keep your existing validation and create/update methods below)
     def validate_username(self, value):
         queryset = User.objects.filter(username=value)
         if self.instance:
@@ -109,6 +125,7 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
+# ... (Include the rest of your serializers: ForgotPassword, TokenObtain, etc.)
 class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
     def validate_email(self, value):

@@ -1,332 +1,586 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Image as ImageIcon, Eye, Trash2, AlertTriangle } from 'lucide-react';
-import { spotsAndAttractions as initialSpotsAndAttractions, getStatusColor } from '../../data/adminData';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, Image as ImageIcon, Eye, Trash2, AlertTriangle, MapPin, Star, XCircle, Plus, Filter, Landmark } from 'lucide-react';
+import api from '../../api/api'; 
+
+const CATEGORY_CHOICES = ['Cultural', 'Historical', 'Adventure', 'Nature'];
 
 export default function ContentManagement() {
-	const [spotsAndAttractions, setSpotsAndAttractions] = useState(initialSpotsAndAttractions);
-	const [searchTerm, setSearchTerm] = useState('');
-	const [editingSpot, setEditingSpot] = useState(null);
-	const [isEditSpotModalOpen, setIsEditSpotModalOpen] = useState(false);
-	const [isViewImagesModalOpen, setIsViewImagesModalOpen] = useState(false);
-	const [viewingSpotImages, setViewingSpotImages] = useState(null);
-	const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, itemType: null, itemName: '' });
+    // Data States
+    const [destinations, setDestinations] = useState([]);
+    const [loading, setLoading] = useState(true);
+    
+    // Filter States
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('All');
 
-	const filteredSpotsAndAttractions = useMemo(() =>
-		spotsAndAttractions.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())),
-		[spotsAndAttractions, searchTerm]
-	);
+    // --- MODAL STATES ---
+    const [editingSpot, setEditingSpot] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    
+    // Add Attraction Modal State
+    const [isAttractionModalOpen, setIsAttractionModalOpen] = useState(false);
+    const [targetDestId, setTargetDestId] = useState(null);
+    const [newAttraction, setNewAttraction] = useState({
+        name: '', description: '', photo: null
+    });
 
-	const editAccommodation = (accommodation) => { // Renamed from editAccommodation to editSpot for clarity
-		setEditingSpot({ ...accommodation });
-		setIsEditSpotModalOpen(true);
-	};
+    // Create Destination Form State
+    const [newSpot, setNewSpot] = useState({
+        name: '', description: '', category: 'Cultural', location: '', rating: 0, is_featured: false
+    });
 
-	const saveAccommodationChanges = () => { // Renamed from saveAccommodationChanges to saveSpotChanges for clarity
-		setSpotsAndAttractions(spotsAndAttractions.map(s => 
-			s.id === editingSpot.id ? editingSpot : s
-		));
-		setIsEditSpotModalOpen(false);
-		setEditingSpot(null);
-	};
+    const [isViewImagesModalOpen, setIsViewImagesModalOpen] = useState(false);
+    const [viewingSpotImages, setViewingSpotImages] = useState(null); 
+    const [viewingSpotName, setViewingSpotName] = useState('');
 
-	const deleteAccommodation = (accommodationId, name) => { // Renamed from deleteAccommodation to deleteSpot for clarity
-		setDeleteConfirmation({ isOpen: true, itemId: accommodationId, itemType: 'spot', itemName: name });
-	};
+    const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, itemName: '' });
 
-	const confirmDelete = () => {
-		if (deleteConfirmation.itemType === 'spot') {
-			setSpotsAndAttractions(spotsAndAttractions.filter(s => s.id !== deleteConfirmation.itemId));
-		}
-		setDeleteConfirmation({ isOpen: false, itemId: null, itemType: null, itemName: '' });
-	};
+    // --- 1. FETCH DATA ---
+    const fetchDestinations = async () => {
+        try {
+            setLoading(true);
+            const response = await api.get('api/destinations/');
+            
+            const mappedData = response.data.map(item => ({
+                id: item.id,
+                name: item.name, 
+                description: item.description,
+                category: item.category,
+                location: item.location,
+                rating: item.average_rating,
+                featured: item.is_featured,
+                
+                // Map Images
+                imageList: item.images ? item.images.map(img => img.image) : [],
+                imagesCount: item.images ? item.images.length : 0,
 
-	const toggleFeatured = (spotId) => { // Renamed from accommodationId to spotId for clarity
-		setSpotsAndAttractions(spotsAndAttractions.map(s => 
-			s.id === spotId ? { ...s, featured: !s.featured } : s
-		));
-	};
+                // 🔥 UPDATE: Store the full attractions array so we can list them in Edit
+                attractions: item.attractions || [],
+                attractionsCount: item.attractions ? item.attractions.length : 0
+            }));
 
-	const viewSpotImages = (spot) => {
-		setViewingSpotImages(spot);
-		setIsViewImagesModalOpen(true);
-	};
+            setDestinations(mappedData);
+        } catch (error) {
+            console.error("Failed to fetch destinations:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-	return (
-		<div className="space-y-4">
-			<div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
-				<div className="relative">
-					<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-					<input
-						type="text"
-						placeholder="Search spots and attractions..."
-						value={searchTerm}
-						onChange={(e) => setSearchTerm(e.target.value)}
-						className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
-					/>
-				</div>
-			</div>
+    useEffect(() => {
+        fetchDestinations();
+    }, []);
 
-			<div className="space-y-3">
-				{filteredSpotsAndAttractions.map(spot => (
-					<div key={spot.id} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
-						<div className="flex items-start justify-between mb-4">
-							<div className="flex-1">
-								<div className="flex items-center gap-2 mb-2">
-									<h3 className="text-white font-semibold text-lg">{spot.name}</h3>
-									{spot.featured && (
-										<span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs font-medium rounded-full">
-											★ Featured
-										</span>
-									)}
-								</div>
-								<p className="text-slate-400 text-sm">Posted by: {spot.postedBy} ({spot.type})</p>
-								<p className="text-slate-400 text-sm">Category: {spot.category}</p>
-								<p className="text-slate-400 text-sm">{spot.description}</p>
-							</div>
-							<div className="flex flex-col items-end gap-2">
-								<span className={`px-3 py-1 rounded-full text-xs font-medium border ${
-									getStatusColor(spot.status)
-								}`}>
-									{spot.status}
-								</span>
-								<div className="flex items-center gap-1 text-amber-400">
-									<span>★</span>
-									<span className="text-white font-semibold">{spot.rating}</span>
-								</div>
-							</div>
-						</div>
+    // --- 2. ACTIONS ---
 
-						<div className="grid grid-cols-2 gap-3 mb-4 text-sm">
-							<div className="bg-slate-900/50 rounded-lg p-3">
-								<p className="text-slate-400">Images</p>
-								<p className="text-white font-medium">{spot.images} uploaded</p>
-							</div>
-							<div className="bg-slate-900/50 rounded-lg p-3">
-								<p className="text-slate-400">Type</p>
-								<p className="text-white font-medium">{spot.type}</p>
-							</div>
-						</div>
+    const handleCreate = async () => {
+        try {
+            const payload = {
+                name: newSpot.name,
+                description: newSpot.description,
+                category: newSpot.category,
+                location: newSpot.location,
+                average_rating: newSpot.rating,
+                is_featured: newSpot.is_featured
+            };
 
-						<div className="flex gap-2">
-							<button
-								onClick={() => viewSpotImages(spot)}
-								className="flex-1 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg transition-colors flex items-center justify-center gap-2"
-							>
-								<ImageIcon className="w-4 h-4" />
-								Images ({spot.images})
-							</button>
-							<button
-								onClick={() => editAccommodation(spot)}
-								className="flex-1 px-4 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg transition-colors flex items-center justify-center gap-2"
-							>
-								<Eye className="w-4 h-4" />
-								Edit
-							</button>
-							<button
-								onClick={() => toggleFeatured(spot.id)}
-								className={`flex-1 px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 ${
-									spot.featured
-										? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-400'
-										: 'bg-slate-700/50 hover:bg-slate-700 text-slate-300'
-								}`}
-							>
-								{spot.featured ? '★ Featured' : '☆ Feature'}
-							</button>
-							<button
-								onClick={() => deleteAccommodation(spot.id, spot.name)}
-								className="flex-1 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors flex items-center justify-center gap-2"
-							>
-								<Trash2 className="w-4 h-4" />
-								Delete
-							</button>
-						</div>
-					</div>
-				))}
-			</div>
+            const response = await api.post('api/destinations/', payload);
+            
+            const createdItem = {
+                id: response.data.id,
+                ...payload,
+                imageList: [],
+                imagesCount: 0,
+                attractions: [], // Empty initially
+                attractionsCount: 0
+            };
+            
+            setDestinations([createdItem, ...destinations]);
+            setIsCreateModalOpen(false);
+            setNewSpot({ name: '', description: '', category: 'Cultural', location: '', rating: 0, is_featured: false });
+        } catch (error) {
+            console.error("Failed to create:", error);
+            alert("Failed to create destination.");
+        }
+    };
 
-			{/* Edit Spot Modal */}
-			{isEditSpotModalOpen && editingSpot && (
-				<div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-					<div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-						<div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between sticky top-0 bg-slate-800">
-							<h3 className="text-xl font-bold text-white">Edit Spot & Attraction</h3>
-							<button
-								onClick={() => setIsEditSpotModalOpen(false)}
-								className="text-slate-400 hover:text-white"
-							>
-								<X className="w-6 h-6" />
-							</button>
-						</div>
+    const handleCreateAttraction = async () => {
+        if (!targetDestId || !newAttraction.name || !newAttraction.photo) {
+            alert("Please provide a name and an image.");
+            return;
+        }
 
-						<div className="px-6 py-6 space-y-4">
-							<div>
-								<label className="block text-white text-sm font-medium mb-2">Spot / Attraction Name</label>
-								<input
-									type="text"
-									value={editingSpot.name}
-									onChange={(e) => setEditingSpot({ ...editingSpot, name: e.target.value })}
-									className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
-								/>
-							</div>
+        try {
+            const formData = new FormData();
+            formData.append('destination', targetDestId);
+            formData.append('name', newAttraction.name);
+            formData.append('description', newAttraction.description);
+            formData.append('photo', newAttraction.photo);
 
-							<div>
-								<label className="block text-white text-sm font-medium mb-2">Description</label>
-								<textarea
-									value={editingSpot.description}
-									onChange={(e) => setEditingSpot({ ...editingSpot, description: e.target.value })}
-									rows="4"
-									className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
-								/>
-							</div>
+            // POST to attractions endpoint
+            const response = await api.post('api/attractions/', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
 
-							<div className="grid grid-cols-2 gap-4">
-								<div>
-									<label className="block text-white text-sm font-medium mb-2">Category</label>
-									<input
-										type="text"
-										value={editingSpot.category}
-										onChange={(e) => setEditingSpot({ ...editingSpot, category: e.target.value })}
-										className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
-									/>
-								</div>
-								<div>
-									<label className="block text-white text-sm font-medium mb-2">Rating</label>
-									<input
-										type="number"
-										step="0.1"
-										min="0"
-										max="5"
-										value={editingSpot.rating}
-										onChange={(e) => setEditingSpot({ ...editingSpot, rating: parseFloat(e.target.value) })}
-										className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
-									/>
-								</div>
-							</div>
+            const createdAttraction = response.data;
 
-							<div className="grid grid-cols-2 gap-4">
-								<div>
-									<label className="block text-white text-sm font-medium mb-2">Status</label>
-									<select
-										value={editingSpot.status}
-										onChange={(e) => setEditingSpot({ ...editingSpot, status: e.target.value })}
-										className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-cyan-500/50"
-									>
-										<option value="draft">Draft</option>
-										<option value="published">Published</option>
-									</select>
-								</div>
-								<div>
-									<label className="block text-white text-sm font-medium mb-2">Number of Images</label>
-									<input
-										type="number"
-										value={editingSpot.images}
-										onChange={(e) => setEditingSpot({ ...editingSpot, images: parseInt(e.target.value) })}
-										min="0"
-										className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
-									/>
-								</div>
-							</div>
+            alert("Attraction added successfully!");
+            
+            // Update local state to show new count and add to list immediately
+            setDestinations(prev => prev.map(s => {
+                if (s.id === targetDestId) {
+                    return {
+                        ...s,
+                        attractions: [...s.attractions, createdAttraction],
+                        attractionsCount: s.attractionsCount + 1
+                    };
+                }
+                return s;
+            }));
 
-							<div className="bg-slate-900/30 border border-slate-700/30 rounded-lg p-4">
-								<p className="text-slate-400 text-sm">Posted by: <span className="text-white font-medium">{editingSpot.postedBy}</span></p>
-								<p className="text-slate-400 text-sm">Type: <span className="text-white font-medium">{editingSpot.type}</span></p>
-							</div>
-						</div>
+            setIsAttractionModalOpen(false);
+            setNewAttraction({ name: '', description: '', photo: null });
+        } catch (error) {
+            console.error("Failed to add attraction:", error);
+            alert("Failed to add attraction.");
+        }
+    };
 
-						<div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3 sticky bottom-0 bg-slate-800">
-							<button
-								onClick={() => setIsEditSpotModalOpen(false)}
-								className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-							>
-								Cancel
-							</button>
-							<button
-								onClick={saveAccommodationChanges}
-								className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
-							>
-								Save Changes
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
+    const openAddAttractionModal = (destinationId) => {
+        setTargetDestId(destinationId);
+        setIsAttractionModalOpen(true);
+    };
 
-			{/* View Spot Images Modal */}
-			{isViewImagesModalOpen && viewingSpotImages && (
-				<div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-					<div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full">
-						<div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
-							<h3 className="text-xl font-bold text-white">{viewingSpotImages.name} - Images</h3>
-							<button
-								onClick={() => setIsViewImagesModalOpen(false)}
-								className="text-slate-400 hover:text-white"
-							>
-								<X className="w-6 h-6" />
-							</button>
-						</div>
+    const handleUpdate = async () => {
+        if (!editingSpot) return;
+        try {
+            const payload = {
+                name: editingSpot.name,
+                description: editingSpot.description,
+                category: editingSpot.category,
+                location: editingSpot.location,
+                average_rating: editingSpot.rating,
+                is_featured: editingSpot.featured
+            };
+            await api.patch(`api/destinations/${editingSpot.id}/`, payload);
+            setDestinations(prev => prev.map(s => s.id === editingSpot.id ? { ...s, ...editingSpot } : s));
+            setIsEditModalOpen(false);
+            setEditingSpot(null);
+        } catch (error) {
+            console.error("Failed to save changes:", error);
+        }
+    };
 
-						<div className="px-6 py-6">
-							<p className="text-slate-400 mb-4 text-sm">Total Images: {viewingSpotImages.images}</p>
-							<div className="grid grid-cols-3 gap-4">
-								{Array.from({ length: viewingSpotImages.images }).map((_, idx) => (
-									<div
-										key={idx}
-										className="aspect-square bg-slate-900/50 border border-slate-700/50 rounded-lg flex items-center justify-center hover:bg-slate-900 transition-colors cursor-pointer"
-									>
-										<ImageIcon className="w-8 h-8 text-slate-600" />
-									</div>
-								))}
-							</div>
-						</div>
+    // 🔥 NEW: Delete individual attraction from Edit Modal
+    const handleDeleteAttraction = async (attractionId) => {
+        if (!window.confirm("Are you sure you want to delete this attraction?")) return;
 
-						<div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
-							<button
-								onClick={() => setIsViewImagesModalOpen(false)}
-								className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-							>
-								Close
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
+        try {
+            await api.delete(`api/attractions/${attractionId}/`);
+            
+            // Update local state (editingSpot AND destinations list)
+            const updatedAttractions = editingSpot.attractions.filter(a => a.id !== attractionId);
+            
+            setEditingSpot(prev => ({ 
+                ...prev, 
+                attractions: updatedAttractions 
+            }));
+            
+            setDestinations(prev => prev.map(s => 
+                s.id === editingSpot.id 
+                ? { ...s, attractions: updatedAttractions, attractionsCount: updatedAttractions.length } 
+                : s
+            ));
 
-			{/* Delete Confirmation Modal */}
-			{deleteConfirmation.isOpen && (
-				<div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-					<div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full">
-						<div className="px-6 py-4 border-b border-slate-700/50">
-							<div className="flex items-center gap-3">
-								<div className="p-2 bg-red-500/20 rounded-lg">
-									<AlertTriangle className="w-6 h-6 text-red-400" />
-								</div>
-								<h3 className="text-lg font-bold text-white">Delete Confirmation</h3>
-							</div>
-						</div>
+        } catch (error) {
+            console.error("Failed to delete attraction:", error);
+            alert("Failed to delete attraction.");
+        }
+    };
 
-						<div className="px-6 py-6">
-							<p className="text-slate-400 mb-2">Are you sure you want to delete this item?</p>
-							<p className="text-white font-semibold text-lg">"{deleteConfirmation.itemName}"</p>
-							<p className="text-slate-400 text-sm mt-3">This action cannot be undone.</p>
-						</div>
+    const confirmDelete = async () => {
+        if (deleteConfirmation.itemId) {
+            try {
+                await api.delete(`api/destinations/${deleteConfirmation.itemId}/`);
+                setDestinations(prev => prev.filter(s => s.id !== deleteConfirmation.itemId));
+            } catch (error) {
+                console.error("Failed to delete:", error);
+            }
+        }
+        setDeleteConfirmation({ isOpen: false, itemId: null, itemName: '' });
+    };
 
-						<div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
-							<button
-								onClick={() => setDeleteConfirmation({ isOpen: false, itemId: null, itemType: null, itemName: '' })}
-								className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-							>
-								Cancel
-							</button>
-							<button
-								onClick={confirmDelete}
-								className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-							>
-								Delete
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
-		</div>
-	);
+    const toggleFeatured = async (spot) => {
+        try {
+            const newFeaturedStatus = !spot.featured;
+            setDestinations(prev => prev.map(s => s.id === spot.id ? { ...s, featured: newFeaturedStatus } : s));
+            await api.patch(`api/destinations/${spot.id}/`, { is_featured: newFeaturedStatus });
+        } catch (error) {
+            console.error("Failed to toggle feature:", error);
+            setDestinations(prev => prev.map(s => s.id === spot.id ? { ...s, featured: !spot.featured } : s));
+        }
+    };
+
+    const viewSpotImages = (spot) => {
+        setViewingSpotImages(spot.imageList);
+        setViewingSpotName(spot.name);
+        setIsViewImagesModalOpen(true);
+    };
+
+    const filteredDestinations = useMemo(() => {
+        return destinations.filter(spot => {
+            const matchesSearch = spot.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                  spot.location.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesCategory = selectedCategory === 'All' || spot.category === selectedCategory;
+            return matchesSearch && matchesCategory;
+        });
+    }, [destinations, searchTerm, selectedCategory]);
+
+    return (
+        <div className="space-y-6">
+            
+            {/* --- HEADER --- */}
+            <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
+                <div className="flex gap-2 w-full md:w-auto flex-1">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Search destinations..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
+                        />
+                    </div>
+                    <div className="relative min-w-[150px]">
+                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                            <Filter className="w-4 h-4 text-slate-400" />
+                        </div>
+                        <select
+                            value={selectedCategory}
+                            onChange={(e) => setSelectedCategory(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white appearance-none focus:outline-none focus:border-cyan-500/50 cursor-pointer"
+                        >
+                            <option value="All">All Types</option>
+                            {CATEGORY_CHOICES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="w-full md:w-auto px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 font-medium"
+                >
+                    <Plus className="w-5 h-5" />
+                    Add Destination
+                </button>
+            </div>
+
+            {/* --- LIST CONTENT --- */}
+            <div className="space-y-4">
+                {filteredDestinations.map(spot => (
+                    <div key={spot.id} className={`bg-slate-800/50 backdrop-blur-sm border rounded-xl p-6 transition-all ${spot.featured ? 'border-amber-500/30 bg-slate-800/80 shadow-lg shadow-amber-900/10' : 'border-slate-700/50'}`}>
+                        <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <h3 className="text-white font-bold text-xl">{spot.name}</h3>
+                                    <span className="px-2.5 py-0.5 bg-cyan-500/10 text-cyan-400 text-xs font-semibold rounded-full border border-cyan-500/20 uppercase tracking-wide">
+                                        {spot.category}
+                                    </span>
+                                    {spot.featured && (
+                                        <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-400 text-xs font-semibold rounded-full border border-amber-500/20 flex items-center gap-1">
+                                            <Star className="w-3 h-3 fill-current" /> Featured
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
+                                    <MapPin className="w-4 h-4 text-slate-500" />
+                                    {spot.location}
+                                </div>
+                                <p className="text-slate-300 text-sm mt-2 line-clamp-2 leading-relaxed">{spot.description}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                                <div className="flex items-center gap-1.5 text-amber-400 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">
+                                    <Star className="w-4 h-4 fill-current" />
+                                    <span className="text-white font-bold">{spot.rating}</span>
+                                </div>
+                                <span className="text-xs text-slate-500">
+                                    {spot.attractionsCount} Attraction{spot.attractionsCount !== 1 ? 's' : ''}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* --- ACTION BUTTONS --- */}
+                        <div className="flex gap-3 pt-4 border-t border-slate-700/50">
+                            <button
+                                onClick={() => openAddAttractionModal(spot.id)}
+                                className="flex-1 px-4 py-2.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                            >
+                                <Landmark className="w-4 h-4" />
+                                Add Attraction
+                            </button>
+
+                            <button
+                                onClick={() => viewSpotImages(spot)}
+                                className="flex-1 px-4 py-2.5 bg-slate-700/50 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                            >
+                                <ImageIcon className="w-4 h-4" />
+                                Gallery
+                            </button>
+                            
+                            <button
+                                onClick={() => toggleFeatured(spot)}
+                                className={`flex-1 px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border ${
+                                    spot.featured
+                                        ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                        : 'bg-slate-700/50 hover:bg-slate-700 text-slate-400 border-transparent'
+                                }`}
+                            >
+                                <Star className={`w-4 h-4 ${spot.featured ? 'fill-current' : ''}`} />
+                                {spot.featured ? 'Unfeature' : 'Feature'}
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setEditingSpot({ ...spot });
+                                    setIsEditModalOpen(true);
+                                }}
+                                className="flex-1 px-4 py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                            >
+                                <Eye className="w-4 h-4" />
+                                Edit
+                            </button>
+                            <button
+                                onClick={() => setDeleteConfirmation({ isOpen: true, itemId: spot.id, itemName: spot.name })}
+                                className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-colors flex items-center justify-center"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* --- CREATE DESTINATION MODAL --- */}
+            {isCreateModalOpen && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between sticky top-0 bg-slate-800 z-10">
+                            <h3 className="text-xl font-bold text-white">Add New Destination</h3>
+                            <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-white">
+                                <XCircle className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="px-6 py-6 space-y-4">
+                            <div>
+                                <label className="block text-white text-sm font-medium mb-2">Name</label>
+                                <input type="text" value={newSpot.name} onChange={(e) => setNewSpot({...newSpot, name: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-white text-sm font-medium mb-2">Category</label>
+                                    <select value={newSpot.category} onChange={(e) => setNewSpot({...newSpot, category: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white">
+                                        {CATEGORY_CHOICES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-white text-sm font-medium mb-2">Location</label>
+                                    <input type="text" value={newSpot.location} onChange={(e) => setNewSpot({...newSpot, location: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-white text-sm font-medium mb-2">Description</label>
+                                <textarea rows="4" value={newSpot.description} onChange={(e) => setNewSpot({...newSpot, description: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
+                            </div>
+                            <div className="flex items-center gap-3 p-4 bg-slate-900/30 rounded-lg border border-slate-700/30">
+                                <input type="checkbox" checked={newSpot.is_featured} onChange={(e) => setNewSpot({...newSpot, is_featured: e.target.checked})} className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-offset-slate-900" />
+                                <label className="text-white font-medium">Feature this destination?</label>
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
+                            <button onClick={() => setIsCreateModalOpen(false)} className="px-6 py-2 text-slate-400 hover:text-white">Cancel</button>
+                            <button onClick={handleCreate} className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg">Create Destination</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- ADD ATTRACTION MODAL --- */}
+            {isAttractionModalOpen && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                        <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between sticky top-0 bg-slate-800 z-10">
+                            <h3 className="text-xl font-bold text-white">Add Attraction</h3>
+                            <button onClick={() => setIsAttractionModalOpen(false)} className="text-slate-400 hover:text-white">
+                                <XCircle className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="px-6 py-6 space-y-4">
+                            <div>
+                                <label className="block text-white text-sm font-medium mb-2">Attraction Name</label>
+                                <input 
+                                    type="text" 
+                                    value={newAttraction.name} 
+                                    onChange={(e) => setNewAttraction({...newAttraction, name: e.target.value})} 
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-white text-sm font-medium mb-2">Description</label>
+                                <textarea 
+                                    rows="3" 
+                                    value={newAttraction.description} 
+                                    onChange={(e) => setNewAttraction({...newAttraction, description: e.target.value})} 
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-white text-sm font-medium mb-2">Main Photo</label>
+                                <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-cyan-500 transition-colors">
+                                    <input 
+                                        type="file" 
+                                        accept="image/*"
+                                        onChange={(e) => setNewAttraction({...newAttraction, photo: e.target.files[0]})} 
+                                        className="hidden" 
+                                        id="attraction-photo-upload"
+                                    />
+                                    <label htmlFor="attraction-photo-upload" className="cursor-pointer flex flex-col items-center">
+                                        <ImageIcon className="w-8 h-8 text-slate-400 mb-2" />
+                                        <span className="text-sm text-slate-300">
+                                            {newAttraction.photo ? newAttraction.photo.name : "Click to upload image"}
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
+                            <button onClick={() => setIsAttractionModalOpen(false)} className="px-6 py-2 text-slate-400 hover:text-white">Cancel</button>
+                            <button onClick={handleCreateAttraction} className="px-6 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg">Add Attraction</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- EDIT DESTINATION MODAL WITH ATTRACTIONS LIST --- */}
+            {isEditModalOpen && editingSpot && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between sticky top-0 bg-slate-800 z-10">
+                            <h3 className="text-xl font-bold text-white">Edit Destination</h3>
+                            <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-white"><XCircle className="w-6 h-6" /></button>
+                        </div>
+                        <div className="px-6 py-6 space-y-4">
+                            <div>
+                                <label className="block text-white text-sm font-medium mb-2">Name</label>
+                                <input type="text" value={editingSpot.name} onChange={(e) => setEditingSpot({...editingSpot, name: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-white text-sm font-medium mb-2">Category</label>
+                                    <select value={editingSpot.category} onChange={(e) => setEditingSpot({...editingSpot, category: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white">
+                                        {CATEGORY_CHOICES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-white text-sm font-medium mb-2">Location</label>
+                                    <input type="text" value={editingSpot.location} onChange={(e) => setEditingSpot({...editingSpot, location: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-white text-sm font-medium mb-2">Description</label>
+                                <textarea rows="4" value={editingSpot.description} onChange={(e) => setEditingSpot({...editingSpot, description: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
+                            </div>
+
+                            {/* 🔥 EXISTING ATTRACTIONS LIST 🔥 */}
+                            <div className="mt-6 border-t border-slate-700/50 pt-4">
+                                <h4 className="text-white text-sm font-medium mb-3 flex items-center gap-2">
+                                    <Landmark className="w-4 h-4 text-purple-400" />
+                                    Existing Attractions
+                                </h4>
+                                <div className="space-y-3 max-h-48 overflow-y-auto custom-scrollbar">
+                                    {editingSpot.attractions && editingSpot.attractions.length > 0 ? (
+                                        editingSpot.attractions.map(attr => (
+                                            <div key={attr.id} className="flex items-center justify-between p-3 bg-slate-900/30 border border-slate-700/50 rounded-lg hover:border-slate-600 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    {attr.image ? (
+                                                        // Handle mixed content URL
+                                                        <img 
+                                                            src={attr.image.startsWith('http') ? attr.image : `http://127.0.0.1:8000${attr.image}`} 
+                                                            alt={attr.name} 
+                                                            className="w-10 h-10 rounded object-cover border border-slate-700" 
+                                                        />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded bg-slate-800 flex items-center justify-center">
+                                                            <ImageIcon className="w-5 h-5 text-slate-600" />
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <p className="text-slate-200 text-sm font-medium">{attr.name}</p>
+                                                        <p className="text-slate-500 text-xs truncate w-32">{attr.description}</p>
+                                                    </div>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleDeleteAttraction(attr.id)}
+                                                    className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                    title="Delete Attraction"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-slate-500 text-sm text-center py-4 bg-slate-900/20 rounded-lg border border-dashed border-slate-700">
+                                            No attractions added yet.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
+                            <button onClick={() => setIsEditModalOpen(false)} className="px-6 py-2 text-slate-400 hover:text-white">Cancel</button>
+                            <button onClick={handleUpdate} className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- DELETE CONFIRMATION MODAL --- */}
+            {deleteConfirmation.isOpen && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-red-500/20 rounded-lg"><AlertTriangle className="w-6 h-6 text-red-400" /></div>
+                            <h3 className="text-lg font-bold text-white">Delete Confirmation</h3>
+                        </div>
+                        <p className="text-slate-400 mb-6">Are you sure you want to delete <strong>{deleteConfirmation.itemName}</strong>? This action cannot be undone.</p>
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setDeleteConfirmation({ isOpen: false, itemId: null, itemName: '' })} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg">Cancel</button>
+                            <button onClick={confirmDelete} className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- IMAGE GALLERY MODAL --- */}
+            {isViewImagesModalOpen && viewingSpotImages && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-3xl w-full">
+                        <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                            <h3 className="text-xl font-bold text-white">{viewingSpotName} Gallery</h3>
+                            <button onClick={() => setIsViewImagesModalOpen(false)}><XCircle className="w-6 h-6 text-slate-400 hover:text-white" /></button>
+                        </div>
+                        <div className="p-6 grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {viewingSpotImages.length === 0 ? <p className="text-slate-400 col-span-3 text-center">No images.</p> : 
+                                viewingSpotImages.map((imgUrl, idx) => (
+                                    <div key={idx} className="aspect-video rounded-lg overflow-hidden border border-slate-700">
+                                        <img src={imgUrl.startsWith('http') ? imgUrl : `http://127.0.0.1:8000${imgUrl}`} alt="Gallery" className="w-full h-full object-cover" />
+                                    </div>
+                                ))
+                            }
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }

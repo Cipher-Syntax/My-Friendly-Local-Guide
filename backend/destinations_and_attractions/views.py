@@ -34,6 +34,9 @@ class DestinationViewSet(viewsets.ModelViewSet):
     queryset = Destination.objects.all().prefetch_related('images', 'attractions')
     permission_classes = [IsAdminOrReadOnly]
 
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['is_featured', 'category']
+
     def get_serializer_class(self):
         if self.action == 'list':
             return DestinationListSerializer

@@ -35,16 +35,31 @@ class DestinationSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description', 'category', 'location', 
             'latitude', 'longitude', 'average_rating', 
-            'images', 'attractions'
+            'images', 'attractions',
         ]
+
+# ... inside destinations_and_attractions/serializers.py
+
+# In destinations_and_attractions/serializers.py
 
 class DestinationListSerializer(serializers.ModelSerializer):
     """Lean view for the Home Screen Slider / Dropdown"""
     image = serializers.SerializerMethodField()
+    
+    # 🔥 ADD THESE LINES: To show gallery and attraction counts in the list
+    images = DestinationImageSerializer(many=True, read_only=True)
+    attractions = AttractionSerializer(many=True, read_only=True)
 
     class Meta:
         model = Destination
-        fields = ['id', 'name', 'location', 'description', 'category', 'average_rating', 'image']
+        # 🔥 UPDATE FIELDS: Add 'is_featured', 'images', and 'attractions'
+        fields = [
+            'id', 'name', 'location', 'description', 'category', 
+            'average_rating', 'image', 
+            'images',       # Needed for gallery count
+            'attractions',  # Needed for attraction count
+            'is_featured'   # Needed for the star icon to stay lit
+        ]
 
     def get_image(self, obj):
         first_img = obj.images.first()
@@ -53,8 +68,6 @@ class DestinationListSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(first_img.image.url)
         return None
-
-# --- Tour Package Serializers ---
 
 class TourStopSerializer(serializers.ModelSerializer):
     """Serializes the featured stops within a specific tour package"""

@@ -8,7 +8,7 @@ const menuItems = [
     { id: 'dashboard', icon: BarChart3, label: 'Dashboard', path: '/admin' },
     { id: 'agency', icon: Map, label: 'Agency', path: '/admin/agency' },
     { id: 'guides', icon: Users, label: 'Tour Guides', path: '/admin/guides' },
-    { id: 'users', icon: User, label: 'User Management', path: '/admin/users' },
+    // { id: 'users', icon: User, label: 'User Management', path: '/admin/users' },
     { id: 'content', icon: Home, label: 'Content Management', path: '/admin/content' },
     { id: 'reports', icon: AlertCircle, label: 'Report & Analysis', path: '/admin/reports' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/admin/settings' },

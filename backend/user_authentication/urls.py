@@ -50,7 +50,7 @@ urlpatterns = [
     path('guide/apply/documents/', GuideApplicationSubmissionView.as_view(), name='apply-as-guide-documents'), 
     path('guides/', ApprovedLocalGuideListView.as_view(), name='approved-guide-list'),
     path('guides/<int:pk>/', GuideDetailView.as_view(), name='guide-detail'),
-    path('agencies/', AgencyListView.as_view(), name='agency-list'),
+    # path('agencies/', AgencyListView.as_view(), name='agency-list'),
 
     path('guide/update-info/', UpdateGuideInfoView.as_view(), name='update-guide-info'),
     

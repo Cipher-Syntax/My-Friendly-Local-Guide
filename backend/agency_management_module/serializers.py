@@ -1,30 +1,23 @@
-# app/serializers.py
-
 from rest_framework import serializers #type: ignore
 from .models import Agency, TouristGuide
 
-
 class AgencySerializer(serializers.ModelSerializer):
+    # 🔥 FIX: Get profile picture from the linked User account
+    profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
+
     class Meta:
         model = Agency
-        fields = ['id', 'business_name', 'owner_name', 'email', 'phome', 'phone', 'business_license', 'is_approved', 'created_at']
+        # Add 'profile_picture' to fields
+        fields = ['id','user', 'business_name', 'owner_name', 'email', 'phone', 'business_license', 'is_approved', 'created_at', 'profile_picture']
         read_only_fields = ("is_approved", "created_at")
-
-
-class AgencyApprovalSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Agency
-        fields = ("is_approved",)
-
 
 class TouristGuideSerializer(serializers.ModelSerializer):
     class Meta:
         model = TouristGuide
         fields = "__all__"
-        read_only_fields = ("is_active", "created_at")
+        read_only_fields = ("agency", "is_active", "created_at") # Agency is set automatically in view
 
-    def validate(self, data):
-        agency = data["agency"]
-        if not agency.is_approved:
-            raise serializers.ValidationError("Agency not approved.")
-        return data
+class AgencyApprovalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Agency
+        fields = ("is_approved",)
