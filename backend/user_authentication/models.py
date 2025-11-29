@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
-    middle_name = models.CharField(max_length=255)
+    middle_name = models.CharField(max_length=255, blank=True, null=True)
     is_tourist = models.BooleanField(default=True)
     is_local_guide = models.BooleanField(default=False)
     guide_approved = models.BooleanField(default=False)
