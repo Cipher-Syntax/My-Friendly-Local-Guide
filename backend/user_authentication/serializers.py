@@ -71,6 +71,7 @@ class UserSerializer(serializers.ModelSerializer):
             
             'has_pending_application', 'full_name',
         ]
+        # FIX: 'guide_rating' is strictly read-only. It is updated solely by Review calculations.
         read_only_fields = ('guide_approved', 'date_joined', 'guide_rating')
 
     def get_has_pending_application(self, obj):

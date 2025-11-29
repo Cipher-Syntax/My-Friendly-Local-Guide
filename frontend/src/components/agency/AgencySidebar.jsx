@@ -23,7 +23,6 @@ export default function AgencySidebar({ activeTab, setActiveTab }) {
     }, []);
 
     const handleSignOut = () => {
-        // Clear everything
         localStorage.clear(); 
         navigate('/agency-signin');
     };
@@ -35,7 +34,7 @@ export default function AgencySidebar({ activeTab, setActiveTab }) {
     ];
 
     return (
-        <aside className="w-64 bg-slate-800/50 backdrop-blur-sm border-r border-slate-700/50 flex flex-col h-screen">
+        <aside className="w-70 bg-slate-800/50 backdrop-blur-sm border-r border-slate-700/50 flex flex-col h-screen">
             <div className="p-6 border-b border-slate-700/50">
                 <h1 className="text-xl font-bold text-white">Agency Portal</h1>
                 <p className="text-slate-400 text-sm mt-1">Management System</p>

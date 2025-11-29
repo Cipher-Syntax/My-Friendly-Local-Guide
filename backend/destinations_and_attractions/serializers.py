@@ -32,34 +32,32 @@ class DestinationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Destination
+        # FIX: Added 'is_featured' here so the PATCH request can actually save it
         fields = [
             'id', 'name', 'description', 'category', 'location', 
             'latitude', 'longitude', 'average_rating', 
-            'images', 'attractions',
+            'images', 'attractions', 'is_featured'
         ]
-
-# ... inside destinations_and_attractions/serializers.py
-
-# In destinations_and_attractions/serializers.py
+        # FIX: Ensure rating is read-only so it's only updated by calculation
+        read_only_fields = ['average_rating']
 
 class DestinationListSerializer(serializers.ModelSerializer):
     """Lean view for the Home Screen Slider / Dropdown"""
     image = serializers.SerializerMethodField()
     
-    # 🔥 ADD THESE LINES: To show gallery and attraction counts in the list
     images = DestinationImageSerializer(many=True, read_only=True)
     attractions = AttractionSerializer(many=True, read_only=True)
 
     class Meta:
         model = Destination
-        # 🔥 UPDATE FIELDS: Add 'is_featured', 'images', and 'attractions'
         fields = [
             'id', 'name', 'location', 'description', 'category', 
             'average_rating', 'image', 
-            'images',       # Needed for gallery count
-            'attractions',  # Needed for attraction count
-            'is_featured'   # Needed for the star icon to stay lit
+            'images',       
+            'attractions',  
+            'is_featured'   
         ]
+        read_only_fields = ['average_rating']
 
     def get_image(self, obj):
         first_img = obj.images.first()
@@ -140,7 +138,7 @@ class TourPackageSerializer(serializers.ModelSerializer):
         return tour
 
 
-# ===== NEW: Guide Serializer =====
+# ===== Guide Serializer =====
 class GuideSerializer(serializers.ModelSerializer):
     """Serializer for Guide/User with their tour packages for a specific destination"""
     tours = serializers.SerializerMethodField()
@@ -155,7 +153,8 @@ class GuideSerializer(serializers.ModelSerializer):
             'price_per_day', 'profile_picture', 'tours',
             'is_guide_visible'
         ]
-        read_only_fields = ['id', 'tours']
+        # FIX: guide_rating must be read-only (calculated by reviews)
+        read_only_fields = ['id', 'tours', 'guide_rating']
     
     def get_guide_name(self, obj):
         return f"{obj.first_name} {obj.last_name}"

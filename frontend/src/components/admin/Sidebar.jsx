@@ -48,7 +48,7 @@ export default function Sidebar() {
     };
 
     return (
-        <aside className="w-64 bg-slate-800/50 backdrop-blur-sm border-r border-slate-700/50 flex flex-col overflow-y-auto h-screen">
+        <aside className="w-70 bg-slate-800/50 backdrop-blur-sm border-r border-slate-700/50 flex flex-col overflow-y-auto h-screen">
             <div className="p-6 border-b border-slate-700/50">
                 <h1 className="text-xl font-bold text-white">Admin Portal</h1>
                 <p className="text-slate-400 text-sm mt-1">System Management</p>

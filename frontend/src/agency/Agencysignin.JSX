@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Building2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Building2, User, Lock, ArrowRight, Loader2, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { jwtDecode } from "jwt-decode"; // <--- Import this
+import { jwtDecode } from "jwt-decode"; 
 import api from '../api/api';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
 
@@ -10,18 +10,31 @@ const Agencysignin = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false); 
     const [error, setError] = useState(null); 
+    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
     const [formData, setFormData] = useState({
-        email: '',
+        username: '',
         password: '',
         rememberMe: false
     });
 
+    // Parallax effect logic
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+            setMousePosition({
+                x: (e.clientX / window.innerWidth) * 20,
+                y: (e.clientY / window.innerHeight) * 20,
+            });
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => window.removeEventListener('mousemove', handleMouseMove);
+    }, []);
+
     const floatingIcons = [
-        { Icon: Mountain, top: '15%', left: '8%', delay: '0s', size: 28 },
-        { Icon: Waves, top: '65%', left: '10%', delay: '2s', size: 24 },
-        { Icon: TreePine, top: '45%', left: '5%', delay: '4s', size: 26 },
-        { Icon: Building2, top: '80%', left: '8%', delay: '1s', size: 22 }
+        { Icon: Globe, top: '10%', left: '10%', delay: '0s', size: 36, opacity: 0.15 },
+        { Icon: Building2, top: '60%', left: '5%', delay: '2s', size: 28, opacity: 0.1 },
+        { Icon: Compass, top: '30%', left: '85%', delay: '4s', size: 32, opacity: 0.15 },
+        { Icon: Mountain, top: '80%', left: '80%', delay: '1s', size: 24, opacity: 0.1 },
     ];
 
     const handleSubmit = async (e) => {
@@ -33,7 +46,7 @@ const Agencysignin = () => {
         try {
             // 1. Call the Agency Login Endpoint
             const res = await api.post('api/auth/agency/login/', {
-                username: formData.email, 
+                username: formData.username, 
                 password: formData.password
             });
 
@@ -59,14 +72,14 @@ const Agencysignin = () => {
             }
 
             console.log('Agency Login Successful');
-            navigate('/agency '); 
+            navigate('/agency'); 
 
         } catch (err) {
             console.error("Agency Login Failed", err);
             if (err.response && err.response.data && err.response.data.detail) {
                 setError(err.response.data.detail); 
             } else {
-                setError("Invalid credentials or server error.");
+                setError("Invalid credentials. Please verify your agency account.");
             }
         } finally {
             setIsLoading(false);
@@ -89,161 +102,209 @@ const Agencysignin = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-50 flex items-center justify-center p-4">
-            <div className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden flex">
-                {/* Left Panel - Branding */}
-                <div className="w-5/12 bg-gradient-to-br from-cyan-600 via-blue-600 to-cyan-600 p-16 text-white relative overflow-hidden flex flex-col justify-between">
-                    {/* Wave Pattern Background */}
-                    <div className="absolute inset-0 opacity-10">
-                        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                            <path d="M0,50 Q25,40 50,50 T100,50 L100,100 L0,100 Z" fill="white" opacity="0.1"/>
-                            <path d="M0,60 Q25,50 50,60 T100,60 L100,100 L0,100 Z" fill="white" opacity="0.1"/>
-                            <path d="M0,70 Q25,60 50,70 T100,70 L100,100 L0,100 Z" fill="white" opacity="0.1"/>
-                        </svg>
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-cyan-500/30">
+            
+            {/* --- ANIMATED BACKGROUND LAYER --- */}
+            <div className="absolute inset-0 overflow-hidden">
+                {/* Glowing Orbs - Indigo/Cyan Theme for Agency */}
+                <div 
+                    className="absolute top-[-10%] right-[-5%] w-[60%] h-[60%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse"
+                    style={{ transform: `translate(${mousePosition.x}px, ${mousePosition.y * -1}px)` }}
+                />
+                <div 
+                    className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-600/10 rounded-full blur-[100px] animate-pulse" 
+                    style={{ animationDelay: '2s', transform: `translate(${mousePosition.x * -1}px, ${mousePosition.y}px)` }}
+                />
+                
+                {/* Floating Abstract Icons */}
+                {floatingIcons.map(({ Icon, top, left, delay, size, opacity }, idx) => (
+                    <div
+                        key={idx}
+                        className="absolute text-indigo-200"
+                        style={{
+                            top,
+                            left,
+                            opacity,
+                            animation: `float 8s ease-in-out infinite`,
+                            animationDelay: delay,
+                            filter: 'drop-shadow(0 0 10px rgba(99, 102, 241, 0.3))'
+                        }}
+                    >
+                        <Icon size={size} strokeWidth={1.5} />
+                    </div>
+                ))}
+            </div>
+
+            {/* --- MAIN CARD --- */}
+            <div className="w-full max-w-5xl bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10 hover:shadow-indigo-900/20 transition-all duration-500">
+                
+                {/* --- LEFT PANEL: BRANDING --- */}
+                <div className="w-full md:w-5/12 bg-gradient-to-br from-indigo-900/80 to-slate-900/80 p-12 text-white relative flex flex-col justify-between border-r border-white/5">
+                    
+                    {/* Brand Logo Area */}
+                    <div className="relative z-10">
+                        <div className="w-16 h-16 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-8 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
+                            <Building2 size={32} className="text-white" strokeWidth={2} />
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <h3 className="text-cyan-400 font-medium tracking-widest text-sm uppercase flex items-center gap-2">
+                                <Globe size={14} /> Partner Portal
+                            </h3>
+                            <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-white">
+                                Local<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">Ynk</span>
+                            </h1>
+                        </div>
                     </div>
 
-                    {/* Floating Icons */}
-                    {floatingIcons.map(({ Icon, top, left, delay, size }, idx) => (
-                        <div
-                            key={idx}
-                            className="absolute text-white/15"
-                            style={{
-                                top,
-                                left,
-                                animation: `float 6s ease-in-out infinite`,
-                                animationDelay: delay
-                            }}
-                        >
-                            <Icon size={size} strokeWidth={1.5} />
-                        </div>
-                    ))}
-
-                    <div className="relative z-10">
-                        <div className="mb-8">
-                            <div className="w-24 h-24 bg-white/15 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/30">
-                                <Compass size={48} className="text-white" strokeWidth={2} />
-                            </div>
-                        </div>
-                        <h1 className="text-4xl font-bold mb-4">Welcome to</h1>
-                        <h2 className="text-5xl font-bold mb-5">LocalYnk</h2>
-                        <p className="text-cyan-100 text-base font-medium">
-                            AGENCY PORTAL
+                    {/* Mid Section Description */}
+                    <div className="my-12 relative z-10">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500 to-indigo-600 rounded-full"></div>
+                        <p className="pl-6 text-slate-300 leading-relaxed text-lg font-light">
+                            Grow your agency. Manage packages, track bookings, and deliver world-class experiences to your clients.
                         </p>
                     </div>
 
-                    <div className="relative z-10">
-                        <p className="text-base leading-relaxed text-white/95 mb-8">
-                            Manage your travel packages, bookings, and client experiences. Track performance metrics and grow your agency with powerful insights and tools.
-                        </p>
+                    {/* Footer Info */}
+                    <div className="relative z-10 flex gap-4 text-xs font-medium tracking-wide text-slate-500">
+                        <span>AGENCY PARTNER PROGRAM</span>
+                        <span>•</span>
+                        <span>SECURE LOGIN</span>
                     </div>
 
-                    <style>{`
-                        @keyframes float {
-                            0%, 100% { transform: translateY(0px) rotate(0deg); }
-                            50% { transform: translateY(-20px) rotate(5deg); }
-                        }
-                    `}</style>
+                     {/* Subtle Background Pattern for Left Panel */}
+                     <div className="absolute inset-0 opacity-10 pointer-events-none">
+                         <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <path d="M0,100 L100,0 L100,100 Z" fill="url(#grad1)" />
+                            <defs>
+                                <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style={{stopColor:'rgb(99, 102, 241)', stopOpacity:1}} />
+                                    <stop offset="100%" style={{stopColor:'rgb(34, 211, 238)', stopOpacity:1}} />
+                                </linearGradient>
+                            </defs>
+                         </svg>
+                     </div>
                 </div>
 
-                {/* Right Panel - Login Form */}
-                <div className="flex-1 p-16 flex items-center">
-                    <div className="w-full max-w-lg mx-auto">
+                {/* --- RIGHT PANEL: FORM --- */}
+                <div className="w-full md:w-7/12 p-8 md:p-16 bg-white/5 flex flex-col justify-center">
+                    
+                    <div className="max-w-md mx-auto w-full">
                         <div className="mb-10">
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-cyan-100 text-cyan-600">
-                                    <Building2 size={24} strokeWidth={2} />
-                                </div>
-                                <h2 className="text-3xl font-bold text-gray-800">
-                                    Agency Partner Login
-                                </h2>
-                            </div>
-                            <p className="text-gray-500 text-base">
-                                Access your agency dashboard
-                            </p>
+                            <h2 className="text-3xl font-bold text-white mb-2">Agency Sign In</h2>
+                            <p className="text-slate-400">Enter your partner credentials to access your dashboard.</p>
                         </div>
 
-                        {/* ERROR MESSAGE DISPLAY */}
+                        {/* Error Alert */}
                         {error && (
-                            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r">
-                                <p className="font-bold text-sm">Access Denied</p>
-                                <p className="text-sm">{error}</p>
+                            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 animate-in fade-in slide-in-from-top-2">
+                                <div className="p-1 bg-red-500/20 rounded-full"><EyeOff size={14} /></div>
+                                <p className="text-sm font-medium">{error}</p>
                             </div>
                         )}
 
-                        <div className="space-y-6">
-                            <div>
-                                <label className="block text-base font-medium text-gray-700 mb-3">
-                                    Email Address
-                                </label>
-                                <input
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    onKeyPress={handleKeyPress}
-                                    placeholder="Enter agency email"
-                                    className="w-full px-5 py-4 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 focus:bg-white outline-none transition-all text-base"
-                                />
+                        <form className="space-y-6">
+                            {/* Email Input */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300 ml-1">Username</label>
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <User className="h-5 w-5 text-slate-500 group-focus-within:text-teal-400 transition-colors" />
+                                    </div>
+                                    <input
+                                        type="username"
+                                        name="username"
+                                        value={formData.username}
+                                        onChange={handleChange}
+                                        onKeyPress={handleKeyPress}
+                                        className="w-full pl-12 pr-4 py-4 bg-slate-950/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300"
+                                        placeholder="agency_name"
+                                    />
+                                </div>
                             </div>
 
-                            <div>
-                                <label className="block text-base font-medium text-gray-700 mb-3">
-                                    Password
-                                </label>
-                                <div className="relative">
+                            {/* Password Input */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300 ml-1">Password</label>
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <Lock className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
+                                    </div>
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         name="password"
                                         value={formData.password}
                                         onChange={handleChange}
                                         onKeyPress={handleKeyPress}
-                                        placeholder="Enter password"
-                                        className="w-full px-5 py-4 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 focus:bg-white outline-none transition-all pr-12 text-base"
+                                        className="w-full pl-12 pr-12 py-4 bg-slate-950/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300"
+                                        placeholder="••••••••"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-white transition-colors cursor-pointer"
                                     >
-                                        {showPassword ? <EyeOff size={24} /> : <Eye size={24} />}
+                                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    name="rememberMe"
-                                    checked={formData.rememberMe}
-                                    onChange={handleChange}
-                                    className="w-5 h-5 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
-                                />
-                                <label className="ml-3 text-base text-gray-600">
-                                    Remember me
+                            {/* Remember Me & Options */}
+                            <div className="flex items-center justify-between pt-2">
+                                <label className="flex items-center space-x-3 cursor-pointer group">
+                                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${formData.rememberMe ? 'bg-cyan-500 border-cyan-500' : 'border-slate-600 bg-slate-800 group-hover:border-cyan-500/50'}`}>
+                                        {formData.rememberMe && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        name="rememberMe"
+                                        checked={formData.rememberMe}
+                                        onChange={handleChange}
+                                        className="hidden"
+                                    />
+                                    <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">Remember me</span>
                                 </label>
+                                <a href="#" className="text-sm text-cyan-400 hover:text-cyan-300 font-medium transition-colors">
+                                    Issue with login?
+                                </a>
                             </div>
 
+                            {/* Submit Button */}
                             <button
                                 onClick={handleSubmit}
                                 disabled={isLoading}
-                                className={`w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white py-4.5 rounded-xl font-semibold text-lg transition-all transform shadow-lg
-                                ${isLoading 
-                                    ? 'opacity-70 cursor-not-allowed' 
-                                    : 'hover:from-cyan-700 hover:to-blue-700 hover:scale-[1.02] active:scale-[0.98] hover:shadow-xl'
-                                }`}
+                                className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-cyan-500/40 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed group"
                             >
-                                {isLoading ? 'Signing in...' : 'Sign In to Agency Portal'}
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        <span>Signing in...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>Enter Agency Portal</span>
+                                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    </>
+                                )}
                             </button>
-
-                            <div className="mt-6 p-4 bg-cyan-50 border border-cyan-200 rounded-xl">
-                                <p className="text-sm text-cyan-800 text-center">
-                                    <span className="font-semibold">New agency partner?</span> Contact us to register your travel agency
+                            
+                            <div className="pt-4 text-center">
+                                <p className="text-slate-500 text-sm">
+                                    New partner? <button className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors">Register your agency</button>
                                 </p>
                             </div>
-                        </div>
+                        </form>
                     </div>
                 </div>
             </div>
+
+            {/* Custom Styles for Animation */}
+            <style>{`
+                @keyframes float {
+                    0%, 100% { transform: translateY(0px) rotate(0deg); }
+                    50% { transform: translateY(-20px) rotate(5deg); }
+                }
+            `}</style>
         </div>
     );
 };
