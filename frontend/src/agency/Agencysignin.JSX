@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Building2, User, Lock, ArrowRight, Loader2, Globe } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { jwtDecode } from "jwt-decode"; 
 import api from '../api/api';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
@@ -72,13 +72,26 @@ const Agencysignin = () => {
             }
 
             console.log('Agency Login Successful');
-            navigate('/agency'); 
+            
+            // 💥 REDIRECT LOGIC: Check for pending agency profile data
+            const pendingData = localStorage.getItem('pending_agency_data');
+            
+            if (pendingData) {
+                // If data exists, redirect to the profile completion page to re-upload the file
+                // navigate('/agency/complete-profile');
+                navigate('/agency/complete-profile');
+            } else {
+                // If no pending data, navigate to the main dashboard
+                navigate('/agency'); 
+            }
+            // 💥 END REDIRECT LOGIC
 
         } catch (err) {
             console.error("Agency Login Failed", err);
             if (err.response && err.response.data && err.response.data.detail) {
                 setError(err.response.data.detail); 
             } else {
+                // Note: The backend fix should make this error obsolete.
                 setError("Invalid credentials. Please verify your agency account.");
             }
         } finally {
@@ -288,11 +301,11 @@ const Agencysignin = () => {
                                 )}
                             </button>
                             
-                            <div className="pt-4 text-center">
+                            <Link to="/agency-register" className="pt-4 text-center">
                                 <p className="text-slate-500 text-sm">
                                     New partner? <button className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors">Register your agency</button>
                                 </p>
-                            </div>
+                            </Link>
                         </form>
                     </div>
                 </div>

@@ -4,12 +4,8 @@ from user_authentication.models import User
 from destinations_and_attractions.models import Destination
 from accommodation_booking.models import Booking
 
-# --- User/Guide Review Serializer ---
 
 class ReviewSerializer(serializers.ModelSerializer):
-    """
-    Serializer for submitting and retrieving reviews for a User (Guide).
-    """
     
     reviewer_username = serializers.CharField(source='reviewer.username', read_only=True)
     reviewed_user_username = serializers.CharField(source='reviewed_user.username', read_only=True)
@@ -46,12 +42,8 @@ class ReviewSerializer(serializers.ModelSerializer):
         return data
 
 
-# --- Destination Review Serializer ---
 
 class DestinationReviewSerializer(serializers.ModelSerializer):
-    """
-    Serializer for submitting and retrieving reviews for a Destination.
-    """
     
     reviewer_username = serializers.CharField(source='reviewer.username', read_only=True)
     destination_name = serializers.CharField(source='destination.name', read_only=True)

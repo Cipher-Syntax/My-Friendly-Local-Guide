@@ -15,14 +15,7 @@ router.register(r'accommodations', AccommodationViewSet, basename='accommodation
 router.register(r'bookings', BookingViewSet, basename='booking')
 
 urlpatterns = [
-    # --- 1. SPECIFIC ENDPOINTS (MUST BE FIRST) ---
-    # If this is below router.urls, Django thinks "list" is an ID and crashes.
     path('accommodations/list/', AccommodationDropdownListView.as_view(), name='accommodation-dropdown-list'),
-
-    # --- 2. ROUTER URLS (GENERIC CRUD) ---
-    
-    
-    # --- 3. CUSTOM ACTIONS ---
     path(
         'bookings/<int:pk>/status/', 
         BookingStatusUpdateView.as_view(), 

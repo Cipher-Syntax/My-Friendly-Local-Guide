@@ -3,9 +3,6 @@ from django.conf import settings
 
 User = settings.AUTH_USER_MODEL 
 
-# ===============================================
-#           GLOBAL DESTINATIONS (Admin Managed)
-# ===============================================
 
 class Destination(models.Model):
     CATEGORY_CHOICES = [
@@ -48,10 +45,6 @@ class Attraction(models.Model):
         return f"{self.name} ({self.destination.name})"
 
 
-# ===============================================
-#           TOUR PACKAGES (Guide Managed)
-# ===============================================
-
 class TourPackage(models.Model):
     guide = models.ForeignKey(User, related_name='tours', on_delete=models.CASCADE)
     main_destination = models.ForeignKey(Destination, related_name='tour_packages', on_delete=models.SET_NULL, null=True, blank=True)
@@ -59,17 +52,14 @@ class TourPackage(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField()
     
-    # Logistics
     duration = models.CharField(max_length=100)
     max_group_size = models.PositiveIntegerField()
     what_to_bring = models.TextField(blank=True, null=True)
     
-    # Pricing
     price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
     solo_price = models.DecimalField(max_digits=10, decimal_places=2)
     additional_fee_per_head = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     
-    # Itinerary Timeline (JSON)
     itinerary_timeline = models.JSONField(default=list, blank=True) 
 
     created_at = models.DateTimeField(auto_now_add=True)

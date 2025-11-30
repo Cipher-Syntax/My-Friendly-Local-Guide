@@ -1,6 +1,8 @@
+// src/agency/AgencyLayout.jsx - MODIFIED
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign } from 'lucide-react';
 import api from '../api/api';
 
 // Components
@@ -11,10 +13,18 @@ import AgencyTourGuideManagement from '../components/agency/AgencyTourGuideManag
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
 
+// 🔥 NEW CONSTANTS (MUST MATCH BACKEND LOGIC)
+const FREE_TIER_GUIDE_LIMIT = 2;
+const FREE_TIER_BOOKING_LIMIT = 1;
+const SUBSCRIPTION_PRICE = 3000; // PHP
+
 export default function AgencyLayout() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [loading, setLoading] = useState(true);
+
+    // 🔥 NEW STATE FOR USER TIER
+    const [user, setUser] = useState({ guide_tier: 'free' });
 
     // --- UI STATES (Toast & Confirm) ---
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -56,7 +66,13 @@ export default function AgencyLayout() {
         try {
             setLoading(true);
             
+            // 🔥 FETCH USER PROFILE TO GET TIER STATUS
+            // This is crucial for updating the UI after a subscription payment is completed
+            const userRes = await api.get('api/profile/');
+            setUser(userRes.data);
+
             const guidesRes = await api.get('api/agency/guides/');
+            // NOTE: Assuming api/bookings/ is available and returns necessary booking status
             const bookingsRes = await api.get('api/bookings/'); 
 
             const formattedGuides = guidesRes.data.map(g => ({
@@ -71,9 +87,9 @@ export default function AgencyLayout() {
                 email: "contact@agency.com", 
                 avatar: g.first_name.charAt(0)
             }));
-
+            
             const formattedBookings = bookingsRes.data
-                .filter(b => b.status === 'Pending') 
+                .filter(b => b.status === 'Pending') // Filter initial pending bookings
                 .map(b => ({
                     id: b.id,
                     name: `Booking #${b.id} - ${b.tourist_username}`,
@@ -93,6 +109,51 @@ export default function AgencyLayout() {
             showToast("Failed to load dashboard data.", "error");
         } finally {
             setLoading(false);
+        }
+    };
+
+    // 🔥 NEW FUNCTION: Opens the confirmation modal
+    const initiateSubscription = () => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Confirm Subscription Upgrade",
+            message: `You are about to upgrade to the UNLIMITED tier for ₱${SUBSCRIPTION_PRICE.toLocaleString('en-PH')}/year. Proceed to payment?`,
+            isDanger: false,
+            actionLabel: "Proceed to Payment",
+            onConfirm: executeSubscription,
+        });
+    };
+
+    // 🔥 NEW/MODIFIED FUNCTION: Executes PayMongo Subscription Initiation
+    const executeSubscription = async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false })); // Close modal first
+        
+        // Temporarily change loading state to reflect API call
+        setLoading(true);
+        
+        try {
+            // Initiate payment for YearlySubscription
+            const res = await api.post('api/payments/initiate/', {
+                payment_type: 'YearlySubscription',
+                final_amount: SUBSCRIPTION_PRICE 
+            });
+            
+            const { checkout_url } = res.data; 
+            
+            // 💥 CRITICAL FIX: Open PayMongo in a new tab (_blank)
+            window.open(checkout_url, '_blank');
+
+            // Do not revert loading state immediately. The user is now on a new payment page.
+            // When they return and refresh/re-enter the dashboard, fetchData will update the status.
+            
+            // Optionally show a message to check the new tab:
+            showToast("Redirecting to PayMongo. Please check the new tab to complete payment.", "success");
+            
+        } catch (error) {
+            console.error("Subscription initiation failed:", error);
+            // Revert loading state if the API call fails before redirect
+            setLoading(false);
+            showToast("Failed to initiate subscription. Check your network or details.", "error");
         }
     };
 
@@ -117,9 +178,15 @@ export default function AgencyLayout() {
             showToast("Guide added successfully!");
         } catch (error) {
             console.error("Add Guide Error:", error);
-            showToast("Failed to add guide.", "error");
+            // The backend now sends a specific message if the limit is hit
+            if (error.response && error.response.data && error.response.data.detail) {
+                showToast(error.response.data.detail, "error");
+            } else {
+                showToast("Failed to add guide.", "error");
+            }
         }
     };
+
 
     // DELETE GUIDE FLOW
     const initiateDeleteGuide = (id) => {
@@ -145,11 +212,23 @@ export default function AgencyLayout() {
         }
     };
 
-
+    // UPDATE BOOKING STATUS LOGIC (Acceptance Check)
     const updateBookingStatus = async (id, status) => {
+        
+        // 🔥 NEW LOGIC: ENFORCE BOOKING LIMIT CHECK (Frontend Check)
+        if (status === 'accepted' && user.guide_tier === 'free') {
+            const acceptedBookingsCount = bookings.filter(b => b.status === 'accepted').length;
+            // Only enforce limit if accepting a pending booking AND limit is reached
+            if (acceptedBookingsCount >= FREE_TIER_BOOKING_LIMIT) {
+                showToast(`Free tier is limited to ${FREE_TIER_BOOKING_LIMIT} accepted booking. Upgrade for unlimited bookings.`, "error");
+                return;
+            }
+        }
+        
         try {
             await api.patch(`api/bookings/${id}/status/`, { status: status === 'accepted' ? 'Accepted' : 'Declined' });
-            setBookings(prev => prev.filter(b => b.id !== id));
+            // Since acceptance logic is handled on the backend (usually), just refetch data or update state
+            fetchData();
             showToast(`Booking ${status} successfully!`);
         } catch (error) {
             console.error("Update Status Error:", error);
@@ -208,6 +287,7 @@ export default function AgencyLayout() {
     return (
         <div className="flex h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden relative">
             
+            {/* --- TOAST NOTIFICATION --- */}
             {toast.show && (
                 <div className={`fixed top-6 right-6 z-[100] px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${
                     toast.type === 'success' 
@@ -234,22 +314,49 @@ export default function AgencyLayout() {
                         </div>
                         
                         <div className="relative px-8 py-6 h-full flex flex-col justify-center">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-lg">
-                                    {activeTab === 'dashboard' && <LayoutDashboard className="w-8 h-8 text-white" />}
-                                    {activeTab === 'bookings' && <BookOpen className="w-8 h-8 text-white" />}
-                                    {activeTab === 'guides' && <UsersRound className="w-8 h-8 text-white" />}
+                            <div className="flex items-center justify-between w-full"> {/* Added w-full */}
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-white/20 backdrop-blur-sm rounded-lg">
+                                        {activeTab === 'dashboard' && <LayoutDashboard className="w-8 h-8 text-white" />}
+                                        {activeTab === 'bookings' && <BookOpen className="w-8 h-8 text-white" />}
+                                        {activeTab === 'guides' && <UsersRound className="w-8 h-8 text-white" />}
+                                    </div>
+                                    <div>
+                                        <h2 className="text-3xl font-bold text-white">
+                                            {activeTab === 'dashboard' ? 'Dashboard Overview' :
+                                             activeTab === 'bookings' ? 'Bookings Management' : 'Tour Guide Management'}
+                                        </h2>
+                                        <p className="text-cyan-100 mt-1">
+                                            {activeTab === 'dashboard' ? 'Monitor your agency performance' :
+                                             activeTab === 'bookings' ? 'Manage and assign tour guides' : 'View and manage your roster'}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h2 className="text-3xl font-bold text-white">
-                                        {activeTab === 'dashboard' ? 'Dashboard Overview' :
-                                         activeTab === 'bookings' ? 'Bookings Management' : 'Tour Guide Management'}
-                                    </h2>
-                                    <p className="text-cyan-100 mt-1">
-                                        {activeTab === 'dashboard' ? 'Monitor your agency performance' :
-                                         activeTab === 'bookings' ? 'Manage and assign tour guides' : 'View and manage your roster'}
-                                    </p>
-                                </div>
+                                
+                                {/* 🔥 SUBSCRIPTION STATUS AND BUTTON */}
+                                {user.guide_tier === 'free' ? (
+                                    <div className="flex flex-col items-end">
+                                        <p className="text-sm font-semibold text-white/70 mb-1">
+                                            Tier: <span className="text-yellow-400">FREE (Limited)</span>
+                                        </p>
+                                        <button
+                                            // 🔥 MODIFIED: Call the state-managed function
+                                            onClick={initiateSubscription}
+                                            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black rounded-lg transition-colors flex items-center gap-2 font-medium shadow-md"
+                                        >
+                                            <DollarSign className="w-5 h-5" />
+                                            Upgrade to Unlimited (₱{SUBSCRIPTION_PRICE}/yr)
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-end">
+                                        <p className="text-sm font-semibold text-white/70 mb-1">
+                                            Tier: <span className="text-green-400">PAID (Unlimited)</span>
+                                        </p>
+                                        <CheckCircle className="w-6 h-6 text-green-400" />
+                                    </div>
+                                )}
+                                {/* 🔥 END SUBSCRIPTION STATUS AND BUTTON */}
                             </div>
                         </div>
                     </div>
@@ -283,6 +390,9 @@ export default function AgencyLayout() {
                                         setSelectedBookingId(id);
                                         setIsManageGuidesModalOpen(true);
                                     }}
+                                    // PASS DOWN LIMIT INFO
+                                    agencyTier={user.guide_tier}
+                                    freeBookingLimit={FREE_TIER_BOOKING_LIMIT}
                                 />
                             )}
 
@@ -291,7 +401,14 @@ export default function AgencyLayout() {
                                     searchTerm={searchTerm}
                                     setSearchTerm={setSearchTerm}
                                     filteredGuides={filteredGuides}
-                                    openAddGuideModal={() => setIsAddGuideModalOpen(true)}
+                                    openAddGuideModal={() => {
+                                        // CHECK GUIDE LIMIT BEFORE OPENING MODAL
+                                        if (user.guide_tier === 'free' && guides.length >= FREE_TIER_GUIDE_LIMIT) {
+                                            showToast(`Free tier is limited to ${FREE_TIER_GUIDE_LIMIT} guides. Please upgrade for unlimited guides.`, "error");
+                                            return;
+                                        }
+                                        setIsAddGuideModalOpen(true);
+                                    }}
                                     handleRemoveGuide={initiateDeleteGuide}
                                     getStatusBg={getStatusBg}
                                 />
@@ -302,6 +419,7 @@ export default function AgencyLayout() {
             </div>
 
             {/* MODALS */}
+            {/* ... (ManageGuidesModal and AddGuideModal remain the same, but handleAddGuide is now part of the layout component) */}
             <ManageGuidesModal 
                 isModalOpen={isManageGuidesModalOpen}
                 closeModal={() => setIsManageGuidesModalOpen(false)}
@@ -321,7 +439,7 @@ export default function AgencyLayout() {
                 filteredLanguages={['English', 'Tagalog', 'Spanish', 'Mandarin']}
                 handleAddLanguage={(lang) => !newGuideForm.languages.includes(lang) && setNewGuideForm(prev => ({...prev, languages: [...prev.languages, lang]}))}
                 handleRemoveLanguage={(lang) => setNewGuideForm(prev => ({...prev, languages: prev.languages.filter(l => l !== lang)}))}
-                handleSubmitNewGuide={handleAddGuide}
+                handleSubmitNewGuide={handleAddGuide} // Use the local handleAddGuide
             />
 
             {/* --- CONFIRMATION MODAL (Generic) --- */}

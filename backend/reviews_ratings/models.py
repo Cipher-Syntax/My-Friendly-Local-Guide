@@ -4,7 +4,6 @@ from destinations_and_attractions.models import Destination
 from accommodation_booking.models import Booking
 
 class Review(models.Model):
-    """Represents a review and rating given by a tourist to a guide for a specific booking."""
     
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='guide_reviews')
     reviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_given')
@@ -24,7 +23,6 @@ class Review(models.Model):
 
 
 class DestinationReview(models.Model):
-    """Represents a review and rating given to a specific Destination for a booking."""
     
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='destination_reviews')
     reviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='destination_reviews_given')

@@ -3,22 +3,20 @@ import os
 from decimal import Decimal
 from datetime import date, timedelta
 from django.conf import settings
-from rest_framework import generics, permissions, status, viewsets
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.exceptions import ValidationError
+from rest_framework import generics, permissions, status, viewsets #type: ignore
+from rest_framework.response import Response #type: ignore
+from rest_framework.views import APIView #type: ignore
+from rest_framework.exceptions import ValidationError #type: ignore
 from django.shortcuts import get_object_or_404
 from django.apps import apps 
 from requests.exceptions import RequestException
 
-# NEW IMPORTS FOR WEBHOOK
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import Payment
 from .serializers import PaymentSerializer, PaymentInitiationSerializer
 
-# IMPORTS FROM YOUR PAYMONGO FILE
 from .paymongo import create_checkout_session, retrieve_checkout_session
 
 try:
@@ -45,7 +43,6 @@ class PaymentInitiationView(APIView):
         payment_type = serializer.validated_data.get("payment_type")
         raw_method = serializer.validated_data.get("payment_method", "").lower()
         
-        # --- 1. CONFIGURATION ---
         description = ""
         final_amount = Decimal("0.00")
 
@@ -65,7 +62,6 @@ class PaymentInitiationView(APIView):
         if final_amount <= 0:
             raise ValidationError({"detail": "Invalid payment amount."})
 
-        # --- 2. CREATE DB RECORD FIRST (To get the Integer ID) ---
         payment = Payment.objects.create(
             payer=user,
             payment_type=payment_type,
@@ -82,7 +78,6 @@ class PaymentInitiationView(APIView):
         }
         
         try:
-            # --- 3. MAP METHOD TO PAYMONGO TYPES ---
             paymongo_types = []
             if 'card' in raw_method: paymongo_types = ['card']
             elif 'maya' in raw_method: paymongo_types = ['paymaya']
@@ -91,7 +86,6 @@ class PaymentInitiationView(APIView):
             elif 'shopee' in raw_method: paymongo_types = ['grab_pay'] 
             else: paymongo_types = ['gcash'] 
 
-            # Call PayMongo
             result = create_checkout_session(
                 amount=final_amount,
                 description=description,
@@ -102,17 +96,15 @@ class PaymentInitiationView(APIView):
             checkout_url = result['checkout_url']
             transaction_id = result['transaction_id'] 
 
-            # Update DB with the PayMongo ID
             payment.gateway_transaction_id = transaction_id
             payment.save()
 
             if not checkout_url:
                 raise ValidationError({"detail": "Failed to generate redirect URL."})
 
-            # --- 4. RETURN THE INTERNAL DB ID (FIXES 404) ---
             return Response({
                 "checkout_url": checkout_url, 
-                "payment_id": payment.id  # Returning Integer ID
+                "payment_id": payment.id 
             }, status=status.HTTP_201_CREATED)
 
         except RuntimeError as e:
@@ -173,19 +165,15 @@ class PaymentStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, payment_id):
-        # 1. Look up by Integer ID (Standard)
         payment = get_object_or_404(Payment, id=payment_id, payer=request.user)
 
-        # 2. ACTIVE POLLING (Fixes Pending Loop on Localhost)
         if payment.status == 'pending' and payment.gateway_transaction_id:
-            # Ask PayMongo for status using the function from paymongo.py
             pm_data = retrieve_checkout_session(payment.gateway_transaction_id)
             
             if pm_data:
                 attributes = pm_data.get('data', {}).get('attributes', {})
-                checkout_status = attributes.get('payment_status') # 'paid', 'unpaid'
+                checkout_status = attributes.get('payment_status')
                 
-                # Check main status or individual payments
                 is_paid = (checkout_status == 'paid')
                 if not is_paid:
                     payments_list = attributes.get('payments', [])
@@ -193,7 +181,6 @@ class PaymentStatusView(APIView):
                         is_paid = True
 
                 if is_paid:
-                    # REUSE SUCCESS LOGIC
                     payment.status = "succeeded"
                     payment.gateway_response = pm_data
                     payment.save()

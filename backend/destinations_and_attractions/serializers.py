@@ -5,7 +5,6 @@ import json
 
 User = get_user_model()
 
-# --- Destination Serializers ---
 
 class DestinationImageSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
@@ -26,23 +25,19 @@ class AttractionSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description', 'photo']
 
 class DestinationSerializer(serializers.ModelSerializer):
-    """Detailed view of a global destination"""
     images = DestinationImageSerializer(many=True, read_only=True)
     attractions = AttractionSerializer(many=True, read_only=True)
     
     class Meta:
         model = Destination
-        # FIX: Added 'is_featured' here so the PATCH request can actually save it
         fields = [
             'id', 'name', 'description', 'category', 'location', 
             'latitude', 'longitude', 'average_rating', 
             'images', 'attractions', 'is_featured'
         ]
-        # FIX: Ensure rating is read-only so it's only updated by calculation
         read_only_fields = ['average_rating']
 
 class DestinationListSerializer(serializers.ModelSerializer):
-    """Lean view for the Home Screen Slider / Dropdown"""
     image = serializers.SerializerMethodField()
     
     images = DestinationImageSerializer(many=True, read_only=True)
@@ -68,7 +63,6 @@ class DestinationListSerializer(serializers.ModelSerializer):
         return None
 
 class TourStopSerializer(serializers.ModelSerializer):
-    """Serializes the featured stops within a specific tour package"""
     image = serializers.SerializerMethodField()
     
     class Meta:
@@ -82,16 +76,11 @@ class TourStopSerializer(serializers.ModelSerializer):
         return None
 
 class TourPackageSerializer(serializers.ModelSerializer):
-    """
-    Main serializer for the Tour Package.
-    Includes the stops and formatted guide/destination info.
-    """
     stops = TourStopSerializer(many=True, read_only=True)
     guide_name = serializers.CharField(source='guide.get_full_name', read_only=True)
     guide_avatar = serializers.SerializerMethodField()
     destination_name = serializers.CharField(source='main_destination.name', read_only=True)
 
-    # Write-only fields for Create Form
     stops_images = serializers.ListField(child=serializers.ImageField(), write_only=True, required=False)
     stops_names = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
     destination_id = serializers.PrimaryKeyRelatedField(queryset=Destination.objects.all(), source='main_destination', write_only=True)
@@ -138,9 +127,7 @@ class TourPackageSerializer(serializers.ModelSerializer):
         return tour
 
 
-# ===== Guide Serializer =====
 class GuideSerializer(serializers.ModelSerializer):
-    """Serializer for Guide/User with their tour packages for a specific destination"""
     tours = serializers.SerializerMethodField()
     guide_name = serializers.SerializerMethodField()
     
@@ -153,7 +140,6 @@ class GuideSerializer(serializers.ModelSerializer):
             'price_per_day', 'profile_picture', 'tours',
             'is_guide_visible'
         ]
-        # FIX: guide_rating must be read-only (calculated by reviews)
         read_only_fields = ['id', 'tours', 'guide_rating']
     
     def get_guide_name(self, obj):
@@ -165,7 +151,6 @@ class GuideSerializer(serializers.ModelSerializer):
         destination_id = request.query_params.get('main_destination') if request else None
         
         if destination_id:
-            # Filter tours for this specific destination
             tours = obj.tours.filter(main_destination__id=destination_id)
         else:
             tours = obj.tours.all()

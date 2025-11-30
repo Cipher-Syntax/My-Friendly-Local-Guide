@@ -5,7 +5,6 @@ from django.core.exceptions import ValidationError
 User = settings.AUTH_USER_MODEL
 
 class Agency(models.Model):
-    # 🔥 LINK AGENCY TO USER (Login credential)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='agency_profile', null=True, blank=True)
     
     business_name = models.CharField(max_length=255)

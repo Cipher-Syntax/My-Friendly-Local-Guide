@@ -18,7 +18,6 @@ from .serializers import (
 
 User = get_user_model()
 
-# --- 1. User Submission View ---
 class GuideApplicationSubmissionView(generics.CreateAPIView):
     serializer_class = GuideApplicationSubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -29,7 +28,6 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
         data = request.data
         files = request.FILES
 
-        # 1. Update User Profile
         user.first_name = data.get('first_name', user.first_name)
         user.last_name = data.get('last_name', user.last_name)
         user.phone_number = data.get('phone_number', user.phone_number)
@@ -37,7 +35,6 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
         user.apply_as_guide() 
         user.save()
 
-        # 2. Handle Documents
         application, created = GuideApplication.objects.get_or_create(user=user)
         
         if 'tour_guide_certificate' in files:
@@ -53,7 +50,6 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
         application.review_notes = "Application submitted, pending admin review."
         application.save()
 
-        # 3. Create/Update Review Request
         review_request, created = GuideReviewRequest.objects.get_or_create(
             applicant=user,
             defaults={'status': 'Pending'}
@@ -63,7 +59,6 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
              review_request.reviewed_by = None
              review_request.save()
         
-        # 4. Email Admins (Safe Mode)
         try:
             admin_emails = list(User.objects.filter(is_superuser=True).values_list('email', flat=True))
             if admin_emails:
@@ -77,7 +72,6 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
         except Exception as e:
             print(f"Error sending admin email: {e}")
         
-        # 5. Alert for Admin Dashboard
         SystemAlert.objects.create(
             target_type='Admin',
             title="New Guide Application",
@@ -92,7 +86,6 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
-# --- 2. Admin Review ViewSet ---
 class GuideReviewRequestViewSet(viewsets.ModelViewSet):
     serializer_class = AdminGuideReviewSerializer
     permission_classes = [permissions.IsAdminUser] 
@@ -110,10 +103,8 @@ class GuideReviewRequestViewSet(viewsets.ModelViewSet):
 
         new_status = serializer.validated_data.get('status')
         
-        # 1. Save (This triggers models.py save() logic for Email/Alert)
         serializer.save(reviewed_by=request.user)
 
-        # 2. Handle Role Logic based on Status
         if new_status == 'Approved':
             user_to_approve = instance.applicant
             user_to_approve.guide_approved = True
@@ -128,7 +119,6 @@ class GuideReviewRequestViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-# --- 3. User Alerts Views ---
 
 class UserAlertListView(generics.ListAPIView):
     serializer_class = SystemAlertSerializer

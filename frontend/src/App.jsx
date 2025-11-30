@@ -1,8 +1,10 @@
+// src/App.jsx
+
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ForgotPassword, Home, LandingPage, Login, NotFound, Register } from './pages';
 import { ProtectedRoute } from './components';
-import { AgencyLayout, AgencyDashboard, Agencysignin } from './agency'; // Updated import for AgencyLayout
+import { AgencyLayout, AgencyDashboard, Agencysignin, AgencyRegister } from './agency'; 
 import { Adminsignin } from './admin';
 
 // Import the modular admin components
@@ -10,11 +12,12 @@ import AdminLayout from './components/admin/AdminLayout';
 import Dashboard from './components/admin/Dashboard';
 import AgencyManagement from './components/admin/AgencyManagement';
 import TourGuidesManagement from './components/admin/TourGuidesManagement';
-import UserManagement from './components/admin/UserManagement';
 import ContentManagement from './components/admin/ContentManagement';
-import AccommodationManagement from './components/admin/AccommodationManagement';
 import ReportsAndAnalysis from './components/admin/ReportsAndAnalysis';
 import Settings from './components/admin/Settings';
+
+// 🔥 NEW IMPORT
+import AgencyProfileCompletion from './pages/AgencyProfileCompletion';
 
 const App = () => {
     const Logout = () => {
@@ -38,8 +41,10 @@ const App = () => {
 
 
                 {/* AGENCY ROUTES */}
-                {/* <Route path='/agency-dashboard' element={<AgencyDashboard />} /> */}
                 <Route path='/agency' element={<AgencyLayout />} />
+                
+                {/* 🔥 NEW PROTECTED ROUTE */}
+                <Route path='/agency/complete-profile' element={<ProtectedRoute><AgencyProfileCompletion /></ProtectedRoute>} />
                 
                 <Route path='/' element={<LandingPage />} />
                 <Route path='/admin' element={
@@ -62,6 +67,7 @@ const App = () => {
                 {/* SIGN IN PAGES */}
                 <Route path='/admin-signin' element={<Adminsignin />} />
                 <Route path='/agency-signin' element={<Agencysignin />} />
+                <Route path='/agency-register' element={<AgencyRegister />} />
             </Routes>
         </BrowserRouter>
     )

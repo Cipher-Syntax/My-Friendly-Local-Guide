@@ -5,7 +5,6 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-# --- 1. System Alert Model ---
 class SystemAlert(models.Model):
     TARGET_CHOICES = [
         ('Tourist', 'Tourist'),
@@ -35,7 +34,6 @@ class SystemAlert(models.Model):
     def __str__(self):
         return f"Alert: {self.title}"
 
-# --- 2. Guide Application Review Model ---
 class GuideReviewRequest(models.Model):
     STATUS_CHOICES = [
         ('Pending', 'Pending Review'),
@@ -66,7 +64,6 @@ class GuideReviewRequest(models.Model):
         return f"Guide Review: {self.applicant.username} - {self.status}"
 
     def save(self, *args, **kwargs):
-        # 1. Capture previous state to detect status changes
         if self.pk:
             try:
                 previous = GuideReviewRequest.objects.get(pk=self.pk)
@@ -79,12 +76,9 @@ class GuideReviewRequest(models.Model):
         is_new = self._state.adding
         super().save(*args, **kwargs)
 
-        # 2. Logic for Status Changes (Notify User)
         if not is_new and self.status != previous_status:
             
-            # --- APPROVED ---
             if self.status == 'Approved':
-                # In-App Notification
                 SystemAlert.objects.create(
                     target_type='Guide',
                     recipient=self.applicant,
@@ -93,7 +87,6 @@ class GuideReviewRequest(models.Model):
                     related_model='GuideReviewRequest',
                     related_object_id=self.pk
                 )
-                # Email Notification
                 try:
                     send_mail(
                         subject="LocaLynk: Application Approved!",
@@ -105,9 +98,7 @@ class GuideReviewRequest(models.Model):
                 except Exception as e:
                     print(f"Email failed (Approved): {e}")
 
-            # --- REJECTED ---
             elif self.status == 'Rejected':
-                # In-App Notification
                 SystemAlert.objects.create(
                     target_type='Tourist',
                     recipient=self.applicant,
@@ -116,7 +107,6 @@ class GuideReviewRequest(models.Model):
                     related_model='GuideReviewRequest',
                     related_object_id=self.pk
                 )
-                # Email Notification
                 try:
                     send_mail(
                         subject="LocaLynk: Application Status Update",
@@ -128,7 +118,6 @@ class GuideReviewRequest(models.Model):
                 except Exception as e:
                     print(f"Email failed (Rejected): {e}")
         
-        # --- NEW SUBMISSION (Notify User they are pending) ---
         elif is_new:
             SystemAlert.objects.create(
                 target_type='Tourist',
