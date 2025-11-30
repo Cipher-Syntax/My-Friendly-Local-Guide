@@ -1,13 +1,12 @@
 from django.db import models
-from user_authentication.models import User
-# from accommodation_booking.models import Booking # Uncomment if needed
+from django.conf import settings
+from django.core.mail import send_mail
+from django.contrib.auth import get_user_model
 
-# --- 1. System Alert Model (General Notifications) ---
+User = get_user_model()
 
+# --- 1. System Alert Model ---
 class SystemAlert(models.Model):
-    """
-    General purpose alerts or notifications for users.
-    """
     TARGET_CHOICES = [
         ('Tourist', 'Tourist'),
         ('Guide', 'Local Guide'),
@@ -34,14 +33,10 @@ class SystemAlert(models.Model):
     related_model = models.CharField(max_length=50, null=True, blank=True)
     
     def __str__(self):
-        return f"Alert: {self.title} for {self.recipient.username if self.recipient else self.target_type}"
+        return f"Alert: {self.title}"
 
-# --- 2. Guide Application Review Model (Admin Action Item) ---
-
+# --- 2. Guide Application Review Model ---
 class GuideReviewRequest(models.Model):
-    """
-    A persistent record and queue item for Admin to review a new Guide Application.
-    """
     STATUS_CHOICES = [
         ('Pending', 'Pending Review'),
         ('Approved', 'Approved'),
@@ -84,43 +79,61 @@ class GuideReviewRequest(models.Model):
         is_new = self._state.adding
         super().save(*args, **kwargs)
 
-        # --- SCENARIO A: APPROVED ---
-        if not is_new and self.status == 'Approved' and self.applicant.is_local_guide:
-            SystemAlert.objects.create(
-                target_type='Guide',
-                recipient=self.applicant,
-                title="Application Approved!",
-                message="Your guide application has been fully approved. Please complete the registration fee payment.",
-                related_model='GuideReviewRequest',
-                related_object_id=self.pk
-            )
+        # 2. Logic for Status Changes (Notify User)
+        if not is_new and self.status != previous_status:
+            
+            # --- APPROVED ---
+            if self.status == 'Approved':
+                # In-App Notification
+                SystemAlert.objects.create(
+                    target_type='Guide',
+                    recipient=self.applicant,
+                    title="Application Approved!",
+                    message="Your guide application has been fully approved. You can now accept bookings.",
+                    related_model='GuideReviewRequest',
+                    related_object_id=self.pk
+                )
+                # Email Notification
+                try:
+                    send_mail(
+                        subject="LocaLynk: Application Approved!",
+                        message=f"Congratulations {self.applicant.first_name}!\n\nYour application to become a Local Guide has been approved. Log in to start accepting bookings.",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[self.applicant.email],
+                        fail_silently=True
+                    )
+                except Exception as e:
+                    print(f"Email failed (Approved): {e}")
 
-        # --- SCENARIO B: REJECTED (This triggers 'Warning from Admin') ---
-        elif not is_new and self.status == 'Rejected' and previous_status != 'Rejected':
-            SystemAlert.objects.create(
-                target_type='Tourist',
-                recipient=self.applicant,
-                title="Warning from Admin",  # Matches Frontend Key
-                message=f"Application Rejected: {self.admin_notes or 'Verification failed. Please check your documents.'}",
-                related_model='GuideReviewRequest',
-                related_object_id=self.pk
-            )
-
-        # --- SCENARIO C: NEW SUBMISSION ---
+            # --- REJECTED ---
+            elif self.status == 'Rejected':
+                # In-App Notification
+                SystemAlert.objects.create(
+                    target_type='Tourist',
+                    recipient=self.applicant,
+                    title="Warning from Admin",
+                    message=f"Application Rejected: {self.admin_notes or 'Verification failed.'}",
+                    related_model='GuideReviewRequest',
+                    related_object_id=self.pk
+                )
+                # Email Notification
+                try:
+                    send_mail(
+                        subject="LocaLynk: Application Status Update",
+                        message=f"Hello {self.applicant.first_name},\n\nYour application was not approved.\nReason: {self.admin_notes or 'Verification failed'}.\nPlease update your profile/documents and try again.",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[self.applicant.email],
+                        fail_silently=True
+                    )
+                except Exception as e:
+                    print(f"Email failed (Rejected): {e}")
+        
+        # --- NEW SUBMISSION (Notify User they are pending) ---
         elif is_new:
-            # Alert for Admin
-            SystemAlert.objects.create(
-                target_type='Admin',
-                title="New Guide Application",
-                message=f"New application submitted by {self.applicant.username}. Review required.",
-                related_model='GuideReviewRequest',
-                related_object_id=self.pk
-            )
-            # Alert for User (Waiting for Admin)
             SystemAlert.objects.create(
                 target_type='Tourist',
                 recipient=self.applicant,
-                title="Application Submitted", # Matches Frontend Key (Added below)
+                title="Application Submitted",
                 message="Your guide application has been submitted and is waiting for admin review.",
                 related_model='GuideReviewRequest',
                 related_object_id=self.pk

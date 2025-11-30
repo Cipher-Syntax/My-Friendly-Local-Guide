@@ -1,7 +1,13 @@
 from rest_framework import generics, permissions #type: ignore
 from rest_framework.exceptions import PermissionDenied #type: ignore
+from django.core.mail import send_mail
+from django.conf import settings
+from django.contrib.auth import get_user_model
+
 from .models import Agency, TouristGuide
 from .serializers import AgencySerializer, AgencyApprovalSerializer, TouristGuideSerializer
+
+User = get_user_model()
 
 # --- AGENCY VIEWS ---
 
@@ -23,7 +29,20 @@ class AgencyRegisterView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         # Link the new Agency profile to the currently logged-in User
-        serializer.save(user=self.request.user)
+        agency = serializer.save(user=self.request.user)
+
+        # --- SEND EMAIL NOTIFICATION TO ADMINS ---
+        # Get all users with is_superuser=True
+        admin_emails = User.objects.filter(is_superuser=True).values_list('email', flat=True)
+        
+        if admin_emails:
+            send_mail(
+                subject="New Agency Registration Request",
+                message=f"A new agency '{agency.business_name}' (Owner: {agency.owner_name}) has registered and is pending approval.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=list(admin_emails),
+                fail_silently=True,
+            )
 
 class AgencyApproveView(generics.UpdateAPIView):
     """Admin view to approve agencies"""

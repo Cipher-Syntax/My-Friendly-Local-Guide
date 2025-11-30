@@ -16,14 +16,19 @@ class ReviewViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        # Authenticated users see reviews they gave or reviews they received.
-        # Staff/Admins see all reviews.
-        if self.request.user.is_staff:
-            return Review.objects.all().order_by('-timestamp')
+        queryset = Review.objects.all().order_by('-timestamp')
+        user = self.request.user
         
-        return Review.objects.filter(
-            Q(reviewer=self.request.user) | Q(reviewed_user=self.request.user)
-        ).order_by('-timestamp')
+        # Check for a query param like /api/reviews/?filter=received
+        filter_type = self.request.query_params.get('filter')
+
+        if filter_type == 'received':
+            return queryset.filter(reviewed_user=user)
+        elif filter_type == 'given':
+            return queryset.filter(reviewer=user)
+        
+        # Default behavior (both)
+        return queryset.filter(Q(reviewer=user) | Q(reviewed_user=user))
 
     def perform_create(self, serializer):
         # 1. Save the review, setting the reviewer automatically

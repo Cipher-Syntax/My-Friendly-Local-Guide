@@ -3,6 +3,9 @@ from rest_framework.response import Response #type: ignore
 from django.db import transaction #type: ignore
 from django.db.models import Q
 from rest_framework.views import APIView #type: ignore
+from django.core.mail import send_mail
+from django.conf import settings
+from django.contrib.auth import get_user_model
 
 from .models import GuideReviewRequest, SystemAlert
 from user_authentication.models import GuideApplication
@@ -12,6 +15,8 @@ from .serializers import (
     SystemAlertSerializer,
     CreateSystemAlertSerializer
 )
+
+User = get_user_model()
 
 # --- 1. User Submission View ---
 class GuideApplicationSubmissionView(generics.CreateAPIView):
@@ -58,6 +63,29 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
              review_request.reviewed_by = None
              review_request.save()
         
+        # 4. Email Admins (Safe Mode)
+        try:
+            admin_emails = list(User.objects.filter(is_superuser=True).values_list('email', flat=True))
+            if admin_emails:
+                send_mail(
+                    subject="New Guide Application",
+                    message=f"User {user.username} has submitted an application to be a guide.\nPlease review in dashboard.",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=admin_emails,
+                    fail_silently=True
+                )
+        except Exception as e:
+            print(f"Error sending admin email: {e}")
+        
+        # 5. Alert for Admin Dashboard
+        SystemAlert.objects.create(
+            target_type='Admin',
+            title="New Guide Application",
+            message=f"New application submitted by {user.username}. Review required.",
+            related_model='GuideReviewRequest',
+            related_object_id=review_request.pk
+        )
+
         return Response({
             "detail": "Guide application submitted successfully.",
             "review_request_id": review_request.pk
@@ -76,15 +104,13 @@ class GuideReviewRequestViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def update(self, request, *args, **kwargs):
         print("--- ADMIN APPROVAL UPDATE METHOD CALLED ---")
-        print(f"--- REQUEST DATA: {request.data} ---")
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
 
         new_status = serializer.validated_data.get('status')
-        print(f"--- NEW STATUS: {new_status} ---")
         
-        # 1. Save the changes
+        # 1. Save (This triggers models.py save() logic for Email/Alert)
         serializer.save(reviewed_by=request.user)
 
         # 2. Handle Role Logic based on Status
@@ -98,12 +124,11 @@ class GuideReviewRequestViewSet(viewsets.ModelViewSet):
             user_to_reject.is_local_guide = False
             user_to_reject.guide_approved = False
             user_to_reject.save(update_fields=['is_local_guide', 'guide_approved'])
-            # Warning Handled in models.py save()
 
         return Response(serializer.data)
 
 
-# --- 3. User Alerts Views (UPDATED QUERY) ---
+# --- 3. User Alerts Views ---
 
 class UserAlertListView(generics.ListAPIView):
     serializer_class = SystemAlertSerializer
@@ -111,11 +136,7 @@ class UserAlertListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        # Determine user type safely
         target_role = 'Guide' if getattr(user, 'is_local_guide', False) else 'Tourist'
-        
-        # Return alerts sent specifically to ME (recipient=user)
-        # OR alerts sent to EVERYONE of my type (target_type=role AND recipient is NULL)
         return SystemAlert.objects.filter(
             Q(recipient=user) | 
             Q(target_type=target_role, recipient__isnull=True)
@@ -148,5 +169,4 @@ class CreateSystemAlertView(generics.CreateAPIView):
     permission_classes = [permissions.IsAdminUser]
 
     def post(self, request, *args, **kwargs):
-        print("CreateSystemAlertView POST request data:", request.data)
         return super().post(request, *args, **kwargs)
