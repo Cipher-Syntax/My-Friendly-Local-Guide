@@ -3,11 +3,9 @@ from rest_framework.routers import DefaultRouter #type: ignore
 from .views import PaymentViewSet, PaymentInitiationView, PaymentWebhookView, PaymentStatusView, SubscriptionPriceView
 
 router = DefaultRouter()
-# Read-only access to user's payment history
 router.register(r'history', PaymentViewSet, basename='payment-history')
 
 urlpatterns = [
-    # Router for history
     path('', include(router.urls)),
     
     path("initiate/", PaymentInitiationView.as_view(), name="payment-initiate"),

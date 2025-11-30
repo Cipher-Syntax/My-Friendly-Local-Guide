@@ -15,9 +15,7 @@ class AccommodationImageSerializer(serializers.ModelSerializer):
         model = AccommodationImage
         fields = ['id', 'image']
 
-# 1. Define this BEFORE UserSerializer
 class GuideApplicationSerializer(serializers.ModelSerializer):
-    # These fields will return the full URL string (e.g., "/media/guide_docs/...")
     tour_guide_certificate = serializers.FileField(use_url=True)
     proof_of_residency = serializers.FileField(use_url=True)
     valid_id = serializers.FileField(use_url=True)
@@ -34,7 +32,6 @@ class GuideApplicationSerializer(serializers.ModelSerializer):
                  raise serializers.ValidationError({field: f"Required."})
         return data
 
-# --- MAIN USER SERIALIZER ---
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, min_length=8)
@@ -43,7 +40,6 @@ class UserSerializer(serializers.ModelSerializer):
     featured_places = FeaturedPlaceSerializer(many=True, read_only=True)
     accommodation_images = AccommodationImageSerializer(many=True, read_only=True)
     
-    # 2. VITAL: Explicitly nest the serializer to get URLs, not just IDs
     guide_application = GuideApplicationSerializer(read_only=True)
     
     has_pending_application = serializers.SerializerMethodField()
@@ -66,12 +62,10 @@ class UserSerializer(serializers.ModelSerializer):
 
             'featured_places', 'accommodation_images',
             
-            # 3. Add 'guide_application' here
             'guide_application', 
             
             'has_pending_application', 'full_name',
         ]
-        # FIX: 'guide_rating' is strictly read-only. It is updated solely by Review calculations.
         read_only_fields = ('guide_approved', 'date_joined', 'guide_rating')
 
     def get_has_pending_application(self, obj):
@@ -83,7 +77,6 @@ class UserSerializer(serializers.ModelSerializer):
     def get_full_name(self, obj):
         return obj.get_full_name()
 
-    # ... (Keep your existing validation and create/update methods below)
     def validate_username(self, value):
         queryset = User.objects.filter(username=value)
         if self.instance:
@@ -126,7 +119,6 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
-# ... (Include the rest of your serializers: ForgotPassword, TokenObtain, etc.)
 class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
     def validate_email(self, value):
@@ -169,8 +161,10 @@ class AgencyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['email'] = user.email
         token['is_staff'] = user.is_staff
         return token
+
     def validate(self, attrs):
         data = super().validate(attrs)
-        if not self.user.is_staff:
-            raise serializers.ValidationError({"detail": "Restricted."})
-        return data
+        
+        if self.user.is_active:
+             return data
+        raise serializers.ValidationError({"detail": "Access Denied. Account is inactive or not recognized as an Agency account."})

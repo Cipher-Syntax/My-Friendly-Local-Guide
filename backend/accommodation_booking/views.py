@@ -9,9 +9,6 @@ from .models import Accommodation, Booking
 from .serializers import AccommodationSerializer, BookingSerializer
 from system_management_module.models import SystemAlert
 
-# -----------------------
-#   PERMISSIONS
-# -----------------------
 
 class IsHostOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -28,10 +25,6 @@ class IsHostOrReadOnly(permissions.BasePermission):
             return True
         return obj.host == request.user
 
-
-# -----------------------
-#   ACCOMMODATION VIEWS
-# -----------------------
 
 class AccommodationViewSet(viewsets.ModelViewSet):
     serializer_class = AccommodationSerializer
@@ -64,9 +57,6 @@ class AccommodationDropdownListView(generics.ListAPIView):
         return Accommodation.objects.filter(host=self.request.user).order_by('title')
 
 
-# -----------------------
-#   BOOKING VIEWS
-# -----------------------
 
 class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
@@ -77,11 +67,9 @@ class BookingViewSet(viewsets.ModelViewSet):
         user = self.request.user
         qs = Booking.objects.select_related('tourist', 'accommodation', 'guide', 'agency')
         
-        # 🔥 FIX: Allow filtering by role to prevent "Tourist" bookings appearing in "Guide" dashboard
         view_as = self.request.query_params.get('view_as')
 
         if view_as == 'guide':
-            # Show bookings where I am the Provider (Guide, Host, Agency, or Assigned Guide)
             return qs.filter(
                 Q(accommodation__host=user) |
                 Q(guide=user) |
@@ -90,10 +78,8 @@ class BookingViewSet(viewsets.ModelViewSet):
             ).distinct().order_by('-created_at')
             
         elif view_as == 'tourist':
-             # Show bookings where I am the Tourist
              return qs.filter(tourist=user).order_by('-created_at')
 
-        # Default (Mixed View)
         return qs.filter(
             Q(tourist=user) |
             Q(accommodation__host=user) |
@@ -189,9 +175,6 @@ class BookingViewSet(viewsets.ModelViewSet):
         return 0
 
 
-# -----------------------
-#   BOOKING STATUS UPDATE
-# -----------------------
 
 class BookingStatusUpdateView(generics.UpdateAPIView):
     queryset = Booking.objects.all()
@@ -202,7 +185,6 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
         booking = super().get_object()
         user = self.request.user
         
-        # Check if user is the provider OR in the assigned guides
         is_owner = (
             booking.guide == user or
             (booking.accommodation and booking.accommodation.host == user) or

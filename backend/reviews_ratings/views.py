@@ -3,15 +3,12 @@ from django.db.models import Avg, Q
 from .models import Review, DestinationReview
 from .serializers import ReviewSerializer, DestinationReviewSerializer
 from user_authentication.models import User 
-# Import Destination model assuming it's available in the Django project scope
 from destinations_and_attractions.models import Destination
 from system_management_module.models import SystemAlert
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
-    """
-    CRUD for User/Guide Reviews. Handles automatic rating updates for the Guide.
-    """
+ 
     serializer_class = ReviewSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
@@ -19,7 +16,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
         queryset = Review.objects.all().order_by('-timestamp')
         user = self.request.user
         
-        # Check for a query param like /api/reviews/?filter=received
         filter_type = self.request.query_params.get('filter')
 
         if filter_type == 'received':
@@ -27,17 +23,13 @@ class ReviewViewSet(viewsets.ModelViewSet):
         elif filter_type == 'given':
             return queryset.filter(reviewer=user)
         
-        # Default behavior (both)
         return queryset.filter(Q(reviewer=user) | Q(reviewed_user=user))
 
     def perform_create(self, serializer):
-        # 1. Save the review, setting the reviewer automatically
         review = serializer.save(reviewer=self.request.user)
         
-        # 2. Update the reviewed user's average rating
         self._update_guide_rating(review.reviewed_user)
 
-        # 3. Create a notification for the guide
         if review.reviewed_user:
             SystemAlert.objects.create(
                 recipient=review.reviewed_user,
@@ -49,19 +41,15 @@ class ReviewViewSet(viewsets.ModelViewSet):
             )
 
     def perform_update(self, serializer):
-        # Update the review
         super().perform_update(serializer)
-        # Recalculate rating after update
         self._update_guide_rating(serializer.instance.reviewed_user)
 
     def perform_destroy(self, instance):
         reviewed_user = instance.reviewed_user
         super().perform_destroy(instance)
-        # Recalculate rating after deletion
         self._update_guide_rating(reviewed_user)
         
     def _update_guide_rating(self, user_instance):
-        """Helper to calculate and update the guide_rating field on the User model."""
         avg_rating = Review.objects.filter(reviewed_user=user_instance).aggregate(Avg('rating'))['rating__avg'] or 0.0
         
         user_instance.guide_rating = round(avg_rating, 1)
@@ -69,9 +57,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
 
 class DestinationReviewViewSet(viewsets.ModelViewSet):
-    """
-    CRUD for Destination Reviews. Handles automatic rating updates for the Destination.
-    """
+   
     serializer_class = DestinationReviewSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     queryset = DestinationReview.objects.all().order_by('-timestamp')
@@ -79,10 +65,8 @@ class DestinationReviewViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         destination = serializer.validated_data['destination']
         
-        # 1. Save the review, setting the reviewer automatically
         review = serializer.save(reviewer=self.request.user, destination=destination)
         
-        # 2. Update the destination's average rating
         self._update_destination_rating(destination)
 
     def perform_update(self, serializer):
@@ -95,7 +79,6 @@ class DestinationReviewViewSet(viewsets.ModelViewSet):
         self._update_destination_rating(destination)
         
     def _update_destination_rating(self, destination_instance):
-        """Helper to calculate and update the average_rating field on the Destination model."""
         avg_rating = DestinationReview.objects.filter(destination=destination_instance).aggregate(Avg('rating'))['rating__avg'] or 0.0
         
         destination_instance.average_rating = round(avg_rating, 1)

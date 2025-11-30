@@ -1,5 +1,5 @@
 from rest_framework import generics, permissions #type: ignore
-from rest_framework.exceptions import PermissionDenied #type: ignore
+from rest_framework.exceptions import PermissionDenied, ValidationError #type: ignore
 from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -7,19 +7,19 @@ from django.contrib.auth import get_user_model
 from .models import Agency, TouristGuide
 from .serializers import AgencySerializer, AgencyApprovalSerializer, TouristGuideSerializer
 
+FREE_TIER_GUIDE_LIMIT = 2
+
 User = get_user_model()
 
-# --- AGENCY VIEWS ---
 
 class AgencyListView(generics.ListAPIView):
     """
     Returns ALL agencies. 
     Used by: Admin Panel (to approve) and Mobile App (to select agency).
     """
-    # Show all agencies (Admin filters pending, App filters approved)
     queryset = Agency.objects.all().order_by('-created_at')
     serializer_class = AgencySerializer
-    permission_classes = [permissions.AllowAny] # Accessible by Admin & Tourists
+    permission_classes = [permissions.AllowAny]
 
 class AgencyRegisterView(generics.CreateAPIView):
     """Allows a User to create their Agency Profile"""
@@ -28,11 +28,8 @@ class AgencyRegisterView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated] 
 
     def perform_create(self, serializer):
-        # Link the new Agency profile to the currently logged-in User
         agency = serializer.save(user=self.request.user)
 
-        # --- SEND EMAIL NOTIFICATION TO ADMINS ---
-        # Get all users with is_superuser=True
         admin_emails = User.objects.filter(is_superuser=True).values_list('email', flat=True)
         
         if admin_emails:
@@ -50,7 +47,6 @@ class AgencyApproveView(generics.UpdateAPIView):
     serializer_class = AgencyApprovalSerializer
     permission_classes = [permissions.IsAdminUser]
 
-# --- TOURIST GUIDE VIEWS (Agency Employees) ---
 
 class TouristGuideCreateView(generics.CreateAPIView):
     """Allows an Agency to add a new Employee Guide"""
@@ -58,12 +54,21 @@ class TouristGuideCreateView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        if not hasattr(self.request.user, 'agency_profile'):
+        user = self.request.user
+        
+        if not hasattr(user, 'agency_profile'):
             raise PermissionDenied("You must be a registered Agency to add guides.")
             
-        agency = self.request.user.agency_profile
+        agency = user.agency_profile
         if not agency.is_approved:
             raise PermissionDenied("Your agency must be approved before adding guides.")
+        
+        if user.guide_tier == 'free':
+            current_guide_count = TouristGuide.objects.filter(agency=agency).count()
+            if current_guide_count >= FREE_TIER_GUIDE_LIMIT:
+                 raise ValidationError(
+                    {"detail": f"Free tier agencies are limited to {FREE_TIER_GUIDE_LIMIT} active guides. Please subscribe to add more."}
+                 )
             
         serializer.save(agency=agency)
 
@@ -77,13 +82,11 @@ class TouristGuideListView(generics.ListAPIView):
             return TouristGuide.objects.filter(agency=self.request.user.agency_profile)
         return TouristGuide.objects.none()
 
-# 🔥 NEW: Add this view for Deleting/Updating Guides
 class TouristGuideDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TouristGuideSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Ensure users can only edit/delete their OWN agency's guides
         if hasattr(self.request.user, 'agency_profile'):
             return TouristGuide.objects.filter(agency=self.request.user.agency_profile)
         return TouristGuide.objects.none()

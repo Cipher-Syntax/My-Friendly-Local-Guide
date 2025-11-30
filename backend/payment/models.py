@@ -1,7 +1,7 @@
 from django.db import models
 from user_authentication.models import User
 from accommodation_booking.models import Booking
-from django.db.models import JSONField # Note: Use models.JSONField if Django >= 3.1
+from django.db.models import JSONField 
 
 class Payment(models.Model):
     PAYMENT_TYPE_CHOICES = [
@@ -28,7 +28,6 @@ class Payment(models.Model):
 
     payment_method = models.CharField(max_length=20, default="GCash")
 
-    # Simplified integration fields
     gateway_transaction_id = models.CharField(max_length=255, blank=True, null=True, help_text="Generic gateway transaction ID.")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
 

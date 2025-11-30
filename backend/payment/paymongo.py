@@ -3,14 +3,10 @@ from django.conf import settings
 from decimal import Decimal
 from requests.exceptions import RequestException
 
-# Ensure these are in your settings.py
-PAYMONGO_API_URL = "https://api.paymongo.com/v1"
+PAYMONGO_API_URL = settings.PAYMONGO_BASE_URL
 PAYMONGO_SECRET_KEY = settings.PAYMONGO_SECRET_KEY 
 
 def create_checkout_session(amount: Decimal, description: str, billing: dict, payment_method_types: list):
-    """
-    Creates a PayMongo Checkout Session.
-    """
     if not PAYMONGO_SECRET_KEY:
         raise RuntimeError("PayMongo Secret Key is not configured.")
 
@@ -62,10 +58,6 @@ def create_checkout_session(amount: Decimal, description: str, billing: dict, pa
 
 
 def retrieve_checkout_session(checkout_session_id):
-    """
-    Fetches the current status of a Checkout Session from PayMongo directly.
-    Used for manual polling when Webhooks are not available (localhost).
-    """
     if not PAYMONGO_SECRET_KEY:
         raise RuntimeError("PayMongo Secret Key is not configured.")
 

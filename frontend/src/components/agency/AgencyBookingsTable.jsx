@@ -1,7 +1,12 @@
 import React from 'react';
 import { MapPin, Check, XCircle } from 'lucide-react';
 
-export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, openManageGuidesModal }) {
+export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, openManageGuidesModal, agencyTier, freeBookingLimit }) {
+    
+    const acceptedBookingsCount = bookings.filter(b => b.status === 'accepted').length;
+
+    const isLimitReached = agencyTier === 'free' && acceptedBookingsCount >= freeBookingLimit;
+    
     return (
         <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
@@ -70,15 +75,17 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                     <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => updateBookingStatus(booking.id, 'accepted')}
-                                            disabled={booking.status === 'declined'}
-                                            className={`p-2 rounded-lg transition-colors ${
-                                                booking.status === 'accepted'
-                                                    ? 'bg-green-500 text-white'
-                                                    : booking.status === 'declined'
-                                                    ? 'bg-slate-600 text-slate-400 cursor-not-allowed opacity-50'
-                                                    : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-green-400'
-                                            }`}
-                                            title={booking.status === 'declined' ? 'Cannot accept after declining' : 'Accept booking'}
+                                            // 🔥 NEW LOGIC: Disable if declined OR if free tier limit is reached
+                                            disabled={
+                                                booking.status === 'declined' || 
+                                                (booking.status !== 'accepted' && isLimitReached)
+                                            }
+                                            className={`p-2 rounded-lg transition-colors 
+                                                ${booking.status === 'accepted' ? 'bg-green-500 text-white' : 
+                                                isLimitReached ? 'bg-yellow-800/50 text-yellow-400 cursor-not-allowed opacity-70' :
+                                                'bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-green-400'
+                                                }`}
+                                            title={isLimitReached && booking.status !== 'accepted' ? `Upgrade to accept more bookings (Limit: ${freeBookingLimit})` : "Accept booking"}
                                         >
                                             <Check className="w-5 h-5" />
                                         </button>

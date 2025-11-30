@@ -96,7 +96,6 @@ class ResendVerificationEmailView(APIView):
 
 
 class UpdateUserView(generics.RetrieveUpdateAPIView):
-    """Allows an authenticated user to view/update their own profile."""
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -105,7 +104,6 @@ class UpdateUserView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
-    """Allows an admin to view/update/delete any user's profile."""
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]
@@ -131,7 +129,6 @@ class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
                     print(f"Could not send alert: {e}")
 
 class PasswordResetRequestView(generics.GenericAPIView):
-    """Handles sending a password reset email."""
     serializer_class = ForgotPasswordSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -156,7 +153,6 @@ class PasswordResetRequestView(generics.GenericAPIView):
 
 
 class PasswordResetConfirmView(generics.GenericAPIView):
-    """Handles resetting the password using the token and UID."""
     serializer_class = PasswordResetConfirmSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -235,9 +231,6 @@ class AgencyListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
 class UpdateGuideInfoView(generics.UpdateAPIView):
-    """
-    Allows an authenticated guide to update their guide-specific info.
-    """
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -274,9 +267,6 @@ class AgencyTokenObtainPairView(TokenObtainPairView):
     serializer_class = AgencyTokenObtainPairSerializer
 
 class AcceptTermsView(APIView):
-    """
-    An endpoint for a logged-in user to accept the terms and conditions.
-    """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
