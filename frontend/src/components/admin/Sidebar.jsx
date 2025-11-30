@@ -17,18 +17,15 @@ const menuItems = [
 export default function Sidebar() {
     const navigate = useNavigate();
     
-    // Default state
     const [adminUser, setAdminUser] = useState({
         username: 'Admin',
         email: 'admin@system.com'
     });
 
     useEffect(() => {
-        // 1. Retrieve the info we saved during Login
         const storedUsername = localStorage.getItem('admin_username');
         const storedEmail = localStorage.getItem('admin_email');
 
-        // 2. Update state if data exists
         if (storedUsername || storedEmail) {
             setAdminUser({
                 username: storedUsername || 'Admin',
@@ -38,11 +35,10 @@ export default function Sidebar() {
     }, []);
 
     const handleSignOut = () => {
-        // 3. Clear ALL auth data on logout
         localStorage.removeItem(ACCESS_TOKEN);
         localStorage.removeItem(REFRESH_TOKEN);
-        localStorage.removeItem('admin_username'); // Clear specific user data
-        localStorage.removeItem('admin_email');    // Clear specific user data
+        localStorage.removeItem('admin_username');
+        localStorage.removeItem('admin_email');
         
         navigate('/admin-signin');
     };

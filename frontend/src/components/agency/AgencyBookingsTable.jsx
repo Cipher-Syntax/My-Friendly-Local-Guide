@@ -75,7 +75,6 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                     <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => updateBookingStatus(booking.id, 'accepted')}
-                                            // 🔥 NEW LOGIC: Disable if declined OR if free tier limit is reached
                                             disabled={
                                                 booking.status === 'declined' || 
                                                 (booking.status !== 'accepted' && isLimitReached)

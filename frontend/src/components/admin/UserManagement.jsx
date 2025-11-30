@@ -53,14 +53,13 @@ export default function UserManagement() {
 
     const filteredUsers = useMemo(() =>
         reports.map((report, index) => ({
-            // FIX: Generate a unique key for the list item. 
-            // Using report.id is best, fallback to a composite key if report.id is missing.
+
             uniqueKey: report.id || `${report.reported_user}-${index}`,
             id: report.reported_user,
             name: report.reported_username,
-            email: 'N/A', // Email is not available in the report data
+            email: 'N/A', 
             type: report.reported_user_type,
-            warnings: 0, // Warnings are not available in the report data
+            warnings: 0, 
             status: report.reported_user_is_active ? 'active' : 'restricted',
             isActive: report.reported_user_is_active,
             reason: report.reason,
@@ -105,7 +104,6 @@ export default function UserManagement() {
 
     return (
         <div className="space-y-4">
-            {/* Search Bar */}
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -119,10 +117,8 @@ export default function UserManagement() {
                 </div>
             </div>
 
-            {/* User List */}
             <div className="space-y-3">
                 {filteredUsers.map(user => (
-                    // FIX: Use the uniqueKey here instead of user.id
                     <div key={user.uniqueKey} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
                         <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -161,7 +157,6 @@ export default function UserManagement() {
                 ))}
             </div>
 
-            {/* Warning Modal */}
             {warningModal.isOpen && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
                     <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md">

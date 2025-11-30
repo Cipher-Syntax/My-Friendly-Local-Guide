@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Eye, Check, X, Loader2, Building, Shield } from 'lucide-react';
 import api from '../../api/api'; 
 
-// Helper for status badge styling
 const getStatusColor = (isApproved) => {
     return isApproved 
         ? 'bg-green-500/20 text-green-400 border-green-500/30' 
@@ -14,15 +13,12 @@ export default function AgencyManagement() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     
-    // Modal States
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [reviewingItem, setReviewingItem] = useState(null);
 
-    // --- 1. FETCH DATA ---
     const fetchAgencies = async () => {
         try {
             setLoading(true);
-            // This maps to your AgencyListView (GET /api/agencies/)
             const response = await api.get('api/agencies/');
             setAgencies(response.data);
         } catch (error) {
@@ -36,7 +32,6 @@ export default function AgencyManagement() {
         fetchAgencies();
     }, []);
 
-    // --- 2. FILTERING ---
     const filteredAgencies = useMemo(() =>
         agencies.filter(a => 
             a.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -46,7 +41,6 @@ export default function AgencyManagement() {
         [agencies, searchTerm]
     );
 
-    // --- 3. ACTIONS ---
     const openReviewModal = (agency) => {
         setReviewingItem(agency);
         setIsReviewModalOpen(true);
@@ -57,12 +51,10 @@ export default function AgencyManagement() {
         try {
             const isApproved = status === 'approved';
 
-            // PATCH /api/agency/<id>/approve/
             await api.patch(`api/agency/${reviewingItem.id}/approve/`, {
                 is_approved: isApproved
             });
 
-            // Optimistic Update
             setAgencies(prev => prev.map(a => 
                 a.id === reviewingItem.id ? { ...a, is_approved: isApproved } : a
             ));
@@ -76,7 +68,6 @@ export default function AgencyManagement() {
 
     return (
         <div className="space-y-4">
-            {/* Search Bar */}
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -90,7 +81,6 @@ export default function AgencyManagement() {
                 </div>
             </div>
 
-            {/* List Area */}
             {loading ? (
                 <div className="flex justify-center items-center h-64">
                     <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
@@ -122,7 +112,6 @@ export default function AgencyManagement() {
                                         {agency.is_approved ? 'Approved' : 'Pending'}
                                     </span>
                                     
-                                    {/* Review Button - Shows for everyone, but critical for Pending */}
                                     <button
                                         onClick={() => openReviewModal(agency)}
                                         className="px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-lg transition-colors flex items-center gap-2 font-medium text-sm"

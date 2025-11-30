@@ -7,7 +7,6 @@ import { ProtectedRoute } from './components';
 import { AgencyLayout, AgencyDashboard, Agencysignin, AgencyRegister } from './agency'; 
 import { Adminsignin } from './admin';
 
-// Import the modular admin components
 import AdminLayout from './components/admin/AdminLayout';
 import Dashboard from './components/admin/Dashboard';
 import AgencyManagement from './components/admin/AgencyManagement';
@@ -16,7 +15,6 @@ import ContentManagement from './components/admin/ContentManagement';
 import ReportsAndAnalysis from './components/admin/ReportsAndAnalysis';
 import Settings from './components/admin/Settings';
 
-// 🔥 NEW IMPORT
 import AgencyProfileCompletion from './pages/AgencyProfileCompletion';
 
 const App = () => {
@@ -26,7 +24,6 @@ const App = () => {
     return (
         <BrowserRouter>
             <Routes>
-                {/* User/Guest Routes (commented out for now as per previous context) */}
                 {/* <Route path='/' element={
                     <ProtectedRoute>
                         <Home></Home>
@@ -40,10 +37,8 @@ const App = () => {
                 <Route path='*' element={<NotFound></NotFound>}></Route>
 
 
-                {/* AGENCY ROUTES */}
                 <Route path='/agency' element={<AgencyLayout />} />
                 
-                {/* 🔥 NEW PROTECTED ROUTE */}
                 <Route path='/agency/complete-profile' element={<ProtectedRoute><AgencyProfileCompletion /></ProtectedRoute>} />
                 
                 <Route path='/' element={<LandingPage />} />
@@ -64,7 +59,6 @@ const App = () => {
                     <Route path="settings" element={<Settings />} />
                 </Route>
 
-                {/* SIGN IN PAGES */}
                 <Route path='/admin-signin' element={<Adminsignin />} />
                 <Route path='/agency-signin' element={<Agencysignin />} />
                 <Route path='/agency-register' element={<AgencyRegister />} />

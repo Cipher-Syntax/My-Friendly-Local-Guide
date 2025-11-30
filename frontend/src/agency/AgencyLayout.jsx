@@ -1,11 +1,8 @@
-// src/agency/AgencyLayout.jsx - MODIFIED
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign } from 'lucide-react';
 import api from '../api/api';
 
-// Components
 import AgencySidebar from '../components/agency/AgencySidebar';
 import AgencyDashboardContent from '../components/agency/AgencyDashboardContent';
 import AgencyBookingsTable from '../components/agency/AgencyBookingsTable';
@@ -13,20 +10,17 @@ import AgencyTourGuideManagement from '../components/agency/AgencyTourGuideManag
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
 
-// 🔥 NEW CONSTANTS (MUST MATCH BACKEND LOGIC)
 const FREE_TIER_GUIDE_LIMIT = 2;
 const FREE_TIER_BOOKING_LIMIT = 1;
-const SUBSCRIPTION_PRICE = 3000; // PHP
+const SUBSCRIPTION_PRICE = 3000;
 
 export default function AgencyLayout() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [loading, setLoading] = useState(true);
 
-    // 🔥 NEW STATE FOR USER TIER
     const [user, setUser] = useState({ guide_tier: 'free' });
 
-    // --- UI STATES (Toast & Confirm) ---
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     
     const [confirmModal, setConfirmModal] = useState({ 
@@ -65,14 +59,11 @@ export default function AgencyLayout() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            
-            // 🔥 FETCH USER PROFILE TO GET TIER STATUS
-            // This is crucial for updating the UI after a subscription payment is completed
+          
             const userRes = await api.get('api/profile/');
             setUser(userRes.data);
 
             const guidesRes = await api.get('api/agency/guides/');
-            // NOTE: Assuming api/bookings/ is available and returns necessary booking status
             const bookingsRes = await api.get('api/bookings/'); 
 
             const formattedGuides = guidesRes.data.map(g => ({
@@ -89,7 +80,7 @@ export default function AgencyLayout() {
             }));
             
             const formattedBookings = bookingsRes.data
-                .filter(b => b.status === 'Pending') // Filter initial pending bookings
+                .filter(b => b.status === 'Pending')
                 .map(b => ({
                     id: b.id,
                     name: `Booking #${b.id} - ${b.tourist_username}`,
@@ -112,7 +103,6 @@ export default function AgencyLayout() {
         }
     };
 
-    // 🔥 NEW FUNCTION: Opens the confirmation modal
     const initiateSubscription = () => {
         setConfirmModal({
             isOpen: true,
@@ -124,15 +114,12 @@ export default function AgencyLayout() {
         });
     };
 
-    // 🔥 NEW/MODIFIED FUNCTION: Executes PayMongo Subscription Initiation
     const executeSubscription = async () => {
-        setConfirmModal(prev => ({ ...prev, isOpen: false })); // Close modal first
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
         
-        // Temporarily change loading state to reflect API call
         setLoading(true);
         
         try {
-            // Initiate payment for YearlySubscription
             const res = await api.post('api/payments/initiate/', {
                 payment_type: 'YearlySubscription',
                 final_amount: SUBSCRIPTION_PRICE 
@@ -140,18 +127,13 @@ export default function AgencyLayout() {
             
             const { checkout_url } = res.data; 
             
-            // 💥 CRITICAL FIX: Open PayMongo in a new tab (_blank)
             window.open(checkout_url, '_blank');
 
-            // Do not revert loading state immediately. The user is now on a new payment page.
-            // When they return and refresh/re-enter the dashboard, fetchData will update the status.
-            
-            // Optionally show a message to check the new tab:
+       
             showToast("Redirecting to PayMongo. Please check the new tab to complete payment.", "success");
             
         } catch (error) {
             console.error("Subscription initiation failed:", error);
-            // Revert loading state if the API call fails before redirect
             setLoading(false);
             showToast("Failed to initiate subscription. Check your network or details.", "error");
         }
@@ -178,7 +160,6 @@ export default function AgencyLayout() {
             showToast("Guide added successfully!");
         } catch (error) {
             console.error("Add Guide Error:", error);
-            // The backend now sends a specific message if the limit is hit
             if (error.response && error.response.data && error.response.data.detail) {
                 showToast(error.response.data.detail, "error");
             } else {
@@ -188,7 +169,6 @@ export default function AgencyLayout() {
     };
 
 
-    // DELETE GUIDE FLOW
     const initiateDeleteGuide = (id) => {
         setConfirmModal({
             isOpen: true,
@@ -212,13 +192,10 @@ export default function AgencyLayout() {
         }
     };
 
-    // UPDATE BOOKING STATUS LOGIC (Acceptance Check)
     const updateBookingStatus = async (id, status) => {
         
-        // 🔥 NEW LOGIC: ENFORCE BOOKING LIMIT CHECK (Frontend Check)
         if (status === 'accepted' && user.guide_tier === 'free') {
             const acceptedBookingsCount = bookings.filter(b => b.status === 'accepted').length;
-            // Only enforce limit if accepting a pending booking AND limit is reached
             if (acceptedBookingsCount >= FREE_TIER_BOOKING_LIMIT) {
                 showToast(`Free tier is limited to ${FREE_TIER_BOOKING_LIMIT} accepted booking. Upgrade for unlimited bookings.`, "error");
                 return;
@@ -227,7 +204,6 @@ export default function AgencyLayout() {
         
         try {
             await api.patch(`api/bookings/${id}/status/`, { status: status === 'accepted' ? 'Accepted' : 'Declined' });
-            // Since acceptance logic is handled on the backend (usually), just refetch data or update state
             fetchData();
             showToast(`Booking ${status} successfully!`);
         } catch (error) {
@@ -287,7 +263,6 @@ export default function AgencyLayout() {
     return (
         <div className="flex h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden relative">
             
-            {/* --- TOAST NOTIFICATION --- */}
             {toast.show && (
                 <div className={`fixed top-6 right-6 z-[100] px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${
                     toast.type === 'success' 
@@ -305,7 +280,6 @@ export default function AgencyLayout() {
             <AgencySidebar activeTab={activeTab} setActiveTab={setActiveTab} handleSignOut={handleSignOut} />
 
             <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Header */}
                 <header className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-10">
                     <div className="relative h-48 bg-gradient-to-r from-cyan-600 to-blue-600 overflow-hidden">
                         <div className="absolute inset-0 opacity-20">
@@ -333,14 +307,12 @@ export default function AgencyLayout() {
                                     </div>
                                 </div>
                                 
-                                {/* 🔥 SUBSCRIPTION STATUS AND BUTTON */}
                                 {user.guide_tier === 'free' ? (
                                     <div className="flex flex-col items-end">
                                         <p className="text-sm font-semibold text-white/70 mb-1">
                                             Tier: <span className="text-yellow-400">FREE (Limited)</span>
                                         </p>
                                         <button
-                                            // 🔥 MODIFIED: Call the state-managed function
                                             onClick={initiateSubscription}
                                             className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black rounded-lg transition-colors flex items-center gap-2 font-medium shadow-md"
                                         >
@@ -356,7 +328,6 @@ export default function AgencyLayout() {
                                         <CheckCircle className="w-6 h-6 text-green-400" />
                                     </div>
                                 )}
-                                {/* 🔥 END SUBSCRIPTION STATUS AND BUTTON */}
                             </div>
                         </div>
                     </div>
@@ -390,7 +361,6 @@ export default function AgencyLayout() {
                                         setSelectedBookingId(id);
                                         setIsManageGuidesModalOpen(true);
                                     }}
-                                    // PASS DOWN LIMIT INFO
                                     agencyTier={user.guide_tier}
                                     freeBookingLimit={FREE_TIER_BOOKING_LIMIT}
                                 />
@@ -402,7 +372,6 @@ export default function AgencyLayout() {
                                     setSearchTerm={setSearchTerm}
                                     filteredGuides={filteredGuides}
                                     openAddGuideModal={() => {
-                                        // CHECK GUIDE LIMIT BEFORE OPENING MODAL
                                         if (user.guide_tier === 'free' && guides.length >= FREE_TIER_GUIDE_LIMIT) {
                                             showToast(`Free tier is limited to ${FREE_TIER_GUIDE_LIMIT} guides. Please upgrade for unlimited guides.`, "error");
                                             return;
@@ -418,8 +387,7 @@ export default function AgencyLayout() {
                 </main>
             </div>
 
-            {/* MODALS */}
-            {/* ... (ManageGuidesModal and AddGuideModal remain the same, but handleAddGuide is now part of the layout component) */}
+        
             <ManageGuidesModal 
                 isModalOpen={isManageGuidesModalOpen}
                 closeModal={() => setIsManageGuidesModalOpen(false)}
@@ -439,10 +407,9 @@ export default function AgencyLayout() {
                 filteredLanguages={['English', 'Tagalog', 'Spanish', 'Mandarin']}
                 handleAddLanguage={(lang) => !newGuideForm.languages.includes(lang) && setNewGuideForm(prev => ({...prev, languages: [...prev.languages, lang]}))}
                 handleRemoveLanguage={(lang) => setNewGuideForm(prev => ({...prev, languages: prev.languages.filter(l => l !== lang)}))}
-                handleSubmitNewGuide={handleAddGuide} // Use the local handleAddGuide
+                handleSubmitNewGuide={handleAddGuide} 
             />
 
-            {/* --- CONFIRMATION MODAL (Generic) --- */}
             {confirmModal.isOpen && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full shadow-2xl">

@@ -2,18 +2,14 @@ import React from 'react';
 import { Calendar, Users, Star, MapPin } from 'lucide-react';
 
 export default function DashboardStats({ tourGuides = [], bookings = [], avgRating = 0 }) {
-    // 1. Calculate Metrics Dynamically
     const activeGuidesCount = tourGuides.filter(g => g.available).length;
     const totalBookings = bookings.length;
     const completedTours = bookings.filter(b => b.status === 'completed').length;
 
-    // Optional: Calculate current month booking count if needed
-    // const currentMonthBookings = bookings.filter(b => new Date(b.date).getMonth() === new Date().getMonth()).length;
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             
-            {/* Total Bookings Card */}
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700 shadow-xl hover:shadow-2xl transition-shadow">
                 <div className="flex items-center justify-between mb-2">
                     <span className="text-slate-400 text-sm font-medium">Total Bookings</span>
@@ -25,7 +21,6 @@ export default function DashboardStats({ tourGuides = [], bookings = [], avgRati
                 </div>
             </div>
 
-            {/* Active Guides Card */}
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700 shadow-xl hover:shadow-2xl transition-shadow">
                 <div className="flex items-center justify-between mb-2">
                     <span className="text-slate-400 text-sm font-medium">Active Guides</span>
@@ -35,7 +30,6 @@ export default function DashboardStats({ tourGuides = [], bookings = [], avgRati
                 <div className="text-xs text-slate-400">Total: {tourGuides.length} guides</div>
             </div>
 
-            {/* Completed Tours Card */}
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700 shadow-xl hover:shadow-2xl transition-shadow">
                 <div className="flex items-center justify-between mb-2">
                     <span className="text-slate-400 text-sm font-medium">Completed Tours</span>
@@ -45,7 +39,6 @@ export default function DashboardStats({ tourGuides = [], bookings = [], avgRati
                 <div className="text-xs text-slate-400">Successfully finished</div>
             </div>
 
-            {/* Average Rating Card */}
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700 shadow-xl hover:shadow-2xl transition-shadow">
                 <div className="flex items-center justify-between mb-2">
                     <span className="text-slate-400 text-sm font-medium">Average Rating</span>

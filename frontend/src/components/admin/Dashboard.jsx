@@ -4,35 +4,32 @@ import api from '../../api/api';
 import { Loader2 } from 'lucide-react';
 
 export default function Dashboard() {
-    // --- STATE ---
     const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState({
         agencies: [],
         guides: [],
         reports: [],
         destinations: [],
-        users: [] // Note: Requires a generic user list endpoint, will use guides+agencies for now if not available
+        users: [] 
     });
 
-    // --- FETCH DATA ---
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
                 setIsLoading(true);
-                // Execute all requests in parallel for speed
                 const [agenciesRes, guidesRes, reportsRes, destinationsRes] = await Promise.all([
-                    api.get('api/agencies/'), // Maps to AgencyListView
-                    api.get('api/admin/guide-reviews/'), // Maps to your Admin Guide Review logic
-                    api.get('api/review/'), // Maps to ReportAdminViewSet
-                    api.get('api/destinations/'), // Maps to DestinationViewSet
+                    api.get('api/agencies/'), 
+                    api.get('api/admin/guide-reviews/'), 
+                    api.get('api/review/'), 
+                    api.get('api/destinations/'), 
                 ]);
 
                 setStats({
                     agencies: agenciesRes.data || [],
-                    guides: guidesRes.data.results || guidesRes.data || [], // Handle pagination if present
+                    guides: guidesRes.data.results || guidesRes.data || [], 
                     reports: reportsRes.data || [],
                     destinations: destinationsRes.data || [],
-                    users: [] // Placeholder if no generic user list exists
+                    users: []
                 });
             } catch (error) {
                 console.error("Failed to fetch dashboard data:", error);
@@ -44,31 +41,22 @@ export default function Dashboard() {
         fetchDashboardData();
     }, []);
 
-    // --- CALCULATED METRICS ---
     
-    // 1. Agencies
     const totalAgencies = stats.agencies.length;
-    // Assuming 'is_staff' implies approved for agencies, or if you add a status field later.
-    // For now, we count all returned agencies as active.
+
     const approvedAgencies = stats.agencies.length; 
     
-    // 2. Guides
     const totalGuides = stats.guides.length;
     const pendingGuides = stats.guides.filter(g => g.guide_approved === false || g.status === 'Pending').length;
     const verifiedGuides = stats.guides.filter(g => g.guide_approved === true).length;
 
-    // 3. Reports
     const totalReports = stats.reports.length;
-    // Assuming reports don't have a 'status' field yet based on your models, 
-    // we treat all reports as "Active" attention items.
+
     const pendingReports = totalReports; 
 
-    // 4. Content (Destinations)
     const totalDestinations = stats.destinations.length;
     const featuredDestinations = stats.destinations.filter(d => d.is_featured).length;
 
-    // 5. Users (Restricted)
-    // We check restricted status across reports or guide lists
     const restrictedUsersCount = stats.reports.filter(r => r.reported_user_is_active === false).length;
 
     if (isLoading) {
@@ -81,7 +69,6 @@ export default function Dashboard() {
 
     return (
         <div className="space-y-6">
-            {/* --- TOP STATS CARDS --- */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
                     <div className="flex items-center justify-between">
@@ -126,7 +113,6 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
-                {/* --- APPLICATIONS & REPORTS STATUS --- */}
                 <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
                     <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
                         <BarChart3 className="w-5 h-5 text-cyan-400" />
@@ -134,7 +120,6 @@ export default function Dashboard() {
                     </h3>
                     <div className="space-y-6">
                         
-                        {/* Pending Guides */}
                         <div>
                             <div className="flex justify-between mb-2">
                                 <p className="text-slate-400 text-sm">Pending Guide Applications</p>
@@ -148,7 +133,6 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        {/* Verified Guides */}
                         <div>
                             <div className="flex justify-between mb-2">
                                 <p className="text-slate-400 text-sm">Verified Guides</p>
@@ -162,7 +146,6 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        {/* Restricted Users (Based on Reports) */}
                         <div>
                             <div className="flex justify-between mb-2">
                                 <p className="text-slate-400 text-sm">Restricted Users (Reported)</p>
@@ -179,7 +162,6 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* --- CONTENT MANAGEMENT OVERVIEW --- */}
                 <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
                     <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
                         <Globe className="w-5 h-5 text-purple-400" />
@@ -187,7 +169,6 @@ export default function Dashboard() {
                     </h3>
                     <div className="space-y-6">
                         
-                        {/* Featured Destinations */}
                         <div>
                             <div className="flex justify-between mb-2">
                                 <p className="text-slate-400 text-sm">Featured Destinations</p>
@@ -201,7 +182,6 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        {/* Total Destinations Count */}
                         <div className="flex items-center justify-between py-4 border-t border-slate-700/50 mt-4">
                             <div>
                                 <p className="text-slate-400 text-xs uppercase tracking-wider">Total Content</p>
@@ -212,7 +192,6 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        {/* Total Agencies Count */}
                         <div className="flex items-center justify-between py-4 border-t border-slate-700/50">
                             <div>
                                 <p className="text-slate-400 text-xs uppercase tracking-wider">Partners</p>

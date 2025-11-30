@@ -7,16 +7,13 @@ export default function ReportManagement() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // --- UI STATES ---
-    // 1. Toast Notification State
-    const [toast, setToast] = useState({ show: false, message: '', type: 'success' }); // type: 'success' | 'error'
+
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     
-    // 2. Warning Modal State
     const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
     const [selectedReport, setSelectedReport] = useState(null);
     const [warningMessage, setWarningMessage] = useState('');
 
-    // 3. Confirmation Modal State (Replaces window.confirm)
     const [confirmModal, setConfirmModal] = useState({ 
         isOpen: false, 
         title: '', 
@@ -26,20 +23,16 @@ export default function ReportManagement() {
         actionLabel: 'Confirm'
     });
 
-    // --- HELPER: SHOW TOAST ---
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
-        // Auto-hide after 3 seconds
         setTimeout(() => {
             setToast(prev => ({ ...prev, show: false }));
         }, 3000);
     };
 
-    // --- 1. FETCH REPORTS ---
     const fetchReports = async () => {
         try {
             setLoading(true);
-            // Assuming your URL is mounted at /api/ (based on your previous snippet)
             const response = await api.get('api/review/'); 
             setReports(response.data);
         } catch (error) {
@@ -54,9 +47,7 @@ export default function ReportManagement() {
         fetchReports();
     }, []);
 
-    // --- 2. ACTIONS ---
 
-    // A. PREPARE RESTRICT / UNRESTRICT
     const initiateToggleUserStatus = (report) => {
         const currentStatus = report.reported_user_is_active;
         const action = currentStatus ? "restrict" : "activate";
@@ -71,7 +62,6 @@ export default function ReportManagement() {
         });
     };
 
-    // EXECUTE RESTRICT / UNRESTRICT
     const executeToggleStatus = async (report) => {
         const userId = report.reported_user;
         const currentStatus = report.reported_user_is_active;
@@ -96,7 +86,6 @@ export default function ReportManagement() {
         }
     };
 
-    // B. PREPARE DELETE USER
     const initiateDeleteUser = (report) => {
         setConfirmModal({
             isOpen: true,
@@ -108,13 +97,11 @@ export default function ReportManagement() {
         });
     };
 
-    // EXECUTE DELETE USER
     const executeDeleteUser = async (report) => {
         const userId = report.reported_user;
         try {
             await api.delete(`api/admin/users/${userId}/`);
 
-            // Remove reports associated with this user locally
             setReports(prev => prev.filter(r => r.reported_user !== userId));
             
             showToast(`User ${report.reported_username} deleted successfully.`);
@@ -125,7 +112,6 @@ export default function ReportManagement() {
         }
     };
 
-    // C. SEND WARNING
     const openWarningModal = (report) => {
         setSelectedReport(report);
         setWarningMessage(`We have received a report regarding your activity: "${report.reason}". Please review our community guidelines.`);
@@ -147,7 +133,6 @@ export default function ReportManagement() {
         }
     };
 
-    // --- 3. FILTERING ---
     const filteredReports = useMemo(() => {
         return reports.filter(report => 
             report.reported_username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -173,7 +158,6 @@ export default function ReportManagement() {
     return (
         <div className="space-y-6 relative">
             
-            {/* --- TOAST NOTIFICATION --- */}
             {toast.show && (
                 <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${
                     toast.type === 'success' 
@@ -188,7 +172,6 @@ export default function ReportManagement() {
                 </div>
             )}
 
-            {/* --- HEADER --- */}
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -202,7 +185,6 @@ export default function ReportManagement() {
                 </div>
             </div>
 
-            {/* --- REPORTS LIST --- */}
             <div className="space-y-4">
                 {filteredReports.length === 0 && !loading && (
                     <div className="text-center py-10 text-slate-500 bg-slate-800/30 rounded-xl border border-slate-700/30">
@@ -215,7 +197,6 @@ export default function ReportManagement() {
                     <div key={report.id} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 transition-all hover:border-red-500/30">
                         <div className="flex flex-col md:flex-row gap-6">
                             
-                            {/* REPORT DETAILS */}
                             <div className="flex-1 space-y-4">
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center gap-3">
@@ -242,7 +223,6 @@ export default function ReportManagement() {
                                         </div>
                                     </div>
                                     
-                                    {/* USER STATUS BADGE */}
                                     <div className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5 ${
                                         report.reported_user_is_active 
                                         ? 'bg-green-500/10 text-green-400 border-green-500/20' 
@@ -261,10 +241,8 @@ export default function ReportManagement() {
                                 </div>
                             </div>
 
-                            {/* ACTIONS */}
                             <div className="flex md:flex-col justify-center gap-3 border-t md:border-t-0 md:border-l border-slate-700/50 pt-4 md:pt-0 md:pl-6 min-w-[180px]">
                                 
-                                {/* 1. WARNING BUTTON */}
                                 <button
                                     onClick={() => openWarningModal(report)}
                                     className="flex-1 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
@@ -273,7 +251,6 @@ export default function ReportManagement() {
                                     Warn
                                 </button>
 
-                                {/* 2. RESTRICT BUTTON */}
                                 <button
                                     onClick={() => initiateToggleUserStatus(report)}
                                     className={`flex-1 px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border ${
@@ -295,7 +272,6 @@ export default function ReportManagement() {
                                     )}
                                 </button>
 
-                                {/* 3. DELETE BUTTON */}
                                 <button 
                                     onClick={() => initiateDeleteUser(report)}
                                     className="flex-1 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
@@ -309,7 +285,6 @@ export default function ReportManagement() {
                 ))}
             </div>
 
-            {/* --- WARNING MODAL --- */}
             {isWarningModalOpen && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full shadow-2xl">
@@ -346,7 +321,6 @@ export default function ReportManagement() {
                 </div>
             )}
 
-            {/* --- CONFIRMATION MODAL --- */}
             {confirmModal.isOpen && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full shadow-2xl">

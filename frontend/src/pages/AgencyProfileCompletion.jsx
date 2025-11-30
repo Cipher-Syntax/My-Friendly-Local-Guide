@@ -17,7 +17,6 @@ const AgencyProfileCompletion = () => {
         if (data) {
             setPendingData(JSON.parse(data));
         } else {
-            // No pending profile data, registration is complete
             navigate('/agency');
         }
     }, [navigate]);
@@ -40,7 +39,6 @@ const AgencyProfileCompletion = () => {
         setIsLoading(true);
 
         try {
-            // --- FINAL STEP: Create Agency Profile (Only works now because the user is authenticated) ---
             const agencyFormData = new FormData();
             agencyFormData.append('business_name', pendingData.business_name);
             agencyFormData.append('owner_name', pendingData.owner_name);
@@ -54,10 +52,8 @@ const AgencyProfileCompletion = () => {
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
 
-            // Clear pending data on success
             localStorage.removeItem('pending_agency_data');
             
-            // Redirect to dashboard (Admin will see the application now)
             navigate('/agency'); 
 
         } catch (err) {
@@ -97,7 +93,6 @@ const AgencyProfileCompletion = () => {
                 <form onSubmit={handleSubmitCompletion} className="space-y-4">
                     <h3 className="text-white font-medium text-lg">Re-Upload Business License</h3>
                     
-                    {/* File Upload */}
                     <div>
                         <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900/30 hover:bg-slate-700/50 transition-colors group">
                             <div className="flex flex-col items-center justify-center pt-5 pb-6">

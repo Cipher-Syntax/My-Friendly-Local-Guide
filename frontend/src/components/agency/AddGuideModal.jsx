@@ -16,7 +16,6 @@ export default function AddGuideModal({
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                {/* Modal Header */}
                 <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
                     <div>
                         <h3 className="text-xl font-bold text-white">Add New Tour Guide</h3>
@@ -30,10 +29,8 @@ export default function AddGuideModal({
                     </button>
                 </div>
 
-                {/* Form Content */}
                 <div className="flex-1 overflow-y-auto p-6">
                     <div className="space-y-6">
-                        {/* Full Name */}
                         <div>
                             <label className="block text-white text-base font-semibold mb-3">Full Name</label>
                             <input
@@ -45,7 +42,6 @@ export default function AddGuideModal({
                             />
                         </div>
 
-                        {/* Specialty */}
                         <div>
                             <label className="block text-white text-base font-semibold mb-3">Specialty</label>
                             <input
@@ -57,7 +53,6 @@ export default function AddGuideModal({
                             />
                         </div>
 
-                        {/* Languages */}
                         <div>
                             <label className="block text-white text-base font-semibold mb-3">Languages</label>
                             <div className="relative mb-4">
@@ -98,7 +93,6 @@ export default function AddGuideModal({
                             </div>
                         </div>
 
-                        {/* Phone Number */}
                         <div>
                             <label className="block text-white text-base font-semibold mb-3">Contact Number</label>
                             <input
@@ -112,7 +106,6 @@ export default function AddGuideModal({
                     </div>
                 </div>
 
-                {/* Modal Footer */}
                 <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
                     <button
                         onClick={closeAddGuideModal}

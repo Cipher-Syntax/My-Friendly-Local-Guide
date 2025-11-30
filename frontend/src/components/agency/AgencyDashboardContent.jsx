@@ -46,7 +46,6 @@ export default function AgencyDashboardContent({ activeGuides, completedTours, a
                 </div>
             </div>
 
-            {/* Booking Trends Chart */}
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-6">
                     <div>
@@ -87,9 +86,7 @@ export default function AgencyDashboardContent({ activeGuides, completedTours, a
                 </div>
             </div>
 
-            {/* Guide Performance & Recent Activity */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Top Performing Guides */}
                 <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-white text-lg font-semibold">Top Performing Guides</h3>
@@ -119,7 +116,6 @@ export default function AgencyDashboardContent({ activeGuides, completedTours, a
                     </div>
                 </div>
 
-                {/* Upcoming Tours */}
                 <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-white text-lg font-semibold">Upcoming Tours</h3>

@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Eye, EyeOff, Globe, ArrowRight, Loader2, Upload, 
-    CheckCircle, ShieldCheck, Mail, User, Lock, Building2, Phone, Briefcase 
-} from 'lucide-react';
+import {Eye, EyeOff, Globe, ArrowRight, Loader2, Upload, CheckCircle, ShieldCheck, Mail, User, Lock, Building2, Phone, Briefcase } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/api';
-// We no longer need ACCESS_TOKEN, REFRESH_TOKEN in the registration component
-// import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants'; 
 
 const AgencyRegister = () => {
     const navigate = useNavigate();
@@ -66,7 +61,6 @@ const AgencyRegister = () => {
         setIsLoading(true);
 
         try {
-            // --- 1. Register User Account ONLY (JSON POST) ---
             await api.post('api/register/', {
                 username: formData.username,
                 email: formData.email,
@@ -76,10 +70,6 @@ const AgencyRegister = () => {
                 last_name: formData.owner_name.split(' ').slice(1).join(' ') || 'Owner'
             });
 
-            // --- 2. Store Agency Data Locally (Pending completion later) ---
-            // NOTE: The license file itself cannot be stored reliably in localStorage,
-            // which is why this is marked as a design flaw for file uploads.
-            // A production app would use a temporary file upload endpoint here.
             const pendingData = {
                 business_name: formData.business_name,
                 owner_name: formData.owner_name,
@@ -88,7 +78,6 @@ const AgencyRegister = () => {
             };
             localStorage.setItem('pending_agency_data', JSON.stringify(pendingData));
 
-            // --- 3. Success and Redirect to Login for Verification ---
             setIsRegistered(true);
 
         } catch (err) {
@@ -115,10 +104,8 @@ const AgencyRegister = () => {
                 <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-600/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s', transform: `translate(${mousePosition.x * -1}px, ${mousePosition.y}px)` }} />
             </div>
 
-            {/* Main Card (max-w-6xl) */}
             <div className="w-full max-w-6xl bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10">
                 
-                {/* Left Panel (4/12 width) */}
                 <div className="w-full md:w-4/12 bg-gradient-to-br from-indigo-900/80 to-slate-900/80 p-12 text-white relative flex flex-col justify-between border-r border-white/5">
                     <div>
                         <div className="w-12 h-12 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg mb-6">
@@ -140,10 +127,8 @@ const AgencyRegister = () => {
                     <p className="text-xs text-slate-500">© 2025 LocalLynk Partners</p>
                 </div>
 
-                {/* Right Panel (8/12 width) */}
                 <div className="w-full md:w-8/12 p-8 md:p-12 bg-white/5 flex flex-col justify-center">
                     
-                    {/* SUCCESS SCREEN */}
                     {isRegistered ? (
                         <div className="flex flex-col items-center text-center animate-in fade-in slide-in-from-right-8 duration-500">
                             <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mb-6">
@@ -168,7 +153,6 @@ const AgencyRegister = () => {
                             </div>
                         </div>
                     ) : (
-                        // REGISTRATION FORM
                         <div className="animate-in fade-in slide-in-from-right-4 duration-500">
                             <div className="mb-8">
                                 <h2 className="text-2xl font-bold text-white mb-2">Agency Registration</h2>
@@ -181,53 +165,42 @@ const AgencyRegister = () => {
                                 </div>
                             )}
 
-                            {/* Reverted to grid layout with gap-4 */}
                             <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 
-                                {/* Account Inputs */}
                                 <div className="md:col-span-2 text-xs font-bold text-cyan-400 uppercase tracking-wider mt-2 mb-1">Account Credentials</div>
                                 
-                                {/* Username */}
                                 <div className="space-y-1">
                                     <input type="text" name="username" required placeholder="Username" value={formData.username} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
                                 </div>
                                 
-                                {/* Email */}
                                 <div className="space-y-1">
                                     <input type="email" name="email" required placeholder="Business Email" value={formData.email} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
                                 </div>
                                 
-                                {/* Password */}
                                 <div className="relative">
                                     <input type={showPassword ? "text" : "password"} name="password" required placeholder="Password" value={formData.password} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
                                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-slate-500 hover:text-white"><Eye size={18}/></button>
                                 </div>
                                 
-                                {/* Confirm Password */}
                                 <div className="relative">
                                     <input type={showConfirmPassword ? "text" : "password"} name="confirmPassword" required placeholder="Confirm Password" value={formData.confirmPassword} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
                                     <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-3.5 text-slate-500 hover:text-white"><Eye size={18}/></button>
                                 </div>
 
-                                {/* Business Inputs - Saved to LocalStorage */}
                                 <div className="md:col-span-2 text-xs font-bold text-cyan-400 uppercase tracking-wider mt-4 mb-1">Business Profile</div>
                                 
-                                {/* Business Name */}
                                 <div className="space-y-1">
                                     <input type="text" name="business_name" required placeholder="Registered Business Name" value={formData.business_name} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
                                 </div>
                                 
-                                {/* Owner Name */}
                                 <div className="space-y-1">
                                     <input type="text" name="owner_name" required placeholder="Owner Full Name" value={formData.owner_name} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
                                 </div>
                                 
-                                {/* Phone Number (spans 2 columns) */}
                                 <div className="md:col-span-2">
                                     <input type="tel" name="phone" required placeholder="Business Phone Number" value={formData.phone} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
                                 </div>
 
-                                {/* File Upload (spans 2 columns) */}
                                 <div className="md:col-span-2">
                                     <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900/30 hover:bg-slate-800 transition-colors group">
                                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -240,7 +213,6 @@ const AgencyRegister = () => {
                                     </label>
                                 </div>
 
-                                {/* Submit Button (spans 2 columns) */}
                                 <div className="md:col-span-2 mt-4">
                                     <button 
                                         type="submit" 

@@ -5,27 +5,22 @@ import api from '../../api/api';
 const CATEGORY_CHOICES = ['Cultural', 'Historical', 'Adventure', 'Nature'];
 
 export default function ContentManagement() {
-    // Data States
     const [destinations, setDestinations] = useState([]);
     const [loading, setLoading] = useState(true);
     
-    // Filter States
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
 
-    // --- MODAL STATES ---
     const [editingSpot, setEditingSpot] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     
-    // Add Attraction Modal State
     const [isAttractionModalOpen, setIsAttractionModalOpen] = useState(false);
     const [targetDestId, setTargetDestId] = useState(null);
     const [newAttraction, setNewAttraction] = useState({
         name: '', description: '', photo: null
     });
 
-    // Create Destination Form State
     const [newSpot, setNewSpot] = useState({
         name: '', description: '', category: 'Cultural', location: '', rating: 0, is_featured: false
     });
@@ -36,7 +31,6 @@ export default function ContentManagement() {
 
     const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, itemName: '' });
 
-    // --- 1. FETCH DATA ---
     const fetchDestinations = async () => {
         try {
             setLoading(true);
@@ -51,11 +45,9 @@ export default function ContentManagement() {
                 rating: item.average_rating,
                 featured: item.is_featured,
                 
-                // Map Images
                 imageList: item.images ? item.images.map(img => img.image) : [],
                 imagesCount: item.images ? item.images.length : 0,
 
-                // 🔥 UPDATE: Store the full attractions array so we can list them in Edit
                 attractions: item.attractions || [],
                 attractionsCount: item.attractions ? item.attractions.length : 0
             }));
@@ -72,7 +64,6 @@ export default function ContentManagement() {
         fetchDestinations();
     }, []);
 
-    // --- 2. ACTIONS ---
 
     const handleCreate = async () => {
         try {
@@ -92,7 +83,7 @@ export default function ContentManagement() {
                 ...payload,
                 imageList: [],
                 imagesCount: 0,
-                attractions: [], // Empty initially
+                attractions: [],
                 attractionsCount: 0
             };
             
@@ -118,7 +109,6 @@ export default function ContentManagement() {
             formData.append('description', newAttraction.description);
             formData.append('photo', newAttraction.photo);
 
-            // POST to attractions endpoint
             const response = await api.post('api/attractions/', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
@@ -127,7 +117,6 @@ export default function ContentManagement() {
 
             alert("Attraction added successfully!");
             
-            // Update local state to show new count and add to list immediately
             setDestinations(prev => prev.map(s => {
                 if (s.id === targetDestId) {
                     return {
@@ -172,14 +161,12 @@ export default function ContentManagement() {
         }
     };
 
-    // 🔥 NEW: Delete individual attraction from Edit Modal
     const handleDeleteAttraction = async (attractionId) => {
         if (!window.confirm("Are you sure you want to delete this attraction?")) return;
 
         try {
             await api.delete(`api/attractions/${attractionId}/`);
             
-            // Update local state (editingSpot AND destinations list)
             const updatedAttractions = editingSpot.attractions.filter(a => a.id !== attractionId);
             
             setEditingSpot(prev => ({ 
@@ -240,7 +227,6 @@ export default function ContentManagement() {
     return (
         <div className="space-y-6">
             
-            {/* --- HEADER --- */}
             <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
                 <div className="flex gap-2 w-full md:w-auto flex-1">
                     <div className="relative flex-1">
@@ -276,7 +262,6 @@ export default function ContentManagement() {
                 </button>
             </div>
 
-            {/* --- LIST CONTENT --- */}
             <div className="space-y-4">
                 {filteredDestinations.map(spot => (
                     <div key={spot.id} className={`bg-slate-800/50 backdrop-blur-sm border rounded-xl p-6 transition-all ${spot.featured ? 'border-amber-500/30 bg-slate-800/80 shadow-lg shadow-amber-900/10' : 'border-slate-700/50'}`}>
@@ -310,7 +295,6 @@ export default function ContentManagement() {
                             </div>
                         </div>
 
-                        {/* --- ACTION BUTTONS --- */}
                         <div className="flex gap-3 pt-4 border-t border-slate-700/50">
                             <button
                                 onClick={() => openAddAttractionModal(spot.id)}
@@ -361,7 +345,6 @@ export default function ContentManagement() {
                 ))}
             </div>
 
-            {/* --- CREATE DESTINATION MODAL --- */}
             {isCreateModalOpen && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -405,7 +388,6 @@ export default function ContentManagement() {
                 </div>
             )}
 
-            {/* --- ADD ATTRACTION MODAL --- */}
             {isAttractionModalOpen && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
@@ -461,7 +443,6 @@ export default function ContentManagement() {
                 </div>
             )}
 
-            {/* --- EDIT DESTINATION MODAL WITH ATTRACTIONS LIST --- */}
             {isEditModalOpen && editingSpot && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -491,7 +472,6 @@ export default function ContentManagement() {
                                 <textarea rows="4" value={editingSpot.description} onChange={(e) => setEditingSpot({...editingSpot, description: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
                             </div>
 
-                            {/* 🔥 EXISTING ATTRACTIONS LIST 🔥 */}
                             <div className="mt-6 border-t border-slate-700/50 pt-4">
                                 <h4 className="text-white text-sm font-medium mb-3 flex items-center gap-2">
                                     <Landmark className="w-4 h-4 text-purple-400" />
@@ -544,7 +524,6 @@ export default function ContentManagement() {
                 </div>
             )}
 
-            {/* --- DELETE CONFIRMATION MODAL --- */}
             {deleteConfirmation.isOpen && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6">
@@ -561,7 +540,6 @@ export default function ContentManagement() {
                 </div>
             )}
 
-            {/* --- IMAGE GALLERY MODAL --- */}
             {isViewImagesModalOpen && viewingSpotImages && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-3xl w-full">

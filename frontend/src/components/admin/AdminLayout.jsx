@@ -53,7 +53,6 @@ export default function AdminLayout() {
             };
         }
 
-        // Default Fallback
         return { 
             title: 'Admin Portal', 
             icon: BarChart3, 
@@ -69,21 +68,17 @@ export default function AdminLayout() {
             <div className="flex-1 flex flex-col overflow-hidden">
                 <header className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-10">
                     <div className="relative h-48 bg-gradient-to-r from-cyan-600 to-blue-600 overflow-hidden">
-                        {/* Background Decoration */}
                         <div className="absolute inset-0 opacity-20">
                             <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-400 rounded-full blur-3xl"></div>
                             <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl"></div>
                         </div>
 
-                        {/* Main Header Content */}
                         <div className="relative px-8 py-6 h-full flex flex-col justify-center">
                             <div className="flex items-center gap-6">
-                                {/* Dynamic Icon Box */}
                                 <div className="p-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-xl">
                                     <Icon className="w-8 h-8 text-white" />
                                 </div>
                                 
-                                {/* Dynamic Title & Subtitle */}
                                 <div>
                                     <h1 className="text-3xl font-bold text-white tracking-tight">
                                         {title}

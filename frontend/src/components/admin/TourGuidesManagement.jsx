@@ -15,7 +15,6 @@ export default function TourGuidesManagement() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     
-    // Modal States
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [selectedGuide, setSelectedGuide] = useState(null);
     const [viewingCredentialImage, setViewingCredentialImage] = useState(null);
@@ -70,18 +69,13 @@ export default function TourGuidesManagement() {
         }
     };
 
-    // --- FIXED IMAGE HANDLING LOGIC ---
     const viewCredentialImage = (credentialKey, guideName, credentialsObj) => {
         let url = null;
         
-        // 1. Get the URL from the object using your log's structure
         if (credentialsObj) {
             url = credentialsObj[`${credentialKey}_url`];
         }
 
-        // 2. IMPORTANT FIX: Handle "Mixed Content" (HTTP vs HTTPS)
-        // If your site is on HTTPS (ngrok) but the image is HTTP, browsers block it.
-        // We force the image URL to match the current page's protocol.
         if (url && url.startsWith('http:')) {
             url = url.replace('http:', 'https:');
         }
@@ -108,7 +102,6 @@ export default function TourGuidesManagement() {
                 </div>
             </div>
 
-            {/* List Area */}
             {loading ? (
                 <div className="flex justify-center items-center h-64">
                     <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
@@ -144,7 +137,6 @@ export default function TourGuidesManagement() {
                 </div>
             )}
 
-            {/* Details Modal */}
             {isDetailsModalOpen && selectedGuide && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col">
@@ -242,12 +234,10 @@ export default function TourGuidesManagement() {
                 </div>
             )}
 
-            {/* Image Viewer Modal */}
             {isViewCredentialImageModalOpen && viewingCredentialImage && (
                 <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[60] p-4">
                     <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center">
                         <div className="absolute top-4 right-4 z-10 flex gap-2">
-                             {/* Added External Link Button for debugging */}
                              {viewingCredentialImage.url && (
                                 <a 
                                     href={viewingCredentialImage.url} 
@@ -275,8 +265,7 @@ export default function TourGuidesManagement() {
                                     className="w-full h-auto max-h-[80vh] object-contain"
                                     onError={(e) => {
                                         console.error("Image failed to load:", viewingCredentialImage.url);
-                                        e.target.style.display = 'none'; // Hide broken image icon
-                                        // You could set a state here to show an error message
+                                        e.target.style.display = 'none'; 
                                     }}
                                 />
                             ) : (

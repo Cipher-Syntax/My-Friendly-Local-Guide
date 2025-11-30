@@ -18,7 +18,6 @@ const Adminsignin = () => {
         rememberMe: false
     });
 
-    // Parallax effect for the background
     useEffect(() => {
         const handleMouseMove = (e) => {
             setMousePosition({
@@ -98,9 +97,7 @@ const Adminsignin = () => {
     return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-teal-500/30">
             
-            {/* --- ANIMATED BACKGROUND LAYER --- */}
             <div className="absolute inset-0 overflow-hidden">
-                {/* Glowing Orbs */}
                 <div 
                     className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse"
                     style={{ transform: `translate(${mousePosition.x * -1}px, ${mousePosition.y * -1}px)` }}
@@ -110,7 +107,6 @@ const Adminsignin = () => {
                     style={{ animationDelay: '2s', transform: `translate(${mousePosition.x}px, ${mousePosition.y}px)` }}
                 />
                 
-                {/* Floating Abstract Icons Background */}
                 {floatingIcons.map(({ Icon, top, left, delay, size, opacity }, idx) => (
                     <div
                         key={idx}
@@ -129,13 +125,10 @@ const Adminsignin = () => {
                 ))}
             </div>
 
-            {/* --- MAIN CARD --- */}
             <div className="w-full max-w-5xl bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10 hover:shadow-teal-900/20 transition-all duration-500">
                 
-                {/* --- LEFT PANEL: BRANDING (Darker Glass) --- */}
                 <div className="w-full md:w-5/12 bg-gradient-to-br from-slate-900/80 to-slate-800/80 p-12 text-white relative flex flex-col justify-between border-r border-white/5">
                     
-                    {/* Brand Logo Area */}
                     <div className="relative">
                         <div className="w-16 h-16 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-500/20 mb-8 transform rotate-3 hover:rotate-6 transition-transform duration-300">
                             <Compass size={32} className="text-white" strokeWidth={2} />
@@ -149,7 +142,6 @@ const Adminsignin = () => {
                         </div>
                     </div>
 
-                    {/* Mid Section Description */}
                     <div className="my-12 relative">
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-teal-500 to-transparent rounded-full"></div>
                         <p className="pl-6 text-slate-300 leading-relaxed text-lg font-light">
@@ -157,13 +149,11 @@ const Adminsignin = () => {
                         </p>
                     </div>
 
-                    {/* Footer Info */}
                     <div className="text-slate-500 text-xs font-medium tracking-wide">
                         &copy; 2025 LOCALYNK PLATFORM. SECURE CONNECTION.
                     </div>
                 </div>
 
-                {/* --- RIGHT PANEL: FORM (Lighter Glass) --- */}
                 <div className="w-full md:w-7/12 p-8 md:p-16 bg-white/5 flex flex-col justify-center">
                     
                     <div className="max-w-md mx-auto w-full">
@@ -172,7 +162,6 @@ const Adminsignin = () => {
                             <p className="text-slate-400">Please enter your credentials to continue.</p>
                         </div>
 
-                        {/* Error Alert */}
                         {error && (
                             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 animate-in fade-in slide-in-from-top-2">
                                 <Shield className="w-5 h-5 shrink-0" />
@@ -181,7 +170,6 @@ const Adminsignin = () => {
                         )}
 
                         <form className="space-y-6">
-                            {/* Username Input */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300 ml-1">Username</label>
                                 <div className="relative group">
@@ -200,7 +188,6 @@ const Adminsignin = () => {
                                 </div>
                             </div>
 
-                            {/* Password Input */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300 ml-1">Password</label>
                                 <div className="relative group">
@@ -226,7 +213,6 @@ const Adminsignin = () => {
                                 </div>
                             </div>
 
-                            {/* Remember Me & Options */}
                             <div className="flex items-center justify-between pt-2">
                                 <label className="flex items-center space-x-3 cursor-pointer group">
                                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${formData.rememberMe ? 'bg-teal-500 border-teal-500' : 'border-slate-600 bg-slate-800 group-hover:border-teal-500/50'}`}>
@@ -246,7 +232,6 @@ const Adminsignin = () => {
                                 </a>
                             </div>
 
-                            {/* Submit Button */}
                             <button
                                 onClick={handleSubmit}
                                 disabled={isLoading}
@@ -269,7 +254,6 @@ const Adminsignin = () => {
                 </div>
             </div>
 
-            {/* Custom Styles for Animation */}
             <style>{`
                 @keyframes float {
                     0%, 100% { transform: translateY(0px) rotate(0deg); }

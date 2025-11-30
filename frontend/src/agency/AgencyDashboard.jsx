@@ -21,10 +21,8 @@ export default function AgencyDashboard() {
         assignGuide,
     } = useAgencyDashboardOverview();
 
-    // --- Render ---
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-            {/* Header */}
             <Link to="/agency-draft">Agency Draft</Link>
             <header className='w-[100%]'>
                 <div className="w-[100%] mx-auto px-6 py-4" style={{
@@ -49,7 +47,6 @@ export default function AgencyDashboard() {
                 </div>
             </header >
 
-            {/* Hero Banner */}
             <div className="relative h-32 text-center overflow-hidden flex items-center justify-center">
                 <div className="relative max-w-[1800px] mx-auto px-6 h-full flex items-center">
                     <div>
@@ -59,15 +56,11 @@ export default function AgencyDashboard() {
                 </div>
             </div>
 
-            {/* Main Content */}
             <div className="max-w-[1800px] mx-auto px-6 py-8">
-                {/* Stats Grid - CALLING DashboardStats */}
                 <DashboardStats tourGuides={tourGuides} />
 
-                {/* Two Column Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    {/* Bookings Section - CALLING BookingsList */}
                     <BookingsList
                         bookings={bookings}
                         selectedBookingId={selectedBookingId}
@@ -77,7 +70,6 @@ export default function AgencyDashboard() {
                         getStatusColor={getStatusColor}
                     />
 
-                    {/* Tour Guides Section - CALLING TourGuideList */}
                     <TourGuideList
                         searchTerm={searchTerm}
                         setSearchTerm={setSearchTerm}

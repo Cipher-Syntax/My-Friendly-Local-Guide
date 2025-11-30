@@ -7,12 +7,10 @@ export default function DeleteConfirmationModal({ isDeleteConfirmOpen, cancelDel
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full">
-                {/* Modal Header */}
                 <div className="px-6 py-4 border-b border-slate-700/50">
                     <h3 className="text-xl font-bold text-white">Remove Tour Guide</h3>
                 </div>
 
-                {/* Modal Content */}
                 <div className="px-6 py-6 flex items-center gap-3">
                     <div className="p-2 bg-red-500/20 rounded-lg">
                         <AlertTriangle className="w-6 h-6 text-red-400" />
@@ -22,7 +20,6 @@ export default function DeleteConfirmationModal({ isDeleteConfirmOpen, cancelDel
                     </p>
                 </div>
 
-                {/* Modal Footer */}
                 <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
                     <button
                         onClick={cancelDeleteGuide}

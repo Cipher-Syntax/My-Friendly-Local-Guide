@@ -18,7 +18,6 @@ const Agencysignin = () => {
         rememberMe: false
     });
 
-    // Parallax effect logic
     useEffect(() => {
         const handleMouseMove = (e) => {
             setMousePosition({
@@ -44,24 +43,20 @@ const Agencysignin = () => {
         setError(null);
 
         try {
-            // 1. Call the Agency Login Endpoint
             const res = await api.post('api/auth/agency/login/', {
                 username: formData.username, 
                 password: formData.password
             });
 
-            // 2. Store tokens
             const access = res.data.access;
             const refresh = res.data.refresh;
 
             localStorage.setItem(ACCESS_TOKEN, access);
             localStorage.setItem(REFRESH_TOKEN, refresh);
 
-            // 3. Decode and Save User Details
             try {
                 const decoded = jwtDecode(access);
                 
-                // Save specific agency keys
                 localStorage.setItem('agency_username', decoded.username || 'Agency Staff');
                 localStorage.setItem('agency_email', decoded.email || formData.email);
                 
@@ -73,25 +68,20 @@ const Agencysignin = () => {
 
             console.log('Agency Login Successful');
             
-            // 💥 REDIRECT LOGIC: Check for pending agency profile data
             const pendingData = localStorage.getItem('pending_agency_data');
             
             if (pendingData) {
-                // If data exists, redirect to the profile completion page to re-upload the file
-                // navigate('/agency/complete-profile');
+
                 navigate('/agency/complete-profile');
             } else {
-                // If no pending data, navigate to the main dashboard
                 navigate('/agency'); 
             }
-            // 💥 END REDIRECT LOGIC
 
         } catch (err) {
             console.error("Agency Login Failed", err);
             if (err.response && err.response.data && err.response.data.detail) {
                 setError(err.response.data.detail); 
             } else {
-                // Note: The backend fix should make this error obsolete.
                 setError("Invalid credentials. Please verify your agency account.");
             }
         } finally {
@@ -117,9 +107,7 @@ const Agencysignin = () => {
     return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-cyan-500/30">
             
-            {/* --- ANIMATED BACKGROUND LAYER --- */}
             <div className="absolute inset-0 overflow-hidden">
-                {/* Glowing Orbs - Indigo/Cyan Theme for Agency */}
                 <div 
                     className="absolute top-[-10%] right-[-5%] w-[60%] h-[60%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse"
                     style={{ transform: `translate(${mousePosition.x}px, ${mousePosition.y * -1}px)` }}
@@ -129,7 +117,6 @@ const Agencysignin = () => {
                     style={{ animationDelay: '2s', transform: `translate(${mousePosition.x * -1}px, ${mousePosition.y}px)` }}
                 />
                 
-                {/* Floating Abstract Icons */}
                 {floatingIcons.map(({ Icon, top, left, delay, size, opacity }, idx) => (
                     <div
                         key={idx}
@@ -148,13 +135,10 @@ const Agencysignin = () => {
                 ))}
             </div>
 
-            {/* --- MAIN CARD --- */}
             <div className="w-full max-w-5xl bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10 hover:shadow-indigo-900/20 transition-all duration-500">
                 
-                {/* --- LEFT PANEL: BRANDING --- */}
                 <div className="w-full md:w-5/12 bg-gradient-to-br from-indigo-900/80 to-slate-900/80 p-12 text-white relative flex flex-col justify-between border-r border-white/5">
                     
-                    {/* Brand Logo Area */}
                     <div className="relative z-10">
                         <div className="w-16 h-16 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-8 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
                             <Building2 size={32} className="text-white" strokeWidth={2} />
@@ -170,7 +154,6 @@ const Agencysignin = () => {
                         </div>
                     </div>
 
-                    {/* Mid Section Description */}
                     <div className="my-12 relative z-10">
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500 to-indigo-600 rounded-full"></div>
                         <p className="pl-6 text-slate-300 leading-relaxed text-lg font-light">
@@ -178,14 +161,12 @@ const Agencysignin = () => {
                         </p>
                     </div>
 
-                    {/* Footer Info */}
                     <div className="relative z-10 flex gap-4 text-xs font-medium tracking-wide text-slate-500">
                         <span>AGENCY PARTNER PROGRAM</span>
                         <span>•</span>
                         <span>SECURE LOGIN</span>
                     </div>
 
-                     {/* Subtle Background Pattern for Left Panel */}
                      <div className="absolute inset-0 opacity-10 pointer-events-none">
                          <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                             <path d="M0,100 L100,0 L100,100 Z" fill="url(#grad1)" />
@@ -199,7 +180,6 @@ const Agencysignin = () => {
                      </div>
                 </div>
 
-                {/* --- RIGHT PANEL: FORM --- */}
                 <div className="w-full md:w-7/12 p-8 md:p-16 bg-white/5 flex flex-col justify-center">
                     
                     <div className="max-w-md mx-auto w-full">
@@ -208,7 +188,6 @@ const Agencysignin = () => {
                             <p className="text-slate-400">Enter your partner credentials to access your dashboard.</p>
                         </div>
 
-                        {/* Error Alert */}
                         {error && (
                             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 animate-in fade-in slide-in-from-top-2">
                                 <div className="p-1 bg-red-500/20 rounded-full"><EyeOff size={14} /></div>
@@ -217,7 +196,6 @@ const Agencysignin = () => {
                         )}
 
                         <form className="space-y-6">
-                            {/* Email Input */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300 ml-1">Username</label>
                                 <div className="relative group">
@@ -236,7 +214,6 @@ const Agencysignin = () => {
                                 </div>
                             </div>
 
-                            {/* Password Input */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300 ml-1">Password</label>
                                 <div className="relative group">
@@ -262,7 +239,6 @@ const Agencysignin = () => {
                                 </div>
                             </div>
 
-                            {/* Remember Me & Options */}
                             <div className="flex items-center justify-between pt-2">
                                 <label className="flex items-center space-x-3 cursor-pointer group">
                                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${formData.rememberMe ? 'bg-cyan-500 border-cyan-500' : 'border-slate-600 bg-slate-800 group-hover:border-cyan-500/50'}`}>
@@ -282,7 +258,6 @@ const Agencysignin = () => {
                                 </a>
                             </div>
 
-                            {/* Submit Button */}
                             <button
                                 onClick={handleSubmit}
                                 disabled={isLoading}
@@ -311,7 +286,6 @@ const Agencysignin = () => {
                 </div>
             </div>
 
-            {/* Custom Styles for Animation */}
             <style>{`
                 @keyframes float {
                     0%, 100% { transform: translateY(0px) rotate(0deg); }
