@@ -26,6 +26,11 @@ from .models import GuideApplication
 
 User = get_user_model()
 
+# --- CUSTOM REDIRECT CLASS ---
+# (Optional helper if you decide to use HttpResponseRedirect in future)
+class CustomSchemeRedirect(HttpResponse):
+    pass
+
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = UserSerializer
@@ -129,6 +134,7 @@ class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
                 except Exception as e:
                     print(f"Could not send alert: {e}")
 
+# --- BRIDGE VIEW FOR EXPO GO & DEEP LINKING ---
 class PasswordResetAppRedirectView(APIView):
     """
     Renders a simple HTML page that attempts to open the app via JS
@@ -138,10 +144,19 @@ class PasswordResetAppRedirectView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, uid, token):
+        # ---------------------------------------------------------
+        # ⚠️ IMPORTANT FOR EXPO GO USERS ⚠️
+        # Replace '192.168.137.89' with YOUR computer's actual local IP address.
+        # This MUST match the IP shown in your terminal when running 'npx expo start'.
+        # ---------------------------------------------------------
         EXPO_IP = "192.168.137.89" 
         
+        # Link for Expo Go
         app_scheme_url = f"exp://{EXPO_IP}:8081/--/auth/resetPassword?uid={uid}&token={token}"
-    
+        
+        # Link for Standalone/Development Build (Keep for later reference)
+        # app_scheme_url = f"localynk://auth/resetPassword?uid={uid}&token={token}"
+
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -223,21 +238,49 @@ class PasswordResetRequestView(generics.GenericAPIView):
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         
+        # Link to the Django 'bridge' view (HTTPS)
         redirect_link = f"{settings.BACKEND_BASE_URL}/api/password-reset/redirect/{uid}/{token}/"
 
-        plain_message = f"Hi {user.username},\n\nWe received a request to reset your password. Click the link below to open the app:\n{redirect_link}\n\nIf the link doesn't work, manually enter:\nUID: {uid}\nToken: {token}"
+        # 1. Plain Text Message with CLEAR UID/Token
+        plain_message = (
+            f"Hi {user.username},\n\n"
+            f"We received a request to reset your password. Click the link below to open the app:\n"
+            f"{redirect_link}\n\n"
+            f"--- OR MANUALLY ENTER CODES ---\n"
+            f"If the link doesn't work, enter these details in the app:\n\n"
+            f"UID: {uid}\n"
+            f"Token: {token}\n\n"
+            f"If you didn't request this, ignore this email."
+        )
 
+        # 2. HTML Message with STYLED Box for UID/Token
         html_message = f"""
         <html>
-            <body>
+            <body style="font-family: Arial, sans-serif; color: #333;">
                 <p>Hi {user.username},</p>
                 <p>We received a request to reset your password.</p>
+                
                 <p>
-                    <a href="{redirect_link}" style="background-color: #0072FF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                    <a href="{redirect_link}" style="background-color: #0072FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
                         Reset Password (Open App)
                     </a>
                 </p>
-                <p><small>If you didn't request this, ignore this email.</small></p>
+                
+                <br>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                
+                <p><strong>If the button doesn't work, please manually enter these codes in the app:</strong></p>
+                
+                <div style="background-color: #f4f6f8; padding: 15px; border-radius: 8px; border: 1px solid #e1e4e8; display: inline-block; min-width: 250px;">
+                    <p style="margin: 5px 0; font-size: 14px;"><strong>UID:</strong></p>
+                    <p style="margin: 0 0 10px 0; font-family: monospace; font-size: 18px; color: #0072FF; background: #fff; padding: 5px; border: 1px solid #ddd; border-radius: 4px;">{uid}</p>
+                    
+                    <p style="margin: 5px 0; font-size: 14px;"><strong>Token:</strong></p>
+                    <p style="margin: 0; font-family: monospace; font-size: 18px; color: #0072FF; background: #fff; padding: 5px; border: 1px solid #ddd; border-radius: 4px; word-break: break-all;">{token}</p>
+                </div>
+
+                <br><br>
+                <p><small style="color: #888;">If you didn't request this, please ignore this email.</small></p>
             </body>
         </html>
         """
@@ -258,6 +301,7 @@ class PasswordResetConfirmView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, uid=None, token=None, *args, **kwargs):
+        # Support getting uid/token from body (easier for mobile app)
         uid = uid or request.data.get('uid')
         token = token or request.data.get('token')
 
