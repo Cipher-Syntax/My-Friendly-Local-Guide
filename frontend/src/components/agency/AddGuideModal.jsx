@@ -1,124 +1,122 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, Plus, User, Phone, Book, Languages } from 'lucide-react';
 
-export default function AddGuideModal({
-    isAddGuideModalOpen,
-    closeAddGuideModal,
-    newGuideForm,
-    setNewGuideForm,
-    handleAddLanguage,
-    handleRemoveLanguage,
-    filteredLanguages,
-    handleSubmitNewGuide,
+export default function AddGuideModal({ 
+    isAddGuideModalOpen, 
+    closeAddGuideModal, 
+    newGuideForm, 
+    setNewGuideForm, 
+    filteredLanguages, 
+    handleAddLanguage, 
+    handleRemoveLanguage, 
+    handleSubmitNewGuide 
 }) {
     if (!isAddGuideModalOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                 <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
-                    <div>
-                        <h3 className="text-xl font-bold text-white">Add New Tour Guide</h3>
-                        <p className="text-slate-400 text-sm mt-1">Fill in the guide's professional details</p>
-                    </div>
-                    <button
-                        onClick={closeAddGuideModal}
-                        className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-700/50 transition-colors"
-                    >
-                        <X className="w-5 h-5 text-slate-400" />
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Plus className="w-5 h-5 text-cyan-400" />
+                        Add New Tour Guide
+                    </h3>
+                    <button onClick={closeAddGuideModal} className="text-slate-400 hover:text-white transition-colors">
+                        <X className="w-6 h-6" />
                     </button>
                 </div>
+                
+                <div className="p-6 space-y-4">
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                            <User className="w-4 h-4 text-slate-500" /> Full Name
+                        </label>
+                        <input 
+                            type="text" 
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
+                            placeholder="e.g. Juan Dela Cruz"
+                            value={newGuideForm.fullName}
+                            onChange={(e) => setNewGuideForm({...newGuideForm, fullName: e.target.value})}
+                        />
+                    </div>
 
-                <div className="flex-1 overflow-y-auto p-6">
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block text-white text-base font-semibold mb-3">Full Name</label>
-                            <input
-                                type="text"
-                                value={newGuideForm.fullName}
-                                onChange={(e) => setNewGuideForm(prev => ({ ...prev, fullName: e.target.value }))}
-                                placeholder="e.g. Juan Dela Cruz"
-                                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors text-base"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-white text-base font-semibold mb-3">Specialty</label>
-                            <input
-                                type="text"
-                                value={newGuideForm.specialty}
-                                onChange={(e) => setNewGuideForm(prev => ({ ...prev, specialty: e.target.value }))}
-                                placeholder="e.g. Historical Tours, Hiking, Food Crawl"
-                                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors text-base"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-white text-base font-semibold mb-3">Languages</label>
-                            <div className="relative mb-4">
-                                <input
-                                    type="text"
-                                    value={newGuideForm.languageSearchTerm}
-                                    onChange={(e) => setNewGuideForm(prev => ({ ...prev, languageSearchTerm: e.target.value, showLanguageDropdown: true }))}
-                                    onFocus={() => setNewGuideForm(prev => ({ ...prev, showLanguageDropdown: true }))}
-                                    placeholder="Type to search languages..."
-                                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors text-base"
-                                />
-                                {newGuideForm.showLanguageDropdown && filteredLanguages.length > 0 && (
-                                    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700/50 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
-                                        {filteredLanguages.map((lang, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => {
-                                                    handleAddLanguage(lang);
-                                                    setNewGuideForm(prev => ({ ...prev, showLanguageDropdown: false, languageSearchTerm: '' }));
-                                                }}
-                                                className="w-full text-left px-4 py-2 hover:bg-cyan-500/20 text-white transition-colors hover:text-cyan-400 text-sm"
-                                            >
-                                                {lang}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {newGuideForm.languages.map((lang, idx) => (
-                                    <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-cyan-500/20 border border-cyan-500/50 rounded-full text-cyan-400 text-sm font-medium">
-                                        {lang}
-                                        <button onClick={() => handleRemoveLanguage(lang)} className="hover:text-cyan-300">
-                                            <X className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-white text-base font-semibold mb-3">Contact Number</label>
-                            <input
-                                type="tel"
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                                <Phone className="w-4 h-4 text-slate-500" /> Phone
+                            </label>
+                            <input 
+                                type="tel" 
+                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
+                                placeholder="+63 9..."
                                 value={newGuideForm.phone}
-                                onChange={(e) => setNewGuideForm(prev => ({ ...prev, phone: e.target.value }))}
-                                placeholder="e.g. 0912 345 6789"
-                                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors text-base"
+                                onChange={(e) => setNewGuideForm({...newGuideForm, phone: e.target.value})}
                             />
                         </div>
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                                <Book className="w-4 h-4 text-slate-500" /> Specialty
+                            </label>
+                            <input 
+                                type="text" 
+                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
+                                placeholder="e.g. Historical"
+                                value={newGuideForm.specialty}
+                                onChange={(e) => setNewGuideForm({...newGuideForm, specialty: e.target.value})}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1 relative">
+                        <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                            <Languages className="w-4 h-4 text-slate-500" /> Languages
+                        </label>
+                        <div className="flex flex-wrap gap-2 mb-2 p-2 bg-slate-900/50 rounded-xl border border-slate-700 min-h-[3rem]">
+                            {newGuideForm.languages.map(lang => (
+                                <span key={lang} className="bg-cyan-500/20 text-cyan-300 px-2 py-1 rounded text-xs flex items-center gap-1 border border-cyan-500/30">
+                                    {lang}
+                                    <button onClick={() => handleRemoveLanguage(lang)} className="hover:text-white"><X className="w-3 h-3" /></button>
+                                </span>
+                            ))}
+                            <input 
+                                type="text" 
+                                className="bg-transparent outline-none text-white text-sm flex-1 min-w-[100px]"
+                                placeholder="Type & select..."
+                                value={newGuideForm.languageSearchTerm}
+                                onFocus={() => setNewGuideForm(prev => ({...prev, showLanguageDropdown: true}))}
+                                onChange={(e) => setNewGuideForm(prev => ({...prev, languageSearchTerm: e.target.value}))}
+                            />
+                        </div>
+                        
+                        {newGuideForm.showLanguageDropdown && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-10 max-h-40 overflow-y-auto">
+                                {filteredLanguages
+                                    .filter(l => l.toLowerCase().includes((newGuideForm.languageSearchTerm || '').toLowerCase()))
+                                    .map(lang => (
+                                        <button 
+                                            key={lang}
+                                            onClick={() => {
+                                                handleAddLanguage(lang);
+                                                setNewGuideForm(prev => ({...prev, languageSearchTerm: '', showLanguageDropdown: false}));
+                                            }}
+                                            className="w-full text-left px-4 py-2 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                                        >
+                                            {lang}
+                                        </button>
+                                    ))
+                                }
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
-                    <button
-                        onClick={closeAddGuideModal}
-                        className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
+                    <button onClick={closeAddGuideModal} className="px-4 py-2 text-slate-400 hover:text-white transition-colors">Cancel</button>
+                    <button 
                         onClick={handleSubmitNewGuide}
-                        disabled={!newGuideForm.fullName || !newGuideForm.specialty || newGuideForm.languages.length === 0 || !newGuideForm.phone}
-                        className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+                        className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white font-medium rounded-xl shadow-lg shadow-cyan-500/25 transition-all"
                     >
-                        Add Guide
+                        Create Profile
                     </button>
                 </div>
             </div>

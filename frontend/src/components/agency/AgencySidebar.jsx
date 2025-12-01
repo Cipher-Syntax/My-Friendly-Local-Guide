@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // Use React Router for navigation
-import { LayoutDashboard, BookOpen, UsersRound, User, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; 
+import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star } from 'lucide-react'; // Added Star
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
 
 export default function AgencySidebar({ activeTab, setActiveTab }) {
@@ -31,6 +31,7 @@ export default function AgencySidebar({ activeTab, setActiveTab }) {
         { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { id: 'bookings', icon: BookOpen, label: 'Bookings Management' },
         { id: 'guides', icon: UsersRound, label: 'Tour Guide Management' },
+        { id: 'reviews', icon: Star, label: 'Reviews & Ratings' }, // New Item
     ];
 
     return (

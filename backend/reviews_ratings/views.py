@@ -16,6 +16,12 @@ class ReviewViewSet(viewsets.ModelViewSet):
         queryset = Review.objects.all().order_by('-timestamp')
         user = self.request.user
         
+        # --- NEW LOGIC START ---
+        # Allow approved Agencies to see reviews for their bookings
+        if hasattr(user, 'agency_profile') and user.agency_profile.is_approved:
+            return queryset.filter(booking__agency=user)
+        # --- NEW LOGIC END ---
+
         filter_type = self.request.query_params.get('filter')
 
         if filter_type == 'received':

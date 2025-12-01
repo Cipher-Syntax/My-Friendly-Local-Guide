@@ -1,28 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star } from 'lucide-react';
 import api from '../api/api';
 
 import AgencySidebar from '../components/agency/AgencySidebar';
 import AgencyDashboardContent from '../components/agency/AgencyDashboardContent';
 import AgencyBookingsTable from '../components/agency/AgencyBookingsTable';
 import AgencyTourGuideManagement from '../components/agency/AgencyTourGuideManagement';
+import AgencyReviews from '../components/agency/AgencyReviews';
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
-
-const FREE_TIER_GUIDE_LIMIT = 2;
-const FREE_TIER_BOOKING_LIMIT = 1;
-const SUBSCRIPTION_PRICE = 3000;
 
 export default function AgencyLayout() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [loading, setLoading] = useState(true);
 
-    const [user, setUser] = useState({ guide_tier: 'free' });
+    const [user, setUser] = useState({ guide_tier: 'free', guide_rating: 0 });
+    
+    const [config, setConfig] = useState({
+        subscriptionPrice: 3000,
+        guideLimit: 2,
+        bookingLimit: 1
+    });
 
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-    
+    const [isPollingPayment, setIsPollingPayment] = useState(false);
+
     const [confirmModal, setConfirmModal] = useState({ 
         isOpen: false, 
         title: '', 
@@ -60,6 +64,15 @@ export default function AgencyLayout() {
         try {
             setLoading(true);
           
+            const configRes = await api.get('api/payments/subscription-price/');
+            if (configRes.data) {
+                setConfig({
+                    subscriptionPrice: parseFloat(configRes.data.price) || 3000,
+                    guideLimit: configRes.data.guide_limit || 2,
+                    bookingLimit: configRes.data.booking_limit || 1
+                });
+            }
+
             const userRes = await api.get('api/profile/');
             setUser(userRes.data);
 
@@ -71,7 +84,7 @@ export default function AgencyLayout() {
                 name: `${g.first_name} ${g.last_name}`,
                 specialty: g.specialization,
                 languages: g.languages || [],
-                rating: 5.0,
+                rating: 5.0, 
                 tours: 0,
                 available: g.is_active,
                 phone: g.contact_number,
@@ -79,14 +92,14 @@ export default function AgencyLayout() {
                 avatar: g.first_name.charAt(0)
             }));
             
+            // Format bookings with correct date fields
             const formattedBookings = bookingsRes.data
-                .filter(b => b.status === 'Pending')
                 .map(b => ({
                     id: b.id,
                     name: `Booking #${b.id} - ${b.tourist_username}`,
-                    date: b.check_in,
-                    time: "09:00 AM",
-                    location: b.destination_detail?.name || "General Tour",
+                    check_in: b.check_in,   // Maps to start date
+                    check_out: b.check_out, // Maps to end date
+                    location: b.destination_detail?.name || b.accommodation_detail?.title || "General Booking",
                     groupSize: b.num_guests,
                     status: b.status.toLowerCase(),
                     guideIds: b.assigned_agency_guides || [] 
@@ -107,7 +120,7 @@ export default function AgencyLayout() {
         setConfirmModal({
             isOpen: true,
             title: "Confirm Subscription Upgrade",
-            message: `You are about to upgrade to the UNLIMITED tier for ₱${SUBSCRIPTION_PRICE.toLocaleString('en-PH')}/year. Proceed to payment?`,
+            message: `You are about to upgrade to the UNLIMITED tier for ₱${config.subscriptionPrice.toLocaleString('en-PH')}/year. Proceed to payment?`,
             isDanger: false,
             actionLabel: "Proceed to Payment",
             onConfirm: executeSubscription,
@@ -117,28 +130,57 @@ export default function AgencyLayout() {
     const executeSubscription = async () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         
-        setLoading(true);
-        
         try {
             const res = await api.post('api/payments/initiate/', {
                 payment_type: 'YearlySubscription',
-                final_amount: SUBSCRIPTION_PRICE 
+                final_amount: config.subscriptionPrice 
             });
             
-            const { checkout_url } = res.data; 
-            
-            window.open(checkout_url, '_blank');
+            const { checkout_url, payment_id } = res.data; 
 
-       
-            showToast("Redirecting to PayMongo. Please check the new tab to complete payment.", "success");
-            
+            window.open(checkout_url, '_blank');
+            showToast("Redirecting to payment provider...", "info");
+
+            startPolling(payment_id);
+
         } catch (error) {
             console.error("Subscription initiation failed:", error);
-            setLoading(false);
-            showToast("Failed to initiate subscription. Check your network or details.", "error");
+            showToast("Failed to initiate subscription.", "error");
         }
     };
 
+    const startPolling = (paymentId) => {
+        setIsPollingPayment(true);
+
+        const pollInterval = setInterval(async () => {
+            try {
+                const res = await api.get(`api/payments/status/${paymentId}/`);
+                const status = res.data.status;
+
+                if (status === 'succeeded') {
+                    clearInterval(pollInterval);
+                    setIsPollingPayment(false);
+                    showToast("Payment Successful! Tier Upgraded.", "success");
+                    fetchData(); 
+                } else if (status === 'failed' || status === 'cancelled') {
+                    clearInterval(pollInterval);
+                    setIsPollingPayment(false);
+                    showToast("Payment failed or was cancelled.", "error");
+                }
+
+            } catch (error) {
+                console.error("Polling error:", error);
+            }
+        }, 3000);
+
+        setTimeout(() => {
+            clearInterval(pollInterval);
+            if (isPollingPayment) {
+                setIsPollingPayment(false);
+                showToast("Payment verification timed out. Please refresh.", "error");
+            }
+        }, 300000);
+    };
 
     const handleAddGuide = async () => {
         try {
@@ -168,7 +210,6 @@ export default function AgencyLayout() {
         }
     };
 
-
     const initiateDeleteGuide = (id) => {
         setConfirmModal({
             isOpen: true,
@@ -193,15 +234,13 @@ export default function AgencyLayout() {
     };
 
     const updateBookingStatus = async (id, status) => {
-        
         if (status === 'accepted' && user.guide_tier === 'free') {
             const acceptedBookingsCount = bookings.filter(b => b.status === 'accepted').length;
-            if (acceptedBookingsCount >= FREE_TIER_BOOKING_LIMIT) {
-                showToast(`Free tier is limited to ${FREE_TIER_BOOKING_LIMIT} accepted booking. Upgrade for unlimited bookings.`, "error");
+            if (acceptedBookingsCount >= config.bookingLimit) {
+                showToast(`Free tier is limited to ${config.bookingLimit} accepted booking(s). Upgrade for unlimited bookings.`, "error");
                 return;
             }
         }
-        
         try {
             await api.patch(`api/bookings/${id}/status/`, { status: status === 'accepted' ? 'Accepted' : 'Declined' });
             fetchData();
@@ -237,7 +276,6 @@ export default function AgencyLayout() {
         }
     };
 
-    
     const filteredGuides = guides.filter(g => 
         g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         g.specialty?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -288,21 +326,26 @@ export default function AgencyLayout() {
                         </div>
                         
                         <div className="relative px-8 py-6 h-full flex flex-col justify-center">
-                            <div className="flex items-center justify-between w-full"> {/* Added w-full */}
+                            <div className="flex items-center justify-between w-full"> 
                                 <div className="flex items-center gap-4">
                                     <div className="p-3 bg-white/20 backdrop-blur-sm rounded-lg">
                                         {activeTab === 'dashboard' && <LayoutDashboard className="w-8 h-8 text-white" />}
                                         {activeTab === 'bookings' && <BookOpen className="w-8 h-8 text-white" />}
                                         {activeTab === 'guides' && <UsersRound className="w-8 h-8 text-white" />}
+                                        {activeTab === 'reviews' && <Star className="w-8 h-8 text-white" />}
                                     </div>
                                     <div>
                                         <h2 className="text-3xl font-bold text-white">
                                             {activeTab === 'dashboard' ? 'Dashboard Overview' :
-                                             activeTab === 'bookings' ? 'Bookings Management' : 'Tour Guide Management'}
+                                             activeTab === 'bookings' ? 'Bookings Management' :
+                                             activeTab === 'guides' ? 'Tour Guide Management' :
+                                             'Reviews & Ratings'}
                                         </h2>
                                         <p className="text-cyan-100 mt-1">
                                             {activeTab === 'dashboard' ? 'Monitor your agency performance' :
-                                             activeTab === 'bookings' ? 'Manage and assign tour guides' : 'View and manage your roster'}
+                                             activeTab === 'bookings' ? 'Manage and assign tour guides' :
+                                             activeTab === 'guides' ? 'View and manage your roster' :
+                                             'See what guests are saying'}
                                         </p>
                                     </div>
                                 </div>
@@ -312,20 +355,31 @@ export default function AgencyLayout() {
                                         <p className="text-sm font-semibold text-white/70 mb-1">
                                             Tier: <span className="text-yellow-400">FREE (Limited)</span>
                                         </p>
-                                        <button
-                                            onClick={initiateSubscription}
-                                            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black rounded-lg transition-colors flex items-center gap-2 font-medium shadow-md"
-                                        >
-                                            <DollarSign className="w-5 h-5" />
-                                            Upgrade to Unlimited (₱{SUBSCRIPTION_PRICE}/yr)
-                                        </button>
+                                        
+                                        {isPollingPayment ? (
+                                             <button disabled className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg flex items-center gap-2 font-medium cursor-wait border border-slate-600">
+                                                <Loader2 className="w-5 h-5 animate-spin text-cyan-500" />
+                                                Waiting for Payment...
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={initiateSubscription}
+                                                className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black rounded-lg transition-colors flex items-center gap-2 font-medium shadow-md"
+                                            >
+                                                <DollarSign className="w-5 h-5" />
+                                                Upgrade to Unlimited (₱{config.subscriptionPrice.toLocaleString('en-PH')}/yr)
+                                            </button>
+                                        )}
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col items-end">
+                                    <div className="flex flex-col items-end animate-in zoom-in duration-300">
                                         <p className="text-sm font-semibold text-white/70 mb-1">
                                             Tier: <span className="text-green-400">PAID (Unlimited)</span>
                                         </p>
-                                        <CheckCircle className="w-6 h-6 text-green-400" />
+                                        <div className="flex items-center gap-2 bg-green-500/10 px-3 py-1.5 rounded-lg border border-green-500/30">
+                                            <span className="text-green-400 font-bold">PREMIUM</span>
+                                            <CheckCircle className="w-5 h-5 text-green-400" />
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -344,7 +398,7 @@ export default function AgencyLayout() {
                                 <AgencyDashboardContent 
                                     activeGuides={guides.filter(g => g.available).length}
                                     completedTours={bookings.filter(b => b.status === 'completed').length}
-                                    avgRating={4.8}
+                                    avgRating={user.guide_rating ? parseFloat(user.guide_rating) : 0.0} 
                                     tourGuides={guides}
                                     bookings={bookings}
                                     getStatusBg={getStatusBg}
@@ -362,7 +416,7 @@ export default function AgencyLayout() {
                                         setIsManageGuidesModalOpen(true);
                                     }}
                                     agencyTier={user.guide_tier}
-                                    freeBookingLimit={FREE_TIER_BOOKING_LIMIT}
+                                    freeBookingLimit={config.bookingLimit}
                                 />
                             )}
 
@@ -372,8 +426,8 @@ export default function AgencyLayout() {
                                     setSearchTerm={setSearchTerm}
                                     filteredGuides={filteredGuides}
                                     openAddGuideModal={() => {
-                                        if (user.guide_tier === 'free' && guides.length >= FREE_TIER_GUIDE_LIMIT) {
-                                            showToast(`Free tier is limited to ${FREE_TIER_GUIDE_LIMIT} guides. Please upgrade for unlimited guides.`, "error");
+                                        if (user.guide_tier === 'free' && guides.length >= config.guideLimit) {
+                                            showToast(`Free tier is limited to ${config.guideLimit} guides. Please upgrade for unlimited guides.`, "error");
                                             return;
                                         }
                                         setIsAddGuideModalOpen(true);
@@ -381,6 +435,11 @@ export default function AgencyLayout() {
                                     handleRemoveGuide={initiateDeleteGuide}
                                     getStatusBg={getStatusBg}
                                 />
+                            )}
+
+                            {/* NEW SECTION */}
+                            {activeTab === 'reviews' && (
+                                <AgencyReviews />
                             )}
                         </>
                     )}
