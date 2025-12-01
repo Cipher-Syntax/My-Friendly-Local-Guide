@@ -1,16 +1,17 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str 
 from django.core.mail import send_mail
 from django.conf import settings
+from django.http import HttpResponse
 
-from rest_framework import viewsets, generics, permissions, status #type: ignore
-from rest_framework.response import Response #type: ignore
-from rest_framework.views import APIView #type: ignore
-from rest_framework.exceptions import PermissionDenied, ValidationError #type: ignore
-from rest_framework_simplejwt.views import TokenObtainPairView #type: ignore
+from rest_framework import viewsets, generics, permissions, status # type: ignore
+from rest_framework.response import Response # type: ignore
+from rest_framework.views import APIView # type: ignore
+from rest_framework.exceptions import PermissionDenied, ValidationError # type: ignore
+from rest_framework_simplejwt.views import TokenObtainPairView # type: ignore
 from system_management_module.models import SystemAlert
 
 from .serializers import (
@@ -128,6 +129,88 @@ class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
                 except Exception as e:
                     print(f"Could not send alert: {e}")
 
+class PasswordResetAppRedirectView(APIView):
+    """
+    Renders a simple HTML page that attempts to open the app via JS
+    and provides a manual button fallback.
+    It is configured for EXPO GO usage (exp://).
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, uid, token):
+        EXPO_IP = "192.168.137.89" 
+        
+        app_scheme_url = f"exp://{EXPO_IP}:8081/--/auth/resetPassword?uid={uid}&token={token}"
+    
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Redirecting...</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                    text-align: center;
+                    padding: 40px 20px;
+                    background-color: #f8f9fa;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    box-sizing: border-box;
+                }}
+                .btn {{
+                    display: inline-block;
+                    background-color: #0072FF;
+                    color: white;
+                    padding: 15px 30px;
+                    text-decoration: none;
+                    border-radius: 25px;
+                    font-weight: bold;
+                    font-size: 16px;
+                    margin-top: 20px;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    transition: background-color 0.3s;
+                }}
+                .btn:hover {{ background-color: #005bb5; }}
+                h2 {{ color: #333; margin-bottom: 10px; }}
+                p {{ color: #666; margin-bottom: 5px; font-size: 14px; }}
+                .debug {{ 
+                    margin-top: 30px; 
+                    padding: 10px; 
+                    background: #eee; 
+                    border-radius: 5px; 
+                    font-family: monospace; 
+                    font-size: 12px;
+                    color: #555;
+                    word-break: break-all;
+                }}
+            </style>
+        </head>
+        <body>
+            <h2>Opening LocaLynk...</h2>
+            <p>We are trying to open the app to reset your password.</p>
+            <p>If nothing happens automatically, click the button below:</p>
+            
+            <a href="{app_scheme_url}" class="btn">Open App & Reset Password</a>
+            
+            <div class="debug">
+                Trying to open: {app_scheme_url}
+            </div>
+
+            <script>
+                // Attempt to redirect automatically after a short delay
+                setTimeout(function() {{
+                    window.location.href = "{app_scheme_url}";
+                }}, 500);
+            </script>
+        </body>
+        </html>
+        """
+        return HttpResponse(html_content)
+
 class PasswordResetRequestView(generics.GenericAPIView):
     serializer_class = ForgotPasswordSerializer
     permission_classes = [permissions.AllowAny]
@@ -140,14 +223,32 @@ class PasswordResetRequestView(generics.GenericAPIView):
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         
-        reset_link = f"{settings.BACKEND_BASE_URL}/api/reset-password/{uid}/{token}/"
+        redirect_link = f"{settings.BACKEND_BASE_URL}/api/password-reset/redirect/{uid}/{token}/"
+
+        plain_message = f"Hi {user.username},\n\nWe received a request to reset your password. Click the link below to open the app:\n{redirect_link}\n\nIf the link doesn't work, manually enter:\nUID: {uid}\nToken: {token}"
+
+        html_message = f"""
+        <html>
+            <body>
+                <p>Hi {user.username},</p>
+                <p>We received a request to reset your password.</p>
+                <p>
+                    <a href="{redirect_link}" style="background-color: #0072FF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                        Reset Password (Open App)
+                    </a>
+                </p>
+                <p><small>If you didn't request this, ignore this email.</small></p>
+            </body>
+        </html>
+        """
 
         send_mail(
             subject="Reset Your Password",
-            message=f"Hi {user.username},\n\nClick this link to reset your password:\n{reset_link}\n\nIf you didn't request this, ignore this email.",
+            message=plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
             fail_silently=False,
+            html_message=html_message 
         )
         return Response({"detail": f"Password reset email sent to {email}."})
 
@@ -157,11 +258,14 @@ class PasswordResetConfirmView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, uid=None, token=None, *args, **kwargs):
+        uid = uid or request.data.get('uid')
+        token = token or request.data.get('token')
+
         try:
             uid_decoded = force_str(urlsafe_base64_decode(uid))
             user = User.objects.get(pk=uid_decoded)
         except (User.DoesNotExist, ValueError, TypeError, OverflowError):
-            return Response({"detail": "Invalid user."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Invalid user or UID."}, status=status.HTTP_400_BAD_REQUEST)
 
         if not default_token_generator.check_token(user, token):
             return Response({"detail": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
