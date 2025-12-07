@@ -44,6 +44,9 @@ class UserSerializer(serializers.ModelSerializer):
     
     has_pending_application = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
+    
+    # NEW: Add setup_progress field
+    setup_progress = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -65,6 +68,7 @@ class UserSerializer(serializers.ModelSerializer):
             'guide_application', 
             
             'has_pending_application', 'full_name',
+            'setup_progress', # Include in fields
         ]
         read_only_fields = ('guide_approved', 'date_joined', 'guide_rating')
 
@@ -76,6 +80,23 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_full_name(self, obj):
         return obj.get_full_name()
+
+    # NEW: Logic to determine which steps are done
+    def get_setup_progress(self, obj):
+        # Step 1: Info is done if specialty and price are set
+        has_info = bool(obj.specialty and obj.price_per_day)
+        
+        # Step 2: Accommodation is done if they have created at least one
+        has_accommodation = obj.accommodations.exists()
+        
+        # Step 3: Tour is done if they have created at least one tour package
+        has_tour = obj.tours.exists()
+        
+        return {
+            "has_info": has_info,
+            "has_accommodation": has_accommodation,
+            "has_tour": has_tour
+        }
 
     def validate_username(self, value):
         queryset = User.objects.filter(username=value)
