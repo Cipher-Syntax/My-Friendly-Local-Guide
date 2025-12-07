@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Building2, User, Lock, ArrowRight, Loader2, Globe } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import { jwtDecode } from "jwt-decode"; 
+import { jwtDecode } from "jwt-decode";
 import api from '../api/api';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
 
 const Agencysignin = () => {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(false); 
-    const [error, setError] = useState(null); 
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
     const [formData, setFormData] = useState({
@@ -38,13 +38,13 @@ const Agencysignin = () => {
 
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();
-        
+
         setIsLoading(true);
         setError(null);
 
         try {
             const res = await api.post('api/auth/agency/login/', {
-                username: formData.username, 
+                username: formData.username,
                 password: formData.password
             });
 
@@ -56,10 +56,10 @@ const Agencysignin = () => {
 
             try {
                 const decoded = jwtDecode(access);
-                
+
                 localStorage.setItem('agency_username', decoded.username || 'Agency Staff');
                 localStorage.setItem('agency_email', decoded.email || formData.email);
-                
+
             } catch (decodeError) {
                 console.error("Could not decode token", decodeError);
                 localStorage.setItem('agency_username', 'Agency Staff');
@@ -67,20 +67,20 @@ const Agencysignin = () => {
             }
 
             console.log('Agency Login Successful');
-            
+
             const pendingData = localStorage.getItem('pending_agency_data');
-            
+
             if (pendingData) {
 
                 navigate('/agency/complete-profile');
             } else {
-                navigate('/agency'); 
+                navigate('/agency');
             }
 
         } catch (err) {
             console.error("Agency Login Failed", err);
             if (err.response && err.response.data && err.response.data.detail) {
-                setError(err.response.data.detail); 
+                setError(err.response.data.detail);
             } else {
                 setError("Invalid credentials. Please verify your agency account.");
             }
@@ -106,17 +106,17 @@ const Agencysignin = () => {
 
     return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-cyan-500/30">
-            
+
             <div className="absolute inset-0 overflow-hidden">
-                <div 
+                <div
                     className="absolute top-[-10%] right-[-5%] w-[60%] h-[60%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse"
                     style={{ transform: `translate(${mousePosition.x}px, ${mousePosition.y * -1}px)` }}
                 />
-                <div 
-                    className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-600/10 rounded-full blur-[100px] animate-pulse" 
+                <div
+                    className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-600/10 rounded-full blur-[100px] animate-pulse"
                     style={{ animationDelay: '2s', transform: `translate(${mousePosition.x * -1}px, ${mousePosition.y}px)` }}
                 />
-                
+
                 {floatingIcons.map(({ Icon, top, left, delay, size, opacity }, idx) => (
                     <div
                         key={idx}
@@ -136,14 +136,14 @@ const Agencysignin = () => {
             </div>
 
             <div className="w-full max-w-5xl bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10 hover:shadow-indigo-900/20 transition-all duration-500">
-                
+
                 <div className="w-full md:w-5/12 bg-gradient-to-br from-indigo-900/80 to-slate-900/80 p-12 text-white relative flex flex-col justify-between border-r border-white/5">
-                    
+
                     <div className="relative z-10">
                         <div className="w-16 h-16 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-8 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
                             <Building2 size={32} className="text-white" strokeWidth={2} />
                         </div>
-                        
+
                         <div className="space-y-2">
                             <h3 className="text-cyan-400 font-medium tracking-widest text-sm uppercase flex items-center gap-2">
                                 <Globe size={14} /> Partner Portal
@@ -167,21 +167,21 @@ const Agencysignin = () => {
                         <span>SECURE LOGIN</span>
                     </div>
 
-                     <div className="absolute inset-0 opacity-10 pointer-events-none">
-                         <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <div className="absolute inset-0 opacity-10 pointer-events-none">
+                        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                             <path d="M0,100 L100,0 L100,100 Z" fill="url(#grad1)" />
                             <defs>
                                 <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" style={{stopColor:'rgb(99, 102, 241)', stopOpacity:1}} />
-                                    <stop offset="100%" style={{stopColor:'rgb(34, 211, 238)', stopOpacity:1}} />
+                                    <stop offset="0%" style={{ stopColor: 'rgb(99, 102, 241)', stopOpacity: 1 }} />
+                                    <stop offset="100%" style={{ stopColor: 'rgb(34, 211, 238)', stopOpacity: 1 }} />
                                 </linearGradient>
                             </defs>
-                         </svg>
-                     </div>
+                        </svg>
+                    </div>
                 </div>
 
                 <div className="w-full md:w-7/12 p-8 md:p-16 bg-white/5 flex flex-col justify-center">
-                    
+
                     <div className="max-w-md mx-auto w-full">
                         <div className="mb-10">
                             <h2 className="text-3xl font-bold text-white mb-2">Agency Sign In</h2>
@@ -275,7 +275,7 @@ const Agencysignin = () => {
                                     </>
                                 )}
                             </button>
-                            
+
                             <Link to="/agency-register" className="pt-4 text-center">
                                 <p className="text-slate-500 text-sm">
                                     New partner? <button className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors">Register your agency</button>

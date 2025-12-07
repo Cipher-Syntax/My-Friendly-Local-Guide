@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Eye, Check, X, Image as ImageIcon, Loader2, FileText, Shield, Ban, ExternalLink } from 'lucide-react';
-import api from '../../api/api'; 
+import api from '../../api/api';
 
 const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -14,7 +14,7 @@ export default function TourGuidesManagement() {
     const [tourGuides, setTourGuides] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    
+
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [selectedGuide, setSelectedGuide] = useState(null);
     const [viewingCredentialImage, setViewingCredentialImage] = useState(null);
@@ -33,7 +33,7 @@ export default function TourGuidesManagement() {
             }
         } catch (error) {
             console.error("Failed to fetch guides:", error);
-            setTourGuides([]); 
+            setTourGuides([]);
         } finally {
             setLoading(false);
         }
@@ -57,9 +57,9 @@ export default function TourGuidesManagement() {
         if (!selectedGuide) return;
         try {
             await api.patch(`api/admin/guide-reviews/${selectedGuide.id}/`, {
-                status: status 
+                status: status
             });
-            setTourGuides(prev => prev.map(g => 
+            setTourGuides(prev => prev.map(g =>
                 g.id === selectedGuide.id ? { ...g, status: status } : g
             ));
             setIsDetailsModalOpen(false);
@@ -71,7 +71,7 @@ export default function TourGuidesManagement() {
 
     const viewCredentialImage = (credentialKey, guideName, credentialsObj) => {
         let url = null;
-        
+
         if (credentialsObj) {
             url = credentialsObj[`${credentialKey}_url`];
         }
@@ -107,40 +107,59 @@ export default function TourGuidesManagement() {
                     <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
                 </div>
             ) : (
-                <div className="space-y-3">
-                    {filteredGuides.length === 0 && (
+                <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden">
+                    {filteredGuides.length === 0 ? (
                         <p className="text-slate-400 text-center py-10">No guide applications found.</p>
-                    )}
-
-                    {filteredGuides.map(guide => (
-                        <div key={guide.id} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 transition-all hover:bg-slate-800/70">
-                            <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                    <h3 className="text-white font-semibold text-lg flex items-center gap-3">
-                                        {guide.name}
-                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusColor(guide.status)}`}>
-                                            {guide.status}
-                                        </span>
-                                    </h3>
-                                    <p className="text-slate-400 text-sm">{guide.email}</p>
-                                </div>
-                                <button
-                                    onClick={() => openDetailsModal(guide)}
-                                    className="px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-lg transition-all flex items-center gap-2 font-medium"
-                                >
-                                    <FileText className="w-4 h-4" />
-                                    View Details
-                                </button>
-                            </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-slate-400">
+                                <thead className="text-xs uppercase bg-slate-900/50 text-slate-200 font-medium">
+                                    <tr>
+                                        <th className="px-6 py-4">Applicant Name</th>
+                                        <th className="px-6 py-4">Contact Email</th>
+                                        <th className="px-6 py-4">Status</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-700/50">
+                                    {filteredGuides.map((guide) => (
+                                        <tr
+                                            key={guide.id}
+                                            className="hover:bg-slate-700/30 transition-colors duration-150"
+                                        >
+                                            <td className="px-6 py-4 font-medium text-white whitespace-nowrap">
+                                                {guide.name}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {guide.email}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider inline-block ${getStatusColor(guide.status)}`}>
+                                                    {guide.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right whitespace-nowrap">
+                                                <button
+                                                    onClick={() => openDetailsModal(guide)}
+                                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-lg transition-all text-xs font-medium"
+                                                >
+                                                    <FileText className="w-3.5 h-3.5" />
+                                                    View Details
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
-                    ))}
+                    )}
                 </div>
             )}
 
             {isDetailsModalOpen && selectedGuide && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col">
-                        
+
                         <div className="px-6 py-5 border-b border-slate-700/50 flex justify-between items-start">
                             <div>
                                 <h3 className="text-xl font-bold text-white">Application Details</h3>
@@ -176,7 +195,7 @@ export default function TourGuidesManagement() {
                                 ].map((doc) => {
                                     const credentials = selectedGuide.credentials;
                                     const isSubmitted = credentials && credentials[doc.key];
-                                    
+
                                     return (
                                         <div key={doc.key} className="flex items-center justify-between p-4 bg-slate-900/30 border border-slate-700/50 rounded-xl hover:border-slate-600 transition-colors">
                                             <div className="flex items-center gap-3">
@@ -185,9 +204,9 @@ export default function TourGuidesManagement() {
                                                 </div>
                                                 <span className="text-slate-200">{doc.label}</span>
                                             </div>
-                                            
+
                                             {isSubmitted ? (
-                                                <button 
+                                                <button
                                                     onClick={() => viewCredentialImage(doc.key, selectedGuide.name, selectedGuide.credentials)}
                                                     className="px-4 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
                                                 >
@@ -238,10 +257,10 @@ export default function TourGuidesManagement() {
                 <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[60] p-4">
                     <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center">
                         <div className="absolute top-4 right-4 z-10 flex gap-2">
-                             {viewingCredentialImage.url && (
-                                <a 
-                                    href={viewingCredentialImage.url} 
-                                    target="_blank" 
+                            {viewingCredentialImage.url && (
+                                <a
+                                    href={viewingCredentialImage.url}
+                                    target="_blank"
                                     rel="noopener noreferrer"
                                     className="p-2 bg-black/50 text-white hover:bg-white hover:text-black rounded-full backdrop-blur-sm transition-all"
                                     title="Open original"
@@ -259,13 +278,13 @@ export default function TourGuidesManagement() {
 
                         <div className="w-full rounded-xl overflow-hidden shadow-2xl border border-slate-700/50 bg-slate-900 flex items-center justify-center">
                             {viewingCredentialImage.url ? (
-                                <img 
-                                    src={viewingCredentialImage.url} 
-                                    alt="Credential Document" 
+                                <img
+                                    src={viewingCredentialImage.url}
+                                    alt="Credential Document"
                                     className="w-full h-auto max-h-[80vh] object-contain"
                                     onError={(e) => {
                                         console.error("Image failed to load:", viewingCredentialImage.url);
-                                        e.target.style.display = 'none'; 
+                                        e.target.style.display = 'none';
                                     }}
                                 />
                             ) : (
@@ -275,7 +294,7 @@ export default function TourGuidesManagement() {
                                 </div>
                             )}
                         </div>
-                        
+
                         <div className="mt-4 text-center">
                             <h4 className="text-white font-medium text-lg capitalize">
                                 {viewingCredentialImage.type.replace(/([A-Z])/g, ' $1').trim()}

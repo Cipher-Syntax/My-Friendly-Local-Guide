@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Eye, Check, X, Loader2, Building, Shield } from 'lucide-react';
-import api from '../../api/api'; 
+import api from '../../api/api';
 
 const getStatusColor = (isApproved) => {
-    return isApproved 
-        ? 'bg-green-500/20 text-green-400 border-green-500/30' 
+    return isApproved
+        ? 'bg-green-500/20 text-green-400 border-green-500/30'
         : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
 };
 
@@ -12,9 +12,12 @@ export default function AgencyManagement() {
     const [agencies, setAgencies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    
+
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [reviewingItem, setReviewingItem] = useState(null);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 5;
 
     const fetchAgencies = async () => {
         try {
@@ -33,7 +36,7 @@ export default function AgencyManagement() {
     }, []);
 
     const filteredAgencies = useMemo(() =>
-        agencies.filter(a => 
+        agencies.filter(a =>
             a.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             a.owner_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             a.email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -55,7 +58,7 @@ export default function AgencyManagement() {
                 is_approved: isApproved
             });
 
-            setAgencies(prev => prev.map(a => 
+            setAgencies(prev => prev.map(a =>
                 a.id === reviewingItem.id ? { ...a, is_approved: isApproved } : a
             ));
 
@@ -65,6 +68,11 @@ export default function AgencyManagement() {
             alert("Failed to update status.");
         }
     };
+
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedPages = filteredAgencies.slice(startIndex, startIndex + itemsPerPage);
+
+    const totalPages = Math.ceil(filteredAgencies.length / itemsPerPage);
 
     return (
         <div className="space-y-4">
@@ -95,34 +103,63 @@ export default function AgencyManagement() {
                         </div>
                     )}
 
-                    {filteredAgencies.map(agency => (
-                        <div key={agency.id} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 transition-all hover:bg-slate-800/70">
-                            <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <Building className="w-4 h-4 text-cyan-400" />
-                                        <h3 className="text-white font-semibold text-lg">{agency.business_name}</h3>
-                                    </div>
-                                    <p className="text-slate-400 text-sm">Owner: <span className="text-slate-300">{agency.owner_name}</span></p>
-                                    <p className="text-slate-500 text-sm">{agency.email}</p>
-                                </div>
-                                
-                                <div className="flex flex-col items-end gap-3">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-medium border uppercase tracking-wider ${getStatusColor(agency.is_approved)}`}>
-                                        {agency.is_approved ? 'Approved' : 'Pending'}
-                                    </span>
-                                    
-                                    <button
-                                        onClick={() => openReviewModal(agency)}
-                                        className="px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-lg transition-colors flex items-center gap-2 font-medium text-sm"
-                                    >
-                                        <Eye className="w-4 h-4" />
-                                        Review
-                                    </button>
-                                </div>
-                            </div>
+                    <div className="overflow-x-auto rounded-xl border border-slate-700">
+                        <table className="w-full text-left text-sm text-slate-300">
+                            <thead className="bg-slate-800/70 text-slate-400 uppercase text-xs">
+                                <tr>
+                                    <th className="px-4 py-3">Business Name</th>
+                                    <th className="px-4 py-3">Owner</th>
+                                    <th className="px-4 py-3">Email</th>
+                                    <th className="px-4 py-3">Status</th>
+                                    <th className="px-4 py-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedPages.map((agency) => (
+                                    <tr key={agency.id} className="border-t border-slate-700/50 hover:bg-slate-800/50">
+                                        <td className="px-4 py-3">{agency.business_name}</td>
+                                        <td className="px-4 py-3">{agency.owner_name}</td>
+                                        <td className="px-4 py-3">{agency.email}</td>
+                                        <td className="px-4 py-3">
+                                            <span className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(agency.is_approved)}`}>
+                                                {agency.is_approved ? "Approved" : "Pending"}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <button
+                                                onClick={() => openReviewModal(agency)}
+                                                className="px-3 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/20 rounded-lg text-xs"
+                                            >
+                                                Review
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+
+                        <div className="flex justify-center items-center gap-3 mt-4 py-5">
+                            <button
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(prev => prev - 1)}
+                                className="px-3 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 rounded-lg"
+                            >
+                                Previous
+                            </button>
+
+                            <span className="text-slate-400">
+                                Page {currentPage} of {totalPages}
+                            </span>
+
+                            <button
+                                disabled={currentPage === totalPages}
+                                onClick={() => setCurrentPage(prev => prev + 1)}
+                                className="px-3 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 rounded-lg"
+                            >
+                                Next
+                            </button>
                         </div>
-                    ))}
+                    </div>
                 </div>
             )}
 
@@ -158,9 +195,9 @@ export default function AgencyManagement() {
                             {reviewingItem.business_license ? (
                                 <div>
                                     <p className="text-slate-400 text-xs uppercase tracking-wider mb-2">Business License</p>
-                                    <a 
-                                        href={reviewingItem.business_license} 
-                                        target="_blank" 
+                                    <a
+                                        href={reviewingItem.business_license}
+                                        target="_blank"
                                         rel="noopener noreferrer"
                                         className="block w-full py-2 text-center bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium"
                                     >
@@ -176,20 +213,26 @@ export default function AgencyManagement() {
                             )}
                         </div>
 
-                        <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3 bg-slate-800/50 rounded-b-2xl">
-                            <button
-                                onClick={() => handleApproval('rejected')}
-                                className="px-5 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-colors font-medium"
-                            >
-                                Reject
-                            </button>
-                            <button
-                                onClick={() => handleApproval('approved')}
-                                className="px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors font-medium shadow-lg shadow-green-500/20"
-                            >
-                                Approve Agency
-                            </button>
-                        </div>
+
+
+                        {
+                            !reviewingItem.is_approved && (
+                                <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3 bg-slate-800/50 rounded-b-2xl">
+                                    <button
+                                        onClick={() => handleApproval('rejected')}
+                                        className="px-5 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-colors font-medium"
+                                    >
+                                        Reject
+                                    </button>
+                                    <button
+                                        onClick={() => handleApproval('approved')}
+                                        className="px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors font-medium shadow-lg shadow-green-500/20"
+                                    >
+                                        Approve Agency
+                                    </button>
+                                </div>
+                            )
+                        }
                     </div>
                 </div>
             )}
