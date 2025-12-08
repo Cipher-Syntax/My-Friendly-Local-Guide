@@ -85,7 +85,9 @@ class BookingSerializer(serializers.ModelSerializer):
             
             'assigned_agency_guides', 'assigned_agency_guides_detail',
 
-            'check_in', 'check_out', 'num_guests', 'tourist_valid_id_image', 'total_price',
+            'check_in', 'check_out', 'num_guests', 
+            'tourist_valid_id_image', 'tourist_selfie_image', 
+            'total_price',
             'status', 'created_at'
         ]
         read_only_fields = ['status', 'created_at', 'total_price', 'assigned_guides', 'assigned_agency_guides', 'destination_detail']
@@ -156,13 +158,16 @@ class BookingSerializer(serializers.ModelSerializer):
         is_guide = guide is not None
         is_agency = agency is not None
 
-        if sum([is_accommodation, is_guide, is_agency]) != 1:
-            raise serializers.ValidationError("A booking must be for exactly one of: Accommodation, Guide, or Agency.")
+        # UPDATED VALIDATION LOGIC
+        if not (is_guide or is_accommodation or is_agency):
+            raise serializers.ValidationError("A booking must target a Guide, Accommodation, or Agency.")
+
+        if is_agency and (is_guide or is_accommodation):
+             raise serializers.ValidationError("Agency bookings cannot be combined with independent Guide or Accommodation bookings.")
 
         if (is_guide or is_agency) and destination is None:
             raise serializers.ValidationError({"destination": "A destination is required when booking a guide or agency."})
         
-        if is_accommodation and destination is not None:
-            raise serializers.ValidationError({"destination": "A destination cannot be specified directly for an accommodation booking."})
+        # We allow destination to be present even if accommodation is there (it might be redundant but harmless now)
 
         return data
