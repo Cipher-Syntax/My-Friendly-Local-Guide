@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { BarChart3, Map, Users, User, Home, AlertCircle, Settings, LogOut } from 'lucide-react';
-// import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
+import { BarChart3, Map, Users, User, Home, AlertCircle, Settings, LogOut, CircleDollarSign } from 'lucide-react';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
 
 const menuItems = [
-    { id: 'dashboard', icon: BarChart3, label: 'Dashboard', path: '/admin' },
+    { id: 'dashboard', icon: BarChart3, label: 'Dashboard', path: '/admin/dashboard' },
     { id: 'agency', icon: Map, label: 'Agency', path: '/admin/agency' },
     { id: 'guides', icon: Users, label: 'Tour Guides', path: '/admin/guides' },
-    // { id: 'users', icon: User, label: 'User Management', path: '/admin/users' },
+    { id: 'payments', icon: CircleDollarSign, label: 'Payments & Payouts', path: '/admin/payments' }, // <--- NEW ITEM
     { id: 'content', icon: Home, label: 'Content Management', path: '/admin/content' },
     { id: 'reports', icon: AlertCircle, label: 'Report & Analysis', path: '/admin/reports' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/admin/settings' },
@@ -16,7 +15,7 @@ const menuItems = [
 
 export default function Sidebar() {
     const navigate = useNavigate();
-    
+
     const [adminUser, setAdminUser] = useState({
         username: 'Admin',
         email: 'admin@system.com'
@@ -39,7 +38,7 @@ export default function Sidebar() {
         localStorage.removeItem(REFRESH_TOKEN);
         localStorage.removeItem('admin_username');
         localStorage.removeItem('admin_email');
-        
+
         navigate('/admin-signin');
     };
 
@@ -55,12 +54,10 @@ export default function Sidebar() {
                     <NavLink
                         key={item.id}
                         to={item.path}
-                        end={item.path === '/admin'} 
                         className={({ isActive }) =>
-                            `w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                                isActive
-                                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                                    : 'text-slate-400 hover:bg-slate-700/30 hover:text-white'
+                            `w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
+                                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                                : 'text-slate-400 hover:bg-slate-700/30 hover:text-white'
                             }`
                         }
                     >
@@ -76,7 +73,6 @@ export default function Sidebar() {
                         <User className="w-5 h-5 text-white" />
                     </div>
                     <div className="overflow-hidden">
-                        {/* Display Dynamic Data */}
                         <p className="text-white text-sm font-medium truncate">
                             {adminUser.username}
                         </p>

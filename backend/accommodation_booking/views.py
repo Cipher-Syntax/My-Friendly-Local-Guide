@@ -1,9 +1,10 @@
-from rest_framework import viewsets, permissions, generics, status #type: ignore
-from rest_framework.response import Response #type: ignore
-from rest_framework.exceptions import PermissionDenied, ValidationError #type: ignore
-from rest_framework.parsers import MultiPartParser, FormParser #type: ignore
+from rest_framework import viewsets, permissions, generics, status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser 
 from django.db.models import Q
-from datetime import date
+from datetime import date, timedelta
 
 from .models import Accommodation, Booking
 from .serializers import AccommodationSerializer, BookingSerializer
@@ -29,7 +30,7 @@ class IsHostOrReadOnly(permissions.BasePermission):
 class AccommodationViewSet(viewsets.ModelViewSet):
     serializer_class = AccommodationSerializer
     permission_classes = [IsHostOrReadOnly]
-    parser_classes = (MultiPartParser, FormParser) 
+    parser_classes = (MultiPartParser, FormParser, JSONParser) 
 
     def get_queryset(self):
         qs = Accommodation.objects.all().select_related('host')
@@ -67,23 +68,14 @@ class AccommodationDropdownListView(generics.ListAPIView):
 class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_queryset(self):
         user = self.request.user
         qs = Booking.objects.select_related('tourist', 'accommodation', 'guide', 'agency')
-        view_as = self.request.query_params.get('view_as')
-
-        if view_as == 'guide':
-            return qs.filter(
-                Q(accommodation__host=user) |
-                Q(guide=user) |
-                Q(agency=user) |
-                Q(assigned_guides=user) 
-            ).distinct().order_by('-created_at')
-            
-        elif view_as == 'tourist':
-             return qs.filter(tourist=user).order_by('-created_at')
+        
+        if user.is_staff or user.is_superuser:
+            return qs.order_by('-created_at')
 
         return qs.filter(
             Q(tourist=user) |
@@ -100,14 +92,75 @@ class BookingViewSet(viewsets.ModelViewSet):
             user.valid_id_image = uploaded_id_image
             user.save() 
 
-        instance = serializer.save(tourist=user, status='Pending')
-        instance.total_price = self.calculate_booking_price(instance)
-        instance.save()
+        instance = serializer.save(tourist=user, status='Pending_Payment')
         
+        total_price = self.calculate_booking_price(instance)
+        down_payment = total_price * 0.30 
+        balance_due = total_price - down_payment
+        
+        instance.total_price = total_price
+        instance.down_payment = down_payment
+        instance.balance_due = balance_due
+        
+        instance.save()
         self.validate_booking_target(instance)
-        self.create_booking_alert(instance)
+
+    @action(detail=False, methods=['get'])
+    def guide_blocked_dates(self, request):
+        guide_id = request.query_params.get('guide_id')
+        if not guide_id:
+            return Response({"error": "guide_id is required"}, status=400)
+            
+        bookings = Booking.objects.filter(
+            guide_id=guide_id, 
+            status='Confirmed'
+        ).values('check_in', 'check_out')
+        
+        blocked_dates = []
+        for b in bookings:
+            start = b['check_in']
+            end = b['check_out']
+            curr = start
+            while curr < end: 
+                blocked_dates.append(curr.isoformat())
+                curr += timedelta(days=1)
+                
+        return Response(blocked_dates)
+
+    @action(detail=True, methods=['post'])
+    def mark_paid(self, request, pk=None):
+        booking = self.get_object()
+        user = request.user
+
+        is_provider = (
+            booking.guide == user or 
+            booking.agency == user or 
+            (booking.accommodation and booking.accommodation.host == user)
+        )
+        
+        if not is_provider:
+            return Response({"error": "Only the service provider can mark this as paid."}, status=403)
+
+        booking.balance_due = 0
+        booking.status = 'Completed' 
+        booking.save()
+
+        SystemAlert.objects.create(
+            target_type='Tourist',
+            recipient=booking.tourist,
+            title="Trip Completed / Paid",
+            message=f"Your trip to {booking.destination or 'your destination'} has been marked as fully paid and completed. Thank you!",
+            related_object_id=booking.id,
+            related_model='Booking',
+            is_read=False
+        )
+
+        return Response(self.get_serializer(booking).data)
 
     def create_booking_alert(self, booking):
+        if booking.status != 'Confirmed':
+            return
+
         try:
             recipient = None
             if booking.guide:
@@ -122,8 +175,8 @@ class BookingViewSet(viewsets.ModelViewSet):
                 SystemAlert.objects.create(
                     recipient=recipient,
                     target_type='Guide',
-                    title="New Booking Request",
-                    message=f"You have a new booking request from {tourist_name} for {booking.check_in}.",
+                    title="New Confirmed Booking", 
+                    message=f"New trip confirmed! {tourist_name} for {booking.check_in}. Check your schedule.",
                     related_object_id=booking.id,
                     related_model='Booking',
                     is_read=False
@@ -135,7 +188,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         target = None
         if instance.guide:
             if instance.guide.guide_tier == 'free' and instance.guide.booking_count >= 1:
-                raise ValidationError("This guide is not accepting new bookings. Please upgrade their plan.")
+                raise ValidationError("This guide is not accepting new bookings (Limit Reached).")
             target = instance.guide
             if not target or not (target.is_local_guide and target.guide_approved):
                 raise ValidationError("Target is not an approved guide.")
@@ -152,103 +205,83 @@ class BookingViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         instance = serializer.instance
         user = self.request.user
+        
+        # --- FIX: ALLOW ADMIN/STAFF TO UPDATE ---
+        if user.is_staff or user.is_superuser:
+            serializer.save()
+            return
+
+        # --- NORMAL USER RESTRICTIONS ---
         if user == instance.tourist and 'status' in self.request.data:
-            if self.request.data['status'] == 'Cancelled' and instance.status in ['Pending', 'Accepted']:
+            if self.request.data['status'] == 'Cancelled':
                 instance.status = 'Cancelled'
                 instance.save()
-                return Response(serializer.data)
+                return 
             raise PermissionDenied("You can only cancel your own booking.")
-        raise PermissionDenied("Use the status endpoint for host/agency updates.")
+            
+        raise PermissionDenied("Use the status endpoint for updates.")
 
     def calculate_booking_price(self, instance):
         if not instance.check_in or not instance.check_out:
             return 0
-        
         days = max((instance.check_out - instance.check_in).days, 1)
-        print(f"DEBUG: Booking {instance.id} | Days Calculated: {days}")
-        
         total_price = 0
 
-        # 1. Add Accommodation Cost
         if instance.accommodation:
             acc_cost = instance.accommodation.price * days
-            print(f"DEBUG: Adding Accommodation Cost: {acc_cost}")
             total_price += acc_cost
         
-        # 2. Add Guide Cost
         if instance.guide:
             guide = instance.guide
-            
             tour_package = None
             requested_tour_id = self.request.data.get('tour_package_id')
             
-            print(f"DEBUG: Incoming Data Keys: {list(self.request.data.keys())}")
-            print(f"DEBUG: Requested Tour ID raw: {requested_tour_id}")
-
-            if requested_tour_id and requested_tour_id != 'null' and requested_tour_id != 'undefined':
+            if requested_tour_id and requested_tour_id != 'null':
                 tour_package = TourPackage.objects.filter(id=requested_tour_id).first()
-                if tour_package:
-                    print(f"DEBUG: Found Tour Package: {tour_package.name} (ID: {tour_package.id})")
-                else:
-                    print(f"DEBUG: Tour Package ID {requested_tour_id} not found in DB.")
             
             if not tour_package and instance.destination:
-                print("DEBUG: Fallback - Looking up tour by destination...")
-                tour_package = TourPackage.objects.filter(
-                    guide=guide, 
-                    main_destination=instance.destination
-                ).first()
+                tour_package = TourPackage.objects.filter(guide=guide, main_destination=instance.destination).first()
             
-            # Default fallback (Guide Global Settings)
             base_group_price = guide.price_per_day or 0
             solo_price = guide.solo_price_per_day or base_group_price
             extra_fee = guide.multiple_additional_fee_per_head or 0
             
-            # Override with Tour Package settings
             if tour_package:
                 base_group_price = tour_package.price_per_day or base_group_price
                 solo_price = tour_package.solo_price or solo_price
                 extra_fee = tour_package.additional_fee_per_head or 0
-                print(f"DEBUG: Using Tour Package Prices -> Base: {base_group_price}, Solo: {solo_price}, Extra Fee: {extra_fee}")
-            
-            # --- FIX: Use 'solo_price' as the base rate to match frontend logic ---
-            # Your frontend uses `tourCostSolo` (500) as the base for group calculations.
-            # Previously we used `base_group_price` (550). Now we use `solo_price` (500).
             
             if instance.num_guests == 1:
                 daily_rate = solo_price 
-                print(f"DEBUG: 1 Guest -> Using Solo/Base Price: {daily_rate}")
             else:
                 extra_pax = max(0, instance.num_guests - 1)
-                daily_rate = solo_price + (extra_pax * extra_fee) # Changed base_group_price to solo_price
-                print(f"DEBUG: {instance.num_guests} Guests -> {solo_price} + ({extra_pax} * {extra_fee}) = {daily_rate}")
+                daily_rate = solo_price + (extra_pax * extra_fee) 
             
             guide_total = daily_rate * days
             total_price += guide_total
 
-        # 3. Add Agency Cost
         if instance.agency:
             total_price += 1000 * days
 
-        print(f"DEBUG: Final Total Price: {total_price}")
-        return total_price
+        return float(total_price)
 
 
 class BookingStatusUpdateView(generics.UpdateAPIView):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (JSONParser, MultiPartParser, FormParser)
 
     def get_object(self):
         booking = super().get_object()
         user = self.request.user
-        is_owner = (
+        is_participant = (
+            booking.tourist == user or 
             booking.guide == user or
             (booking.accommodation and booking.accommodation.host == user) or
-            booking.agency == user or
-            booking.assigned_guides.filter(id=user.id).exists()
+            booking.agency == user
         )
-        if not is_owner:
+        if not is_participant:
             raise PermissionDenied("You cannot manage this booking.")
         return booking
 
@@ -257,29 +290,69 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
         new_status = request.data.get('status')
         if not new_status:
             raise ValidationError({"status": "Status is required."})
-        valid = {
-            'Pending': ['Accepted', 'Declined'],
-            'Accepted': ['Paid', 'Declined'],
-            'Paid': ['Completed'],
-        }
-        if new_status not in valid.get(instance.status, []):
-            return Response(
-                {"status": f"Cannot change from '{instance.status}' to '{new_status}'."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        if new_status == 'Accepted':
+
+        if new_status == 'Confirmed':
+            try:
+                instance.clean()
+            except ValidationError as e:
+                return Response({"error": "Dates are no longer available."}, status=400)
+
+            instance.status = 'Confirmed'
             if instance.guide:
                 instance.guide.booking_count += 1
                 instance.guide.save()
-        instance.status = new_status
-        instance.save()
-        return Response(self.get_serializer(instance).data)
+            instance.save()
+            BookingViewSet().create_booking_alert(instance)
+            return Response(self.get_serializer(instance).data)
+
+        if new_status == 'Cancelled':
+            instance.status = 'Cancelled'
+            instance.save()
+            return Response(self.get_serializer(instance).data)
+            
+        if new_status == 'Accepted':
+             if instance.guide:
+                instance.guide.booking_count += 1
+                instance.guide.save()
+             
+             SystemAlert.objects.create(
+                target_type='Tourist',
+                recipient=instance.tourist,
+                title="Booking Accepted!",
+                message=f"Your booking for {instance.destination or 'your trip'} has been accepted.",
+                related_object_id=instance.id,
+                related_model='Booking',
+                is_read=False
+            )
+             instance.status = 'Accepted'
+             instance.save()
+             return Response(self.get_serializer(instance).data)
+
+        if new_status == 'Declined':
+             SystemAlert.objects.create(
+                target_type='Tourist',
+                recipient=instance.tourist,
+                title="Booking Declined",
+                message=f"Your booking request was declined.",
+                related_object_id=instance.id,
+                related_model='Booking',
+                is_read=False
+            )
+             instance.status = 'Declined'
+             instance.save()
+             return Response(self.get_serializer(instance).data)
+
+        return Response(
+            {"status": f"Invalid status transition to '{new_status}'."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class AssignGuidesView(generics.UpdateAPIView):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (JSONParser, MultiPartParser, FormParser)
 
     def update(self, request, *args, **kwargs):
         booking = self.get_object()

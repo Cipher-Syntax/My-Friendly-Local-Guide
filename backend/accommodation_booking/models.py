@@ -3,6 +3,7 @@ from user_authentication.models import User
 from destinations_and_attractions.models import Destination
 from agency_management_module.models import TouristGuide 
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 
 class Accommodation(models.Model):
     host = models.ForeignKey(User, on_delete=models.CASCADE, related_name="accommodations")
@@ -35,13 +36,13 @@ class Accommodation(models.Model):
 class Booking(models.Model):
     """Represents a booking request or confirmed reservation."""
     
+    # UPDATED STATUSES: Removed 'Accepted/Declined', added 'Confirmed' and 'Pending_Payment'
     STATUS_CHOICE = [
-        ('Pending', 'Pending'),
-        ('Accepted', 'Accepted'),
-        ('Declined', 'Declined'),
-        ('Paid', 'Paid'),
+        ('Pending_Payment', 'Pending Payment'),
+        ('Confirmed', 'Confirmed'), # Down payment received, dates locked
         ('Completed', 'Completed'),
         ('Cancelled', 'Cancelled'),
+        ('Refunded', 'Refunded'),
     ]
     
     tourist = models.ForeignKey(
@@ -102,29 +103,50 @@ class Booking(models.Model):
     tourist_valid_id_image = models.ImageField(upload_to='booking_ids/', blank=True, null=True)
     tourist_selfie_image = models.ImageField(upload_to='booking_selfies/', blank=True, null=True)
     
+    # FINANCIALS
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 
+    down_payment = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) # New
+    balance_due = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) # New
 
-    status = models.CharField(max_length=50, choices=STATUS_CHOICE, default='Pending')
+    # [NEW] PAYOUT TRACKING
+    platform_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="2% Commission for the App")
+    guide_payout_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Amount Admin must send to Guide")
+    is_payout_settled = models.BooleanField(default=False, help_text="Has Admin sent the money to the Guide?")
+
+    status = models.CharField(max_length=50, choices=STATUS_CHOICE, default='Pending_Payment')
     created_at = models.DateTimeField(auto_now_add=True)
     review_notification_sent = models.BooleanField(default=False)
 
     def clean(self):
+        # 1. Basic Validation
         is_accommodation = self.accommodation is not None
         is_guide = self.guide is not None
         is_agency = self.agency is not None
 
-        # UPDATED VALIDATION: Must have at least ONE service
         if not (is_guide or is_accommodation or is_agency):
             raise ValidationError("A booking must target a Guide, Accommodation, or Agency.")
 
-        # UPDATED VALIDATION: Agency is exclusive, but Guide + Accom is allowed
         if is_agency and (is_guide or is_accommodation):
              raise ValidationError("Agency bookings cannot be combined with independent Guide or Accommodation bookings.")
 
         if (is_guide or is_agency) and self.destination is None:
             raise ValidationError("A destination is required when booking a guide or agency.")
         
-        # Note: We relax the destination check for accommodation since the accom implies the loc
+        # 2. COLLISION DETECTION (Foolproof Date Locking)
+        if self.guide:
+            overlapping_bookings = Booking.objects.filter(
+                guide=self.guide,
+                status='Confirmed',
+                check_in__lt=self.check_out, 
+                check_out__gt=self.check_in
+            ).exclude(pk=self.pk) # Exclude self to allow updates
+
+            if overlapping_bookings.exists():
+                raise ValidationError("The guide is unavailable for these dates. Please choose another date range.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean() # Force clean() to run on every save
+        super().save(*args, **kwargs)
             
     def __str__(self):
         parts = []

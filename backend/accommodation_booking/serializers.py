@@ -1,4 +1,4 @@
-from rest_framework import serializers #type: ignore
+from rest_framework import serializers 
 from .models import Accommodation, Booking
 from destinations_and_attractions.models import Destination
 from django.contrib.auth import get_user_model
@@ -19,7 +19,6 @@ class SimpleDestinationSerializer(serializers.ModelSerializer):
 
     def get_image(self, obj):
         first_img = obj.images.first() 
-        
         if first_img and first_img.image:
             request = self.context.get('request')
             if request:
@@ -50,7 +49,6 @@ class AccommodationSerializer(serializers.ModelSerializer):
             'destination': {'write_only': True, 'required': False}
         }
 
-
     def create(self, validated_data):
         amenities_data = validated_data.get('amenities')
         if isinstance(amenities_data, str):
@@ -58,7 +56,6 @@ class AccommodationSerializer(serializers.ModelSerializer):
                 validated_data['amenities'] = json.loads(amenities_data)
             except json.JSONDecodeError:
                 validated_data['amenities'] = {}
-        
         return super().create(validated_data)
 
 
@@ -72,7 +69,6 @@ class BookingSerializer(serializers.ModelSerializer):
     destination_detail = SimpleDestinationSerializer(source='destination', read_only=True)
     
     assigned_guides_detail = serializers.SerializerMethodField(read_only=True)
-    
     assigned_agency_guides_detail = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -82,15 +78,27 @@ class BookingSerializer(serializers.ModelSerializer):
             'accommodation', 'guide', 'agency', 'destination',
             'accommodation_detail', 'guide_detail', 'agency_detail', 'destination_detail',
             'assigned_guides', 'assigned_guides_detail',
-            
             'assigned_agency_guides', 'assigned_agency_guides_detail',
 
             'check_in', 'check_out', 'num_guests', 
             'tourist_valid_id_image', 'tourist_selfie_image', 
-            'total_price',
+            
+            # --- FINANCIAL FIELDS ---
+            'total_price', 'down_payment', 'balance_due',
+            
+            # --- PAYOUT FIELDS ---
+            'platform_fee', 'guide_payout_amount', 'is_payout_settled',
+            
             'status', 'created_at'
         ]
-        read_only_fields = ['status', 'created_at', 'total_price', 'assigned_guides', 'assigned_agency_guides', 'destination_detail']
+        
+        read_only_fields = [
+            'status', 'created_at', 
+            'total_price', 'down_payment', 'balance_due', 
+            'platform_fee', 'guide_payout_amount', # Admin calculates these, user can't set them
+            'assigned_guides', 'assigned_agency_guides', 'destination_detail'
+        ]
+        # Note: 'is_payout_settled' is writable via PATCH by Admin
 
     def get_guide_detail(self, obj):
         if obj.guide:
@@ -130,8 +138,6 @@ class BookingSerializer(serializers.ModelSerializer):
                 pic_url = guide.profile_picture.url
                 if request:
                     pic_url = request.build_absolute_uri(pic_url)
-            
-            # Use the 'full_name' method from TouristGuide model
             guides_data.append({
                 'id': guide.id,
                 'full_name': guide.full_name(), 
@@ -142,24 +148,42 @@ class BookingSerializer(serializers.ModelSerializer):
         return guides_data
 
     def validate(self, data):
-        accommodation = data.get('accommodation')
-        guide = data.get('guide')
-        agency = data.get('agency')
-        destination = data.get('destination')
-        check_in = data.get('check_in')
-        check_out = data.get('check_out')
+        # --- FIX: Handle Partial Updates (PATCH) ---
+        # If the field is not in 'data', try to get it from 'self.instance'
+        
+        if self.instance:
+            accommodation = data.get('accommodation', self.instance.accommodation)
+            guide = data.get('guide', self.instance.guide)
+            agency = data.get('agency', self.instance.agency)
+            destination = data.get('destination', self.instance.destination)
+            check_in = data.get('check_in', self.instance.check_in)
+            check_out = data.get('check_out', self.instance.check_out)
+        else:
+            # Creation mode: fields must be in data
+            accommodation = data.get('accommodation')
+            guide = data.get('guide')
+            agency = data.get('agency')
+            destination = data.get('destination')
+            check_in = data.get('check_in')
+            check_out = data.get('check_out')
 
-        if check_in and check_out and check_out <= check_in:
-            raise serializers.ValidationError({"check_out": "Check-out must be after check-in."})
-        if check_in and check_in < date.today():
-            raise serializers.ValidationError({"check_in": "Check-in date cannot be in the past."})
+        # --- Date Validation ---
+        if check_in and check_out:
+            if check_out <= check_in:
+                raise serializers.ValidationError({"check_out": "Check-out must be after check-in."})
+            
+            # Only check "past date" on creation OR if check_in is explicitly being changed
+            if not self.instance or 'check_in' in data:
+                if check_in < date.today():
+                    raise serializers.ValidationError({"check_in": "Check-in date cannot be in the past."})
 
+        # --- Target Validation ---
         is_accommodation = accommodation is not None
         is_guide = guide is not None
         is_agency = agency is not None
 
-        # UPDATED VALIDATION LOGIC
         if not (is_guide or is_accommodation or is_agency):
+            # This error was triggering because all 3 were None in the PATCH request
             raise serializers.ValidationError("A booking must target a Guide, Accommodation, or Agency.")
 
         if is_agency and (is_guide or is_accommodation):
@@ -168,6 +192,4 @@ class BookingSerializer(serializers.ModelSerializer):
         if (is_guide or is_agency) and destination is None:
             raise serializers.ValidationError({"destination": "A destination is required when booking a guide or agency."})
         
-        # We allow destination to be present even if accommodation is there (it might be redundant but harmless now)
-
         return data
