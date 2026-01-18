@@ -10,7 +10,7 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from django.core.exceptions import ValidationError as ModelValidationError
 from django.shortcuts import get_object_or_404
 from django.apps import apps 
-from requests.exceptions import RequestException
+from requests.exceptions import RequestException #type: ignore
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
