@@ -36,9 +36,11 @@ class Accommodation(models.Model):
 class Booking(models.Model):
     """Represents a booking request or confirmed reservation."""
     
-    # UPDATED STATUSES: Removed 'Accepted/Declined', added 'Confirmed' and 'Pending_Payment'
+    # UPDATED STATUSES: Added 'Accepted' and 'Declined' back to support agency workflow
     STATUS_CHOICE = [
         ('Pending_Payment', 'Pending Payment'),
+        ('Accepted', 'Accepted'), # Agency/Guide accepted the request, waiting for payment
+        ('Declined', 'Declined'), # Agency/Guide rejected the request
         ('Confirmed', 'Confirmed'), # Down payment received, dates locked
         ('Completed', 'Completed'),
         ('Cancelled', 'Cancelled'),
@@ -105,8 +107,8 @@ class Booking(models.Model):
     
     # FINANCIALS
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 
-    down_payment = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) # New
-    balance_due = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) # New
+    down_payment = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 
+    balance_due = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 
 
     # [NEW] PAYOUT TRACKING
     platform_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="2% Commission for the App")
@@ -133,7 +135,8 @@ class Booking(models.Model):
             raise ValidationError("A destination is required when booking a guide or agency.")
         
         # 2. COLLISION DETECTION (Foolproof Date Locking)
-        if self.guide:
+        # Only check collisions for Confirmed bookings to avoid blocking calendars for unapproved requests
+        if self.guide and self.status == 'Confirmed':
             overlapping_bookings = Booking.objects.filter(
                 guide=self.guide,
                 status='Confirmed',
