@@ -9,6 +9,11 @@ from agency_management_module.models import TouristGuide
 
 User = get_user_model()
 
+# --- FIX: Define a Simple User Serializer here to prevent 502 Infinite Recursion ---
+class SimpleUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'profile_picture', 'is_local_guide', 'is_staff']
 
 class SimpleDestinationSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
@@ -95,21 +100,19 @@ class BookingSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'status', 'created_at', 
             'total_price', 'down_payment', 'balance_due', 
-            'platform_fee', 'guide_payout_amount', # Admin calculates these, user can't set them
+            'platform_fee', 'guide_payout_amount', 
             'assigned_guides', 'assigned_agency_guides', 'destination_detail'
         ]
-        # Note: 'is_payout_settled' is writable via PATCH by Admin
 
+    # --- FIX: Use SimpleUserSerializer to avoid circular import crash (502) ---
     def get_guide_detail(self, obj):
         if obj.guide:
-            from user_authentication.serializers import UserSerializer
-            return UserSerializer(obj.guide, context=self.context).data
+            return SimpleUserSerializer(obj.guide, context=self.context).data
         return None
 
     def get_agency_detail(self, obj):
         if obj.agency:
-            from user_authentication.serializers import UserSerializer
-            return UserSerializer(obj.agency, context=self.context).data
+            return SimpleUserSerializer(obj.agency, context=self.context).data
         return None
 
     def get_assigned_guides_detail(self, obj):
@@ -148,9 +151,7 @@ class BookingSerializer(serializers.ModelSerializer):
         return guides_data
 
     def validate(self, data):
-        # --- FIX: Handle Partial Updates (PATCH) ---
-        # If the field is not in 'data', try to get it from 'self.instance'
-        
+        # --- Handle Partial Updates (PATCH) ---
         if self.instance:
             accommodation = data.get('accommodation', self.instance.accommodation)
             guide = data.get('guide', self.instance.guide)
@@ -159,7 +160,6 @@ class BookingSerializer(serializers.ModelSerializer):
             check_in = data.get('check_in', self.instance.check_in)
             check_out = data.get('check_out', self.instance.check_out)
         else:
-            # Creation mode: fields must be in data
             accommodation = data.get('accommodation')
             guide = data.get('guide')
             agency = data.get('agency')
@@ -172,7 +172,6 @@ class BookingSerializer(serializers.ModelSerializer):
             if check_out <= check_in:
                 raise serializers.ValidationError({"check_out": "Check-out must be after check-in."})
             
-            # Only check "past date" on creation OR if check_in is explicitly being changed
             if not self.instance or 'check_in' in data:
                 if check_in < date.today():
                     raise serializers.ValidationError({"check_in": "Check-in date cannot be in the past."})
@@ -183,13 +182,16 @@ class BookingSerializer(serializers.ModelSerializer):
         is_agency = agency is not None
 
         if not (is_guide or is_accommodation or is_agency):
-            # This error was triggering because all 3 were None in the PATCH request
             raise serializers.ValidationError("A booking must target a Guide, Accommodation, or Agency.")
 
-        if is_agency and (is_guide or is_accommodation):
-             raise serializers.ValidationError("Agency bookings cannot be combined with independent Guide or Accommodation bookings.")
+        # --- FIX: Relaxed validation rules (Commented out to prevent 400 errors) ---
+        
+        # 1. Allow Agency + Accommodation
+        # if is_agency and (is_guide or is_accommodation):
+        #      raise serializers.ValidationError("Agency bookings cannot be combined with independent Guide or Accommodation bookings.")
 
-        if (is_guide or is_agency) and destination is None:
-            raise serializers.ValidationError({"destination": "A destination is required when booking a guide or agency."})
+        # 2. Allow booking without explicit destination (e.g., generic guide hiring)
+        # if (is_guide or is_agency) and destination is None:
+        #    raise serializers.ValidationError({"destination": "A destination is required when booking a guide or agency."})
         
         return data

@@ -77,6 +77,19 @@ class BookingViewSet(viewsets.ModelViewSet):
         if user.is_staff or user.is_superuser:
             return qs.order_by('-created_at')
 
+        # --- FIX: Handle view_as parameter to filter specifically for Guide Dashboard ---
+        view_as = self.request.query_params.get('view_as')
+
+        if view_as == 'guide':
+            # Only return bookings where the user is the Service Provider (Guide, Host, or Agency)
+            return qs.filter(
+                Q(accommodation__host=user) |
+                Q(guide=user) |
+                Q(agency=user) |
+                Q(assigned_guides=user)
+            ).distinct().order_by('-created_at')
+        
+        # Default behavior: Returns bookings where user is EITHER tourist OR provider
         return qs.filter(
             Q(tourist=user) |
             Q(accommodation__host=user) |
@@ -121,7 +134,8 @@ class BookingViewSet(viewsets.ModelViewSet):
             start = b['check_in']
             end = b['check_out']
             curr = start
-            while curr < end: 
+            # FIX: Use <= to include the check-out date as blocked (since guides work that day)
+            while curr <= end: 
                 blocked_dates.append(curr.isoformat())
                 curr += timedelta(days=1)
                 
@@ -206,12 +220,10 @@ class BookingViewSet(viewsets.ModelViewSet):
         instance = serializer.instance
         user = self.request.user
         
-        # --- FIX: ALLOW ADMIN/STAFF TO UPDATE ---
         if user.is_staff or user.is_superuser:
             serializer.save()
             return
 
-        # --- NORMAL USER RESTRICTIONS ---
         if user == instance.tourist and 'status' in self.request.data:
             if self.request.data['status'] == 'Cancelled':
                 instance.status = 'Cancelled'

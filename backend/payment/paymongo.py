@@ -1,7 +1,7 @@
-import requests
+import requests #type: ignore
 from django.conf import settings
 from decimal import Decimal
-from requests.exceptions import RequestException
+from requests.exceptions import RequestException #type: ignore
 
 PAYMONGO_API_URL = settings.PAYMONGO_BASE_URL
 PAYMONGO_SECRET_KEY = settings.PAYMONGO_SECRET_KEY 

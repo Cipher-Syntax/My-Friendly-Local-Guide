@@ -82,12 +82,16 @@ class PaymentInitiationView(APIView):
         
         try:
             paymongo_types = []
-            if 'card' in raw_method: paymongo_types = ['card']
-            elif 'maya' in raw_method: paymongo_types = ['paymaya']
-            elif 'grab' in raw_method: paymongo_types = ['grab_pay']
-            elif 'gcash' in raw_method: paymongo_types = ['gcash']
-            elif 'shopee' in raw_method: paymongo_types = ['grab_pay'] 
-            else: paymongo_types = ['gcash'] 
+            
+            # --- UPDATED MAPPING FOR QRPh ---
+            if 'card' in raw_method: 
+                paymongo_types = ['card']
+            else:
+                # Since GCash/Maya specific toggles are inactive, we use QRPh.
+                # QRPh generates a QR code that can be scanned by GCash, Maya, Grab, etc.
+                paymongo_types = ['qrph']
+
+            print(f"DEBUG: Payment Method Requested: '{raw_method}' -> Mapped to PayMongo Type: {paymongo_types}")
 
             result = create_checkout_session(
                 amount=final_amount,
@@ -111,6 +115,7 @@ class PaymentInitiationView(APIView):
             }, status=status.HTTP_201_CREATED)
 
         except RuntimeError as e:
+            print(f"!!! PAYMONGO API ERROR: {str(e)}")
             payment.status = 'failed'
             payment.save()
             raise DRFValidationError({"detail": str(e)})
@@ -160,11 +165,10 @@ class PaymentWebhookView(APIView):
                 try:
                     booking.status = "Confirmed"
                     
-                    # --- [FIXED] COMMISSION & PAYOUT LOGIC ---
+                    # --- COMMISSION & PAYOUT LOGIC ---
                     # 1. Calculate 2% Commission on TOTAL Price
                     commission_rate = Decimal("0.02")
                     
-                    # FIX: Round to 2 decimal places using .quantize()
                     platform_fee = (booking.total_price * commission_rate).quantize(Decimal("0.01"))
                     
                     # 2. Calculate what belongs to the Guide
@@ -176,7 +180,7 @@ class PaymentWebhookView(APIView):
                     booking.guide_payout_amount = net_payout
                     booking.is_payout_settled = False
                     
-                    booking.save() # This triggers model.clean() check
+                    booking.save() 
                     
                     # --- SUCCESS SCENARIO ---
                     if booking.guide:
@@ -215,9 +219,7 @@ class PaymentWebhookView(APIView):
                     payment.status = "refund_required" 
                     payment.save()
                     
-                    # Note: We must ensure booking fields are valid before saving status to avoid infinite loop
                     booking.status = "Cancelled"
-                    # We skip full_clean here specifically to ensure we can at least mark it cancelled if data is slightly off
                     booking.save(update_fields=['status']) 
 
                     SystemAlert.objects.create(
