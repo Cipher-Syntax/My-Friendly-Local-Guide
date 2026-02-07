@@ -1,5 +1,3 @@
-// src/App.jsx
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ForgotPassword, Home, LandingPage, Login, NotFound, Register } from './pages';
@@ -12,10 +10,12 @@ import Dashboard from './components/admin/Dashboard';
 import AgencyManagement from './components/admin/AgencyManagement';
 import TourGuidesManagement from './components/admin/TourGuidesManagement';
 import ContentManagement from './components/admin/ContentManagement';
-import ReportsAndAnalysis from './components/admin/ReportsAndAnalysis';
 import Settings from './components/admin/Settings';
-// IMPORT THE NEW COMPONENT
 import PaymentsManagement from './components/admin/PaymentsManagement';
+
+// 1. Import the two separate components
+import ReportsAndAnalysis from './components/admin/ReportsAndAnalysis'; // The new Analytics page
+import Feedback from './components/admin/Feedback'; // The renamed Report/Warning page
 
 import AgencyProfileCompletion from './pages/AgencyProfileCompletion';
 
@@ -33,6 +33,7 @@ const App = () => {
 
                 <Route path='/' element={<LandingPage />} />
 
+                {/* Admin Routes */}
                 <Route path='/admin' element={
                     <ProtectedRoute>
                         <AdminLayout />
@@ -42,13 +43,13 @@ const App = () => {
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="agency" element={<AgencyManagement />} />
                     <Route path="guides" element={<TourGuidesManagement />} />
-
-                    {/* NEW ROUTE FOR PAYMENTS */}
                     <Route path="payments" element={<PaymentsManagement />} />
-
                     <Route path="content" element={<ContentManagement />} />
-                    <Route path="reports" element={<ReportsAndAnalysis />} />
                     <Route path="settings" element={<Settings />} />
+
+                    {/* 2. Update these routes to match your Sidebar paths */}
+                    <Route path="analytics" element={<ReportsAndAnalysis />} />
+                    <Route path="feedback" element={<Feedback />} />
                 </Route>
 
                 <Route path='/admin-signin' element={<Adminsignin />} />

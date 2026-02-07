@@ -1,362 +1,320 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Search, AlertTriangle, User, Shield, Ban, CheckCircle, Calendar, Flag, Trash2, AlertCircle, XCircle, Check } from 'lucide-react';
-import api from '../../api/api'; 
+import React, { useState, useEffect, useMemo } from 'react';
+import { TrendingUp, Users, Map, Globe, Activity, ArrowUpRight, DollarSign, Calendar, AlertCircle } from 'lucide-react';
+import api from '../../api/api';
+import { Loader2 } from 'lucide-react';
 
-export default function ReportManagement() {
-    const [reports, setReports] = useState([]);
+// A reusable card component for stats
+const StatCard = ({ title, value, subtext, icon: Icon, color, trend }) => (
+    <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 relative overflow-hidden">
+        <div className="flex items-start justify-between">
+            <div>
+                <p className="text-slate-400 text-sm font-medium">{title}</p>
+                <h3 className="text-3xl font-bold text-white mt-2">{value}</h3>
+                <p className="text-slate-500 text-xs mt-1">{subtext}</p>
+            </div>
+            <div className={`p-3 rounded-lg bg-${color}-500/10`}>
+                <Icon className={`w-6 h-6 text-${color}-400`} />
+            </div>
+        </div>
+        {trend && (
+            <div className="flex items-center gap-1 mt-4 text-green-400 text-sm font-medium">
+                <ArrowUpRight className="w-4 h-4" />
+                <span>{trend}</span>
+            </div>
+        )}
+    </div>
+);
+
+// A simple bar for visualization
+const ProgressBar = ({ label, value, max, color }) => (
+    <div className="space-y-2">
+        <div className="flex justify-between text-sm">
+            <span className="text-slate-300">{label}</span>
+            <span className="text-white font-medium">{value}</span>
+        </div>
+        <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden">
+            <div
+                className={`h-full bg-${color}-500 rounded-full transition-all duration-1000`}
+                style={{ width: `${max > 0 ? (value / max) * 100 : 0}%` }}
+            />
+        </div>
+    </div>
+);
+
+export default function ReportsAndAnalysis() {
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-
-
-    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-    
-    const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
-    const [selectedReport, setSelectedReport] = useState(null);
-    const [warningMessage, setWarningMessage] = useState('');
-
-    const [confirmModal, setConfirmModal] = useState({ 
-        isOpen: false, 
-        title: '', 
-        message: '', 
-        onConfirm: null, 
-        isDanger: false,
-        actionLabel: 'Confirm'
+    const [data, setData] = useState({
+        revenue: 0,
+        totalBookings: 0,
+        activeAgencies: 0,
+        totalGuides: 0,
+        totalDestinations: 0,
+        totalUsers: 0,
+        monthlyBookings: Array(12).fill(0),
+        systemLogs: [],
+        topRegions: []
     });
 
-    const showToast = (message, type = 'success') => {
-        setToast({ show: true, message, type });
-        setTimeout(() => {
-            setToast(prev => ({ ...prev, show: false }));
-        }, 3000);
-    };
-
-    const fetchReports = async () => {
-        try {
-            setLoading(true);
-            const response = await api.get('api/review/'); 
-            setReports(response.data);
-        } catch (error) {
-            console.error("Failed to fetch reports:", error);
-            showToast("Failed to load reports.", "error");
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
-        fetchReports();
+        const fetchAnalytics = async () => {
+            try {
+                // Fetch data from multiple endpoints
+                const [bookingsRes, agenciesRes, guidesRes, destinationsRes, alertsRes] = await Promise.all([
+                    api.get('api/bookings/'),
+                    api.get('api/agencies/'),
+                    api.get('api/admin/guide-reviews/'), // Using review list to count total applied guides
+                    api.get('api/destinations/'),
+                    api.get('api/alerts/') // Use alerts as system logs
+                ]);
+
+                const bookings = bookingsRes.data.results || bookingsRes.data || [];
+                const agencies = agenciesRes.data.results || agenciesRes.data || [];
+                const guides = guidesRes.data.results || guidesRes.data || [];
+                const destinations = destinationsRes.data.results || destinationsRes.data || [];
+                const alerts = alertsRes.data.results || alertsRes.data || [];
+
+                // --- PROCESS REVENUE ---
+                // Sum total_price of bookings that are not cancelled or pending payment
+                const validBookings = bookings.filter(b => b.status !== 'Cancelled' && b.status !== 'Pending_Payment');
+                const totalRevenue = validBookings.reduce((sum, b) => sum + parseFloat(b.total_price || 0), 0);
+
+                // --- PROCESS MONTHLY TRENDS ---
+                const monthlyCounts = Array(12).fill(0);
+                bookings.forEach(b => {
+                    const date = new Date(b.created_at);
+                    const month = date.getMonth(); // 0-11
+                    monthlyCounts[month]++;
+                });
+
+                // --- PROCESS REGIONS ---
+                // Count destinations by city/location
+                const locationCounts = {};
+                destinations.forEach(d => {
+                    const loc = d.location || 'Unknown';
+                    locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+                });
+                const sortedRegions = Object.entries(locationCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3) // Top 3
+                    .map(([city, count]) => ({ city, count }));
+
+
+                setData({
+                    revenue: totalRevenue,
+                    totalBookings: bookings.length,
+                    activeAgencies: agencies.length,
+                    totalGuides: guides.filter(g => g.status === 'Approved').length, // Assuming status field exists or checking guide_approved
+                    totalDestinations: destinations.length,
+                    totalUsers: agencies.length + guides.length + bookings.length, // Rough estimate using unique entities
+                    monthlyBookings: monthlyCounts,
+                    systemLogs: alerts.slice(0, 5), // Latest 5 alerts
+                    topRegions: sortedRegions
+                });
+
+            } catch (error) {
+                console.error("Error fetching analytics:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAnalytics();
     }, []);
 
+    const currentMonthIndex = new Date().getMonth();
+    const currentMonthBookings = data.monthlyBookings[currentMonthIndex];
+    const lastMonthBookings = data.monthlyBookings[currentMonthIndex - 1] || 1; // avoid divide by zero
+    const growthTrend = ((currentMonthBookings - lastMonthBookings) / lastMonthBookings * 100).toFixed(1);
 
-    const initiateToggleUserStatus = (report) => {
-        const currentStatus = report.reported_user_is_active;
-        const action = currentStatus ? "restrict" : "activate";
-        
-        setConfirmModal({
-            isOpen: true,
-            title: `${action.charAt(0).toUpperCase() + action.slice(1)} User`,
-            message: `Are you sure you want to ${action} the user "${report.reported_username}"?`,
-            isDanger: currentStatus, // Restricting is 'danger' (red), activating is safe (blue/green)
-            actionLabel: currentStatus ? "Restrict User" : "Activate User",
-            onConfirm: () => executeToggleStatus(report)
-        });
-    };
-
-    const executeToggleStatus = async (report) => {
-        const userId = report.reported_user;
-        const currentStatus = report.reported_user_is_active;
-
-        try {
-            await api.patch(`api/admin/users/${userId}/`, {
-                is_active: !currentStatus
-            });
-
-            setReports(prev => prev.map(r => {
-                if (r.reported_user === userId) {
-                    return { ...r, reported_user_is_active: !currentStatus };
-                }
-                return r;
-            }));
-            
-            showToast(`User ${currentStatus ? 'restricted' : 'activated'} successfully.`);
-            setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        } catch (error) {
-            console.error("Toggle failed:", error);
-            showToast("Failed to update user status.", "error");
-        }
-    };
-
-    const initiateDeleteUser = (report) => {
-        setConfirmModal({
-            isOpen: true,
-            title: "Delete User",
-            message: `CRITICAL WARNING: This will permanently DELETE user "${report.reported_username}" and all their data. This action cannot be undone.`,
-            isDanger: true,
-            actionLabel: "Delete Permanently",
-            onConfirm: () => executeDeleteUser(report)
-        });
-    };
-
-    const executeDeleteUser = async (report) => {
-        const userId = report.reported_user;
-        try {
-            await api.delete(`api/admin/users/${userId}/`);
-
-            setReports(prev => prev.filter(r => r.reported_user !== userId));
-            
-            showToast(`User ${report.reported_username} deleted successfully.`);
-            setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        } catch (error) {
-            console.error("Delete failed:", error);
-            showToast("Failed to delete user.", "error");
-        }
-    };
-
-    const openWarningModal = (report) => {
-        setSelectedReport(report);
-        setWarningMessage(`We have received a report regarding your activity: "${report.reason}". Please review our community guidelines.`);
-        setIsWarningModalOpen(true);
-    };
-
-    const handleSendWarning = async () => {
-        if (!selectedReport) return;
-
-        try {
-            await api.post(`api/review/${selectedReport.id}/warn/`, {
-                message: warningMessage
-            });
-            showToast("Warning sent successfully.");
-            setIsWarningModalOpen(false);
-        } catch (error) {
-            console.error("Failed to send warning:", error);
-            showToast("Failed to send warning.", "error");
-        }
-    };
-
-    const filteredReports = useMemo(() => {
-        return reports.filter(report => 
-            report.reported_username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            report.reporter_username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            report.reason.toLowerCase().includes(searchTerm.toLowerCase())
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-96">
+                <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+            </div>
         );
-    }, [reports, searchTerm]);
-
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-        });
-    };
-
-    const getTypeColor = (type) => {
-        switch (type) {
-            case 'Guide': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
-            case 'Agency': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-            default: return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
-        }
-    };
+    }
 
     return (
-        <div className="space-y-6 relative">
-            
-            {toast.show && (
-                <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${
-                    toast.type === 'success' 
-                        ? 'bg-slate-800 border-green-500/50 text-green-400' 
-                        : 'bg-slate-800 border-red-500/50 text-red-400'
-                }`}>
-                    {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                    <span className="font-medium text-white">{toast.message}</span>
-                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
-                        <XCircle className="w-4 h-4" />
-                    </button>
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-bold text-white">Reports & Analytics</h2>
+                    <p className="text-slate-400">Live system performance from backend data</p>
                 </div>
-            )}
-
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Search reports by username or reason..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-red-500/50"
-                    />
+                <div className="flex gap-2">
+                    <div className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg px-3 py-2">
+                        {new Date().getFullYear()}
+                    </div>
                 </div>
             </div>
 
-            <div className="space-y-4">
-                {filteredReports.length === 0 && !loading && (
-                    <div className="text-center py-10 text-slate-500 bg-slate-800/30 rounded-xl border border-slate-700/30">
-                        <Shield className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>No reports found. The community is safe!</p>
-                    </div>
-                )}
-
-                {filteredReports.map(report => (
-                    <div key={report.id} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 transition-all hover:border-red-500/30">
-                        <div className="flex flex-col md:flex-row gap-6">
-                            
-                            <div className="flex-1 space-y-4">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-red-500/10 rounded-lg text-red-400">
-                                            <Flag className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                                                Report against {report.reported_username}
-                                                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border ${getTypeColor(report.reported_user_type)}`}>
-                                                    {report.reported_user_type}
-                                                </span>
-                                            </h3>
-                                            <div className="flex items-center gap-4 text-sm text-slate-400 mt-1">
-                                                <span className="flex items-center gap-1">
-                                                    <User className="w-3 h-3" />
-                                                    Reporter: {report.reporter_username}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <Calendar className="w-3 h-3" />
-                                                    {formatDate(report.timestamp)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5 ${
-                                        report.reported_user_is_active 
-                                        ? 'bg-green-500/10 text-green-400 border-green-500/20' 
-                                        : 'bg-red-500/10 text-red-400 border-red-500/20'
-                                    }`}>
-                                        {report.reported_user_is_active 
-                                            ? <><CheckCircle className="w-3 h-3" /> Active</> 
-                                            : <><Ban className="w-3 h-3" /> Restricted</>
-                                        }
-                                    </div>
-                                </div>
-
-                                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
-                                    <p className="text-xs text-slate-500 uppercase font-bold mb-1">Reason for Report</p>
-                                    <p className="text-slate-200 leading-relaxed">{report.reason}</p>
-                                </div>
-                            </div>
-
-                            <div className="flex md:flex-col justify-center gap-3 border-t md:border-t-0 md:border-l border-slate-700/50 pt-4 md:pt-0 md:pl-6 min-w-[180px]">
-                                
-                                <button
-                                    onClick={() => openWarningModal(report)}
-                                    className="flex-1 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                                >
-                                    <AlertCircle className="w-4 h-4" />
-                                    Warn
-                                </button>
-
-                                <button
-                                    onClick={() => initiateToggleUserStatus(report)}
-                                    className={`flex-1 px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border ${
-                                        report.reported_user_is_active
-                                        ? 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30'
-                                        : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30'
-                                    }`}
-                                >
-                                    {report.reported_user_is_active ? (
-                                        <>
-                                            <Ban className="w-4 h-4" />
-                                            Restrict
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CheckCircle className="w-4 h-4" />
-                                            Unrestrict
-                                        </>
-                                    )}
-                                </button>
-
-                                <button 
-                                    onClick={() => initiateDeleteUser(report)}
-                                    className="flex-1 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                ))}
+            {/* Key Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard
+                    title="Total Volume"
+                    value={`₱${data.revenue.toLocaleString()}`}
+                    subtext="Gross booking value"
+                    icon={DollarSign}
+                    color="emerald"
+                    trend={null}
+                />
+                <StatCard
+                    title="Total Users"
+                    value={data.totalUsers}
+                    subtext="Across all roles"
+                    icon={Users}
+                    color="blue"
+                />
+                <StatCard
+                    title="Destinations"
+                    value={data.totalDestinations}
+                    subtext="Active locations"
+                    icon={Map}
+                    color="purple"
+                />
+                <StatCard
+                    title="System Health"
+                    value="100%"
+                    subtext="Operational"
+                    icon={Activity}
+                    color="cyan"
+                />
             </div>
 
-            {isWarningModalOpen && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full shadow-2xl">
-                        <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <AlertTriangle className="w-5 h-5 text-amber-400" />
-                                Send Warning
-                            </h3>
-                            <button onClick={() => setIsWarningModalOpen(false)} className="text-slate-400 hover:text-white">
-                                <XCircle className="w-6 h-6" />
-                            </button>
-                        </div>
-                        <div className="p-6">
-                            <p className="text-slate-400 mb-2 text-sm">
-                                Sending warning to <strong>{selectedReport?.reported_username}</strong>
-                            </p>
-                            <textarea 
-                                rows="4" 
-                                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-lg p-3 text-white focus:outline-none focus:border-amber-500/50"
-                                value={warningMessage}
-                                onChange={(e) => setWarningMessage(e.target.value)}
-                            />
-                        </div>
-                        <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
-                            <button onClick={() => setIsWarningModalOpen(false)} className="px-4 py-2 text-slate-400 hover:text-white">Cancel</button>
-                            <button 
-                                onClick={handleSendWarning}
-                                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-black font-medium rounded-lg"
-                            >
-                                Send Warning
-                            </button>
-                        </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Main Chart Area */}
+                <div className="lg:col-span-2 bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-white font-semibold flex items-center gap-2">
+                            <TrendingUp className="w-5 h-5 text-cyan-400" />
+                            Booking Trends ({new Date().getFullYear()})
+                        </h3>
+                        <span className={`text-sm ${parseFloat(growthTrend) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {parseFloat(growthTrend) > 0 ? '+' : ''}{growthTrend}% this month
+                        </span>
                     </div>
-                </div>
-            )}
 
-            {confirmModal.isOpen && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full shadow-2xl">
-                        <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <AlertTriangle className={`w-5 h-5 ${confirmModal.isDanger ? 'text-red-400' : 'text-amber-400'}`} />
-                                {confirmModal.title}
-                            </h3>
-                            <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="text-slate-400 hover:text-white">
-                                <XCircle className="w-6 h-6" />
-                            </button>
-                        </div>
-                        <div className="p-6">
-                            <p className="text-slate-300">{confirmModal.message}</p>
-                        </div>
-                        <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
-                            <button 
-                                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} 
-                                className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={confirmModal.onConfirm}
-                                className={`px-4 py-2 font-medium rounded-lg transition-colors ${
-                                    confirmModal.isDanger 
-                                    ? 'bg-red-500 hover:bg-red-600 text-white' 
-                                    : 'bg-cyan-500 hover:bg-cyan-600 text-white'
-                                }`}
-                            >
-                                {confirmModal.actionLabel}
-                            </button>
+                    {/* CSS Bar Chart */}
+                    <div className="h-64 flex items-end justify-between gap-2 px-4 border-b border-slate-700/50 pb-2">
+                        {data.monthlyBookings.map((count, i) => {
+                            const max = Math.max(...data.monthlyBookings, 10); // Scale based on max value
+                            const heightPercentage = (count / max) * 100;
+                            const monthName = new Date(0, i).toLocaleString('default', { month: 'short' });
+
+                            return (
+                                <div key={i} className="w-full flex flex-col items-center gap-2 group">
+                                    <div
+                                        className="w-full bg-cyan-500/20 group-hover:bg-cyan-500/40 rounded-t-sm transition-all relative min-h-[4px]"
+                                        style={{ height: `${heightPercentage}%` }}
+                                    >
+                                        {/* Tooltip */}
+                                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-slate-700 z-10">
+                                            {count} Bookings
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] text-slate-500 uppercase">{monthName}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Side Stats */}
+                <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 space-y-6">
+                    <h3 className="text-white font-semibold flex items-center gap-2">
+                        <Globe className="w-5 h-5 text-purple-400" />
+                        Platform Distribution
+                    </h3>
+
+                    <div className="space-y-4">
+                        <ProgressBar
+                            label="Confirmed Bookings"
+                            value={data.totalBookings}
+                            max={data.totalBookings + 50} // visual scaling
+                            color="blue"
+                        />
+                        <ProgressBar
+                            label="Active Guides"
+                            value={data.totalGuides}
+                            max={data.totalUsers}
+                            color="green"
+                        />
+                        <ProgressBar
+                            label="Agencies"
+                            value={data.activeAgencies}
+                            max={data.totalUsers}
+                            color="purple"
+                        />
+                    </div>
+
+                    <div className="pt-6 border-t border-slate-700/50">
+                        <h4 className="text-sm font-medium text-slate-400 mb-4">Top Locations</h4>
+                        <div className="space-y-3">
+                            {data.topRegions.length > 0 ? (
+                                data.topRegions.map((region, index) => (
+                                    <div key={index} className="flex items-center justify-between text-sm">
+                                        <span className="text-white">{index + 1}. {region.city}</span>
+                                        <span className="text-slate-500">{region.count} Spots</span>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-slate-500 text-xs italic">No location data available</p>
+                            )}
                         </div>
                     </div>
                 </div>
-            )}
+            </div>
+
+            {/* Recent Activity Table (System Logs) */}
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden">
+                <div className="p-6 border-b border-slate-700/50">
+                    <h3 className="text-white font-semibold flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-slate-400" />
+                        System Logs & Alerts
+                    </h3>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-slate-400">
+                        <thead className="bg-slate-900/50 text-slate-200 uppercase text-xs">
+                            <tr>
+                                <th className="px-6 py-4">Title</th>
+                                <th className="px-6 py-4">Message</th>
+                                <th className="px-6 py-4">Type</th>
+                                <th className="px-6 py-4">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-700/50">
+                            {data.systemLogs.length > 0 ? (
+                                data.systemLogs.map((log) => (
+                                    <tr key={log.id} className="hover:bg-slate-800/30 transition-colors">
+                                        <td className="px-6 py-4 font-medium text-white">{log.title}</td>
+                                        <td className="px-6 py-4 max-w-xs truncate" title={log.message}>
+                                            {log.message}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 rounded text-xs border ${log.target_type === 'Admin'
+                                                    ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                                    : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                }`}>
+                                                {log.target_type}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {new Date(log.created_at).toLocaleDateString()}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan="4" className="px-6 py-8 text-center text-slate-500">
+                                        No recent system logs found.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 }

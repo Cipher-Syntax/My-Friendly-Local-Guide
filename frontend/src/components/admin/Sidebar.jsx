@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { BarChart3, Map, Users, User, Home, AlertCircle, Settings, LogOut, CircleDollarSign } from 'lucide-react';
+import { BarChart3, Map, Users, User, Home, MessageSquare, Settings, LogOut, CircleDollarSign, PieChart } from 'lucide-react';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
 
 const menuItems = [
     { id: 'dashboard', icon: BarChart3, label: 'Dashboard', path: '/admin/dashboard' },
     { id: 'agency', icon: Map, label: 'Agency', path: '/admin/agency' },
     { id: 'guides', icon: Users, label: 'Tour Guides', path: '/admin/guides' },
-    { id: 'payments', icon: CircleDollarSign, label: 'Payments & Payouts', path: '/admin/payments' }, // <--- NEW ITEM
+    { id: 'payments', icon: CircleDollarSign, label: 'Payments & Payouts', path: '/admin/payments' },
     { id: 'content', icon: Home, label: 'Content Management', path: '/admin/content' },
-    { id: 'reports', icon: AlertCircle, label: 'Report & Analysis', path: '/admin/reports' },
+    { id: 'feedback', icon: MessageSquare, label: 'Feedback', path: '/admin/feedback' },
+    { id: 'analytics', icon: PieChart, label: 'Reports & Analytics', path: '/admin/analytics' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 
