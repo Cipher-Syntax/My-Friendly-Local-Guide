@@ -11,6 +11,7 @@ from django.core.exceptions import ValidationError as ModelValidationError
 from django.shortcuts import get_object_or_404
 from django.apps import apps 
 from requests.exceptions import RequestException #type: ignore
+from django.core.mail import send_mail # For email notifications
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -168,7 +169,6 @@ class PaymentWebhookView(APIView):
                     # --- COMMISSION & PAYOUT LOGIC ---
                     # 1. Calculate 2% Commission on TOTAL Price
                     commission_rate = Decimal("0.02")
-                    
                     platform_fee = (booking.total_price * commission_rate).quantize(Decimal("0.01"))
                     
                     # 2. Calculate what belongs to the Guide
@@ -187,18 +187,57 @@ class PaymentWebhookView(APIView):
                         booking.guide.booking_count += 1
                         booking.guide.save()
 
-                    # Notify TOURIST
-                    SystemAlert.objects.create(
-                        target_type='Tourist',
-                        recipient=booking.tourist,
-                        title="Payment Successful!",
-                        message=f"Booking Confirmed! You paid ₱{booking.down_payment}. Balance of ₱{booking.balance_due} is payable to the guide.",
-                        related_object_id=booking.id,
-                        related_model='Booking',
-                        is_read=False
-                    )
+                    # --- SEND DETAILED HTML RECEIPT TO TOURIST (Like the Modal) ---
+                    try:
+                        provider_name = "Local Service"
+                        if booking.guide:
+                            provider_name = f"Guide: {booking.guide.get_full_name() or booking.guide.username}"
+                        elif booking.agency:
+                            provider_name = f"Agency: {booking.agency.username}"
 
-                    # Notify GUIDE / AGENCY
+                        subject = f"Your Booking Receipt - #{booking.id}"
+                        
+                        html_content = f"""
+                        <html>
+                        <body style="font-family: 'Helvetica', Arial, sans-serif; color: #1E293B; background-color: #F8FAFC; padding: 20px;">
+                            <div style="max-width: 500px; margin: auto; background: white; border-radius: 20px; padding: 30px; border: 1px solid #E2E8F0;">
+                                <div style="text-align: center; margin-bottom: 20px;">
+                                    <h2 style="color: #0072FF; margin: 0; letter-spacing: 1px;">BOOKING SUMMARY</h2>
+                                    <p style="font-size: 12px; color: #94A3B8;">{date.today().strftime('%B %d, %Y')}</p>
+                                </div>
+                                
+                                <div style="margin-bottom: 20px; border-bottom: 1px dashed #CBD5E1; padding-bottom: 20px;">
+                                    <p style="font-size: 10px; font-weight: bold; color: #94A3B8; margin-bottom: 10px; text-transform: uppercase;">Itinerary</p>
+                                    <p style="margin: 5px 0;"><strong>Dates:</strong> {booking.check_in} — {booking.check_out}</p>
+                                    <p style="margin: 5px 0;"><strong>Provider:</strong> {provider_name}</p>
+                                    <p style="margin: 5px 0;"><strong>Destination:</strong> {booking.destination or 'N/A'}</p>
+                                </div>
+
+                                <div style="margin-bottom: 20px;">
+                                    <p style="font-size: 10px; font-weight: bold; color: #94A3B8; margin-bottom: 10px; text-transform: uppercase;">Payment Breakdown</p>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                        <span>Total Trip Cost:</span> <span style="float: right;">₱ {booking.total_price:,.2f}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; color: #0072FF; font-weight: bold;">
+                                        <span>Down Payment Paid (30%):</span> <span style="float: right;">₱ {booking.down_payment:,.2f}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; color: #64748B;">
+                                        <span>Balance (Pay to Provider):</span> <span style="float: right;">₱ {booking.balance_due:,.2f}</span>
+                                    </div>
+                                </div>
+
+                                <div style="background: #F1F5F9; padding: 15px; border-radius: 10px; text-align: center;">
+                                    <p style="font-size: 11px; color: #64748B; margin: 0;">Transaction ID: {payment.gateway_transaction_id}</p>
+                                </div>
+                            </div>
+                        </body>
+                        </html>
+                        """
+                        send_mail(subject, "", settings.EMAIL_HOST_USER, [payment.payer.email], html_message=html_content)
+                    except Exception as e:
+                        print(f"Error sending HTML receipt: {e}")
+
+                    # Notify GUIDE / AGENCY via App & Email
                     provider = booking.guide or booking.agency or (booking.accommodation.host if booking.accommodation else None)
                     if provider:
                         tourist_name = f"{booking.tourist.first_name} {booking.tourist.last_name}"
@@ -211,14 +250,26 @@ class PaymentWebhookView(APIView):
                             related_model='Booking',
                             is_read=False
                         )
+                        
+                        # Provider Confirmation Email
+                        try:
+                            p_subject = "Action Required: New Confirmed Booking"
+                            p_message = (
+                                f"Hi {provider.username},\n\n"
+                                f"A new booking has been confirmed by {tourist_name}.\n\n"
+                                f"Itinerary: {booking.check_in} to {booking.check_out}\n"
+                                f"Your Pending Payout (from down payment): ₱{net_payout:,.2f}\n\n"
+                                f"The tourist will pay the remaining balance of ₱{booking.balance_due:,.2f} directly to you. Please check your dashboard for details."
+                            )
+                            send_mail(p_subject, p_message, settings.EMAIL_HOST_USER, [provider.email])
+                        except Exception as e:
+                            print(f"Error notifying provider: {e}")
 
                 except ModelValidationError as e:
                     # --- FAIL SCENARIO (Double Booking) ---
                     print(f"CRITICAL: Booking Save Failed for Payment {payment.id}. Error: {e}")
-                    
                     payment.status = "refund_required" 
                     payment.save()
-                    
                     booking.status = "Cancelled"
                     booking.save(update_fields=['status']) 
 
