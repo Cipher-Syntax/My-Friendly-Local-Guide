@@ -144,19 +144,9 @@ class PasswordResetAppRedirectView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, uid, token):
-        # ---------------------------------------------------------
-        # ⚠️ IMPORTANT FOR EXPO GO USERS ⚠️
-        # Replace '192.168.137.89' with YOUR computer's actual local IP address.
-        # This MUST match the IP shown in your terminal when running 'npx expo start'.
-        # ---------------------------------------------------------
         EXPO_IP = "192.168.137.89" 
-        
-        # Link for Expo Go
         app_scheme_url = f"exp://{EXPO_IP}:8081/--/auth/resetPassword?uid={uid}&token={token}"
         
-        # Link for Standalone/Development Build (Keep for later reference)
-        # app_scheme_url = f"localynk://auth/resetPassword?uid={uid}&token={token}"
-
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -209,14 +199,13 @@ class PasswordResetAppRedirectView(APIView):
             <p>We are trying to open the app to reset your password.</p>
             <p>If nothing happens automatically, click the button below:</p>
             
-            <a href="{app_scheme_url}" class="btn">Open App & Reset Password</a>
+            <a href="{{app_scheme_url}}" class="btn">Open App & Reset Password</a>
             
             <div class="debug">
                 Trying to open: {app_scheme_url}
             </div>
 
             <script>
-                // Attempt to redirect automatically after a short delay
                 setTimeout(function() {{
                     window.location.href = "{app_scheme_url}";
                 }}, 500);
@@ -238,10 +227,8 @@ class PasswordResetRequestView(generics.GenericAPIView):
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         
-        # Link to the Django 'bridge' view (HTTPS)
         redirect_link = f"{settings.BACKEND_BASE_URL}/api/password-reset/redirect/{uid}/{token}/"
 
-        # 1. Plain Text Message with CLEAR UID/Token
         plain_message = (
             f"Hi {user.username},\n\n"
             f"We received a request to reset your password. Click the link below to open the app:\n"
@@ -253,7 +240,6 @@ class PasswordResetRequestView(generics.GenericAPIView):
             f"If you didn't request this, ignore this email."
         )
 
-        # 2. HTML Message with STYLED Box for UID/Token
         html_message = f"""
         <html>
             <body style="font-family: Arial, sans-serif; color: #333;">
@@ -301,7 +287,6 @@ class PasswordResetConfirmView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, uid=None, token=None, *args, **kwargs):
-        # Support getting uid/token from body (easier for mobile app)
         uid = uid or request.data.get('uid')
         token = token or request.data.get('token')
 
@@ -356,6 +341,18 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
         application = serializer.save(user=user)
         if not user.is_local_guide:
             user.apply_as_guide()
+        
+        # Notify Admins via Email
+        admin_emails = User.objects.filter(is_superuser=True).values_list('email', flat=True)
+        if admin_emails:
+            send_mail(
+                subject="New Individual Guide Application Submitted",
+                message=f"A new individual guide application has been submitted by {user.username} ({user.email}) and is pending review.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=list(admin_emails),
+                fail_silently=True,
+            )
+
         return Response(
             {"detail": "Documents submitted successfully. Awaiting admin review.",
              "application_id": application.id},
