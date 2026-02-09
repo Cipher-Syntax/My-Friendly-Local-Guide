@@ -9,7 +9,7 @@ from .views import (
     AdminUpdateUserView,
     PasswordResetRequestView, 
     PasswordResetConfirmView,
-    PasswordResetAppRedirectView, # <--- IMPORTANT: Added this import
+    PasswordResetAppRedirectView,
     ApplyAsGuideView, 
     ApprovedLocalGuideListView, 
     GuideDetailView, 
@@ -20,7 +20,9 @@ from .views import (
     ResendVerificationEmailView,
     AdminTokenObtainPairView,
     AgencyTokenObtainPairView,
-    AcceptTermsView
+    AcceptTermsView,
+    ToggleFavoriteGuideView,
+    FavoriteGuideListView
 )
 
 urlpatterns = [
@@ -46,6 +48,10 @@ urlpatterns = [
     # path('agencies/', AgencyListView.as_view(), name='agency-list'),
 
     path('guide/update-info/', UpdateGuideInfoView.as_view(), name='update-guide-info'),
+    
+    # Favorites
+    path('favorites/', FavoriteGuideListView.as_view(), name='favorite-guides-list'),
+    path('favorites/toggle/', ToggleFavoriteGuideView.as_view(), name='toggle-favorite-guide'),
 ]
 
 urlpatterns = urlpatterns + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

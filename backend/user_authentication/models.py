@@ -89,3 +89,14 @@ class FeaturedPlace(models.Model):
 class AccommodationImage(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='accommodation_images_user')
     image = models.ImageField(upload_to='accommodation_images_user/')
+
+class FavoriteGuide(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites_sent')
+    guide = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites_received')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'guide')
+
+    def __str__(self):
+        return f"{self.user.username} favorites {self.guide.username}"

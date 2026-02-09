@@ -11,7 +11,9 @@ from .views import (
     MyToursListView,
     ToursByDestinationListView,
     TourDetailView,
-    GuideListView
+    GuideListView,
+    GuideToursListView,
+    GuideDestinationsListView # Import the new view
 )
 
 router = DefaultRouter()
@@ -31,6 +33,12 @@ urlpatterns = [
 
     path('create/', CreateTourView.as_view(), name='create-tour'),
     path('my-tours/', MyToursListView.as_view(), name='my-tours'),
+    
+    path('guides/<int:guide_id>/tours/', GuideToursListView.as_view(), name='guide-tours-list'),
+    
+    # NEW URL FOR GUIDE'S DESTINATIONS
+    path('guides/<int:guide_id>/destinations/', GuideDestinationsListView.as_view(), name='guide-destinations-list'),
+
     path(
         'destinations/<int:destination_id>/tours/',
         ToursByDestinationListView.as_view(),

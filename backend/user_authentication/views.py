@@ -20,9 +20,10 @@ from .serializers import (
     PasswordResetConfirmSerializer,
     GuideApplicationSerializer,
     AdminTokenObtainPairSerializer,
-    AgencyTokenObtainPairSerializer
+    AgencyTokenObtainPairSerializer,
+    FavoriteGuideSerializer
 )
-from .models import GuideApplication
+from .models import GuideApplication, FavoriteGuide
 
 User = get_user_model()
 
@@ -420,3 +421,31 @@ class AcceptTermsView(APIView):
             user.has_accepted_terms = True
             user.save(update_fields=['has_accepted_terms'])
         return Response({"detail": "Terms and conditions accepted successfully."}, status=status.HTTP_200_OK)
+
+class ToggleFavoriteGuideView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        guide_id = request.data.get('guide_id')
+        if not guide_id:
+            return Response({"detail": "Guide ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        guide = get_object_or_404(User, pk=guide_id, is_local_guide=True)
+        user = request.user
+
+        favorite, created = FavoriteGuide.objects.get_or_create(user=user, guide=guide)
+        
+        if not created:
+            favorite.delete()
+            return Response({"detail": "Guide removed from favorites.", "is_favorite": False}, status=status.HTTP_200_OK)
+        
+        return Response({"detail": "Guide added to favorites.", "is_favorite": True}, status=status.HTTP_201_CREATED)
+
+class FavoriteGuideListView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # Return the actual guide objects
+        return User.objects.filter(favorites_received__user=user)

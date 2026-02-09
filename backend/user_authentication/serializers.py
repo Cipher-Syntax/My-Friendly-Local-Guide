@@ -1,7 +1,7 @@
 from rest_framework import serializers #type: ignore
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  #type: ignore
-from .models import FeaturedPlace, AccommodationImage, GuideApplication
+from .models import FeaturedPlace, AccommodationImage, GuideApplication, FavoriteGuide
 from personalization.serializers import PersonalizationSerializer
 
 User = get_user_model()
@@ -191,3 +191,9 @@ class AgencyTokenObtainPairSerializer(TokenObtainPairSerializer):
         if self.user.is_active:
              return data
         raise serializers.ValidationError({"detail": "Access Denied. Account is inactive or not recognized as an Agency account."})
+
+class FavoriteGuideSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FavoriteGuide
+        fields = ['id', 'user', 'guide', 'created_at']
+        read_only_fields = ['user', 'created_at']

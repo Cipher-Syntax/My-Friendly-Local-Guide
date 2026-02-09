@@ -78,6 +78,30 @@ class ToursByDestinationListView(generics.ListAPIView):
         destination_id = self.kwargs['destination_id']
         return TourPackage.objects.filter(main_destination__id=destination_id)
 
+class GuideToursListView(generics.ListAPIView):
+    serializer_class = TourPackageSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        guide_id = self.kwargs['guide_id']
+        return TourPackage.objects.filter(guide__id=guide_id, is_active=True)
+
+# --- NEW VIEW FOR DESTINATIONS ---
+class GuideDestinationsListView(generics.ListAPIView):
+    """
+    Returns unique Destinations that a specific guide has active tour packages for.
+    """
+    serializer_class = DestinationListSerializer # Using List serializer for efficiency
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        guide_id = self.kwargs['guide_id']
+        # Filter destinations by joining with TourPackage where guide matches
+        return Destination.objects.filter(
+            tour_packages__guide__id=guide_id,
+            tour_packages__is_active=True
+        ).distinct() # Ensure unique destinations
+
 class TourDetailView(generics.RetrieveAPIView):
     queryset = TourPackage.objects.all()
     serializer_class = TourPackageSerializer
