@@ -1,10 +1,8 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter #type: ignore
-from .views import PersonalizationViewSet
-
-router = DefaultRouter()
-router.register(r'personalizations', PersonalizationViewSet, basename='personalization')
+from django.urls import path
+from .views import OnboardingDestinationsView, UpdatePersonalizationView, PersonalizationDetailView
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('onboarding-destinations/', OnboardingDestinationsView.as_view(), name='onboarding-destinations'),
+    path('update/', UpdatePersonalizationView.as_view(), name='update-personalization'),
+    path('me/', PersonalizationDetailView.as_view(), name='my-personalization'),
 ]

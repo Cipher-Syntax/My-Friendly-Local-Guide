@@ -2,6 +2,7 @@ from rest_framework import serializers #type: ignore
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  #type: ignore
 from .models import FeaturedPlace, AccommodationImage, GuideApplication
+from personalization.serializers import PersonalizationSerializer
 
 User = get_user_model()
 
@@ -47,13 +48,14 @@ class UserSerializer(serializers.ModelSerializer):
     
     # NEW: Add setup_progress field
     setup_progress = serializers.SerializerMethodField()
+    personalization_profile = PersonalizationSerializer(read_only=True)
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'password', 'confirm_password',
             'first_name', 'middle_name', 'last_name', 'date_joined',
-            'profile_picture', 'bio', 'phone_number', 'location', 'valid_id_image',
+            'profile_picture', 'bio', 'phone_number', 'location', 'valid_id_image', 'personalization_profile',
             
             'is_tourist', 'is_local_guide', 'guide_approved', 'has_accepted_terms',
             'is_guide_visible', 

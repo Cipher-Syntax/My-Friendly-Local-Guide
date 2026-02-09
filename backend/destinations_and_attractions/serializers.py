@@ -31,7 +31,7 @@ class DestinationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Destination
         fields = [
-            'id', 'name', 'description', 'category', 'location', 
+            'id', 'name', 'description', 'category', 'location', 'category',
             'latitude', 'longitude', 'average_rating', 
             'images', 'attractions', 'is_featured'
         ]
