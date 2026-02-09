@@ -17,7 +17,7 @@ export default function AgencyLayout() {
     const [loading, setLoading] = useState(true);
 
     const [user, setUser] = useState({ guide_tier: 'free', guide_rating: 0 });
-    
+
     const [config, setConfig] = useState({
         subscriptionPrice: 3000,
         guideLimit: 2,
@@ -27,11 +27,11 @@ export default function AgencyLayout() {
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const [isPollingPayment, setIsPollingPayment] = useState(false);
 
-    const [confirmModal, setConfirmModal] = useState({ 
-        isOpen: false, 
-        title: '', 
-        message: '', 
-        onConfirm: null, 
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: null,
         isDanger: false,
         actionLabel: 'Confirm'
     });
@@ -63,7 +63,7 @@ export default function AgencyLayout() {
     const fetchData = async () => {
         try {
             setLoading(true);
-          
+
             const configRes = await api.get('api/payments/subscription-price/');
             if (configRes.data) {
                 setConfig({
@@ -77,32 +77,31 @@ export default function AgencyLayout() {
             setUser(userRes.data);
 
             const guidesRes = await api.get('api/agency/guides/');
-            const bookingsRes = await api.get('api/bookings/'); 
+            const bookingsRes = await api.get('api/bookings/');
 
             const formattedGuides = guidesRes.data.map(g => ({
                 id: g.id,
                 name: `${g.first_name} ${g.last_name}`,
                 specialty: g.specialization,
                 languages: g.languages || [],
-                rating: 5.0, 
+                rating: 5.0,
                 tours: 0,
-                available: g.is_active,
+                available: g.is_active, // Base availability
                 phone: g.contact_number,
-                email: "contact@agency.com", 
+                email: "contact@agency.com",
                 avatar: g.first_name.charAt(0)
             }));
-            
-            // Format bookings with correct date fields
+
             const formattedBookings = bookingsRes.data
                 .map(b => ({
                     id: b.id,
                     name: `Booking #${b.id} - ${b.tourist_username}`,
-                    check_in: b.check_in,   // Maps to start date
-                    check_out: b.check_out, // Maps to end date
+                    check_in: b.check_in,
+                    check_out: b.check_out,
                     location: b.destination_detail?.name || b.accommodation_detail?.title || "General Booking",
                     groupSize: b.num_guests,
                     status: b.status.toLowerCase(),
-                    guideIds: b.assigned_agency_guides || [] 
+                    guideIds: b.assigned_agency_guides || []
                 }));
 
             setGuides(formattedGuides);
@@ -129,20 +128,15 @@ export default function AgencyLayout() {
 
     const executeSubscription = async () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        
         try {
             const res = await api.post('api/payments/initiate/', {
                 payment_type: 'YearlySubscription',
-                final_amount: config.subscriptionPrice 
+                final_amount: config.subscriptionPrice
             });
-            
-            const { checkout_url, payment_id } = res.data; 
-
+            const { checkout_url, payment_id } = res.data;
             window.open(checkout_url, '_blank');
             showToast("Redirecting to payment provider...", "info");
-
             startPolling(payment_id);
-
         } catch (error) {
             console.error("Subscription initiation failed:", error);
             showToast("Failed to initiate subscription.", "error");
@@ -151,28 +145,24 @@ export default function AgencyLayout() {
 
     const startPolling = (paymentId) => {
         setIsPollingPayment(true);
-
         const pollInterval = setInterval(async () => {
             try {
                 const res = await api.get(`api/payments/status/${paymentId}/`);
                 const status = res.data.status;
-
                 if (status === 'succeeded') {
                     clearInterval(pollInterval);
                     setIsPollingPayment(false);
                     showToast("Payment Successful! Tier Upgraded.", "success");
-                    fetchData(); 
+                    fetchData();
                 } else if (status === 'failed' || status === 'cancelled') {
                     clearInterval(pollInterval);
                     setIsPollingPayment(false);
                     showToast("Payment failed or was cancelled.", "error");
                 }
-
             } catch (error) {
                 console.error("Polling error:", error);
             }
         }, 3000);
-
         setTimeout(() => {
             clearInterval(pollInterval);
             if (isPollingPayment) {
@@ -193,20 +183,14 @@ export default function AgencyLayout() {
                 languages: newGuideForm.languages,
                 is_active: true
             };
-
             await api.post('api/agency/guides/create/', payload);
-            
             setIsAddGuideModalOpen(false);
             setNewGuideForm({ fullName: '', specialty: '', languages: [], phone: '', email: '', languageSearchTerm: '', showLanguageDropdown: false });
-            fetchData(); 
+            fetchData();
             showToast("Guide added successfully!");
         } catch (error) {
             console.error("Add Guide Error:", error);
-            if (error.response && error.response.data && error.response.data.detail) {
-                showToast(error.response.data.detail, "error");
-            } else {
-                showToast("Failed to add guide.", "error");
-            }
+            showToast("Failed to add guide.", "error");
         }
     };
 
@@ -251,38 +235,85 @@ export default function AgencyLayout() {
         }
     };
 
-    const assignGuide = async (bookingId, guide) => {
-        const booking = bookings.find(b => b.id === bookingId);
-        const isAssigned = booking.guideIds.includes(guide.id);
-        
-        let newGuideIds = isAssigned 
-            ? booking.guideIds.filter(id => id !== guide.id) 
-            : [...booking.guideIds, guide.id];
-
+    // [UPDATED] Core function to handle BOTH single and bulk assignments
+    const updateGuideAssignments = async (bookingId, newGuideIds) => {
         try {
             await api.patch(`api/bookings/${bookingId}/assign-guides/`, {
                 agency_guide_ids: newGuideIds
             });
 
-            setBookings(prev => prev.map(b => 
+            setBookings(prev => prev.map(b =>
                 b.id === bookingId ? { ...b, guideIds: newGuideIds } : b
             ));
-            
-            if(!isAssigned) showToast("Guide assigned successfully.");
 
+            showToast("Guides assigned successfully.");
         } catch (error) {
             console.error("Assign Guide Error:", error);
             showToast("Failed to update assignment.", "error");
         }
     };
 
-    const filteredGuides = guides.filter(g => 
+    // [UPDATED] Wrapper for manual toggling (Single Click)
+    const assignGuide = async (bookingId, guide) => {
+        const booking = bookings.find(b => b.id === bookingId);
+        const isAssigned = booking.guideIds.includes(guide.id);
+
+        // Prevent manual assignment of booked guides
+        if (!isAssigned && !guide.available) {
+            showToast("This guide is busy or unavailable for these dates.", "error");
+            return;
+        }
+
+        let newGuideIds = isAssigned
+            ? booking.guideIds.filter(id => id !== guide.id)
+            : [...booking.guideIds, guide.id];
+
+        await updateGuideAssignments(bookingId, newGuideIds);
+    };
+
+    // --- SMART AVAILABILITY LOGIC ---
+    const getComputedGuides = () => {
+        if (selectedBookingId && isManageGuidesModalOpen) {
+            const currentBooking = bookings.find(b => b.id === selectedBookingId);
+
+            if (!currentBooking || !currentBooking.check_in || !currentBooking.check_out) {
+                return guides;
+            }
+
+            const targetStart = new Date(currentBooking.check_in);
+            const targetEnd = new Date(currentBooking.check_out);
+            const busyGuideIds = new Set();
+
+            bookings.forEach(b => {
+                if (b.id === currentBooking.id) return;
+                if (['cancelled', 'declined', 'refunded', 'pending_payment'].includes(b.status)) return;
+
+                const bookStart = new Date(b.check_in);
+                const bookEnd = new Date(b.check_out);
+
+                if (targetStart <= bookEnd && targetEnd >= bookStart) {
+                    b.guideIds.forEach(gid => busyGuideIds.add(gid));
+                }
+            });
+
+            return guides.map(g => ({
+                ...g,
+                // STRICT availability: Must be Active (is_active) AND Not Busy
+                available: g.available && !busyGuideIds.has(g.id),
+                availabilityReason: busyGuideIds.has(g.id) ? 'Booked' : (g.available ? 'Available' : 'Inactive')
+            }));
+        }
+        return guides;
+    };
+
+    const computedGuides = getComputedGuides();
+
+    const filteredGuides = computedGuides.filter(g =>
         g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         g.specialty?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const getGuideNames = (ids) => ids.map(id => guides.find(g => g.id === id)?.name).filter(Boolean);
-    
     const getStatusBg = (status) => {
         switch (status) {
             case 'pending': return 'bg-yellow-500/20 text-yellow-400';
@@ -300,13 +331,11 @@ export default function AgencyLayout() {
 
     return (
         <div className="flex h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden relative">
-            
             {toast.show && (
-                <div className={`fixed top-6 right-6 z-[100] px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${
-                    toast.type === 'success' 
-                        ? 'bg-slate-800 border-green-500/50 text-green-400' 
+                <div className={`fixed top-6 right-6 z-[100] px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
+                        ? 'bg-slate-800 border-green-500/50 text-green-400'
                         : 'bg-slate-800 border-red-500/50 text-red-400'
-                }`}>
+                    }`}>
                     {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
                     <span className="font-medium text-white">{toast.message}</span>
                     <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
@@ -319,14 +348,14 @@ export default function AgencyLayout() {
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <header className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-10">
+                    {/* ... Header Content ... */}
                     <div className="relative h-48 bg-gradient-to-r from-cyan-600 to-blue-600 overflow-hidden">
                         <div className="absolute inset-0 opacity-20">
                             <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-400 rounded-full blur-3xl"></div>
                             <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl"></div>
                         </div>
-                        
                         <div className="relative px-8 py-6 h-full flex flex-col justify-center">
-                            <div className="flex items-center justify-between w-full"> 
+                            <div className="flex items-center justify-between w-full">
                                 <div className="flex items-center gap-4">
                                     <div className="p-3 bg-white/20 backdrop-blur-sm rounded-lg">
                                         {activeTab === 'dashboard' && <LayoutDashboard className="w-8 h-8 text-white" />}
@@ -337,42 +366,28 @@ export default function AgencyLayout() {
                                     <div>
                                         <h2 className="text-3xl font-bold text-white">
                                             {activeTab === 'dashboard' ? 'Dashboard Overview' :
-                                             activeTab === 'bookings' ? 'Bookings Management' :
-                                             activeTab === 'guides' ? 'Tour Guide Management' :
-                                             'Reviews & Ratings'}
+                                                activeTab === 'bookings' ? 'Bookings Management' :
+                                                    activeTab === 'guides' ? 'Tour Guide Management' :
+                                                        'Reviews & Ratings'}
                                         </h2>
-                                        <p className="text-cyan-100 mt-1">
-                                            {activeTab === 'dashboard' ? 'Monitor your agency performance' :
-                                             activeTab === 'bookings' ? 'Manage and assign tour guides' :
-                                             activeTab === 'guides' ? 'View and manage your roster' :
-                                             'See what guests are saying'}
-                                        </p>
                                     </div>
                                 </div>
-                                
+
                                 {user.guide_tier === 'free' ? (
                                     <div className="flex flex-col items-end">
                                         <p className="text-sm font-semibold text-white/70 mb-1">
                                             Tier: <span className="text-yellow-400">FREE (Limited)</span>
                                         </p>
-                                        
-                                        {isPollingPayment ? (
-                                             <button disabled className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg flex items-center gap-2 font-medium cursor-wait border border-slate-600">
-                                                <Loader2 className="w-5 h-5 animate-spin text-cyan-500" />
-                                                Waiting for Payment...
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={initiateSubscription}
-                                                className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black rounded-lg transition-colors flex items-center gap-2 font-medium shadow-md"
-                                            >
-                                                <DollarSign className="w-5 h-5" />
-                                                Upgrade to Unlimited (₱{config.subscriptionPrice.toLocaleString('en-PH')}/yr)
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={initiateSubscription}
+                                            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black rounded-lg transition-colors flex items-center gap-2 font-medium shadow-md"
+                                        >
+                                            <DollarSign className="w-5 h-5" />
+                                            Upgrade to Unlimited (₱{config.subscriptionPrice.toLocaleString('en-PH')}/yr)
+                                        </button>
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col items-end animate-in zoom-in duration-300">
+                                    <div className="flex flex-col items-end">
                                         <p className="text-sm font-semibold text-white/70 mb-1">
                                             Tier: <span className="text-green-400">PAID (Unlimited)</span>
                                         </p>
@@ -395,18 +410,17 @@ export default function AgencyLayout() {
                     ) : (
                         <>
                             {activeTab === 'dashboard' && (
-                                <AgencyDashboardContent 
+                                <AgencyDashboardContent
                                     activeGuides={guides.filter(g => g.available).length}
                                     completedTours={bookings.filter(b => b.status === 'completed').length}
-                                    avgRating={user.guide_rating ? parseFloat(user.guide_rating) : 0.0} 
+                                    avgRating={user.guide_rating ? parseFloat(user.guide_rating) : 0.0}
                                     tourGuides={guides}
                                     bookings={bookings}
                                     getStatusBg={getStatusBg}
                                 />
                             )}
-
                             {activeTab === 'bookings' && (
-                                <AgencyBookingsTable 
+                                <AgencyBookingsTable
                                     bookings={bookings}
                                     getGuideNames={getGuideNames}
                                     getStatusBg={getStatusBg}
@@ -419,57 +433,47 @@ export default function AgencyLayout() {
                                     freeBookingLimit={config.bookingLimit}
                                 />
                             )}
-
                             {activeTab === 'guides' && (
-                                <AgencyTourGuideManagement 
+                                <AgencyTourGuideManagement
                                     searchTerm={searchTerm}
                                     setSearchTerm={setSearchTerm}
                                     filteredGuides={filteredGuides}
-                                    openAddGuideModal={() => {
-                                        if (user.guide_tier === 'free' && guides.length >= config.guideLimit) {
-                                            showToast(`Free tier is limited to ${config.guideLimit} guides. Please upgrade for unlimited guides.`, "error");
-                                            return;
-                                        }
-                                        setIsAddGuideModalOpen(true);
-                                    }}
+                                    openAddGuideModal={() => setIsAddGuideModalOpen(true)}
                                     handleRemoveGuide={initiateDeleteGuide}
                                     getStatusBg={getStatusBg}
                                 />
                             )}
-
-                            {/* NEW SECTION */}
-                            {activeTab === 'reviews' && (
-                                <AgencyReviews />
-                            )}
+                            {activeTab === 'reviews' && <AgencyReviews />}
                         </>
                     )}
                 </main>
             </div>
 
-        
-            <ManageGuidesModal 
+            <ManageGuidesModal
                 isModalOpen={isManageGuidesModalOpen}
                 closeModal={() => setIsManageGuidesModalOpen(false)}
                 currentSelectedBooking={bookings.find(b => b.id === selectedBookingId)}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
-                filteredGuides={guides}
-                assignGuide={assignGuide}
+                filteredGuides={filteredGuides}
+                assignGuide={assignGuide} // For manual click
+                updateGuideAssignments={updateGuideAssignments} // For bulk auto-assign
                 selectedBookingId={selectedBookingId}
             />
-            
-            <AddGuideModal 
+
+            <AddGuideModal
                 isAddGuideModalOpen={isAddGuideModalOpen}
                 closeAddGuideModal={() => setIsAddGuideModalOpen(false)}
                 newGuideForm={newGuideForm}
                 setNewGuideForm={setNewGuideForm}
                 filteredLanguages={['English', 'Tagalog', 'Spanish', 'Mandarin']}
-                handleAddLanguage={(lang) => !newGuideForm.languages.includes(lang) && setNewGuideForm(prev => ({...prev, languages: [...prev.languages, lang]}))}
-                handleRemoveLanguage={(lang) => setNewGuideForm(prev => ({...prev, languages: prev.languages.filter(l => l !== lang)}))}
-                handleSubmitNewGuide={handleAddGuide} 
+                handleAddLanguage={(lang) => !newGuideForm.languages.includes(lang) && setNewGuideForm(prev => ({ ...prev, languages: [...prev.languages, lang] }))}
+                handleRemoveLanguage={(lang) => setNewGuideForm(prev => ({ ...prev, languages: prev.languages.filter(l => l !== lang) }))}
+                handleSubmitNewGuide={handleAddGuide}
             />
 
             {confirmModal.isOpen && (
+                // ... Confirm Modal ...
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full shadow-2xl">
                         <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
@@ -485,22 +489,8 @@ export default function AgencyLayout() {
                             <p className="text-slate-300">{confirmModal.message}</p>
                         </div>
                         <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
-                            <button 
-                                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} 
-                                className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={confirmModal.onConfirm}
-                                className={`px-4 py-2 font-medium rounded-lg transition-colors ${
-                                    confirmModal.isDanger 
-                                    ? 'bg-red-500 hover:bg-red-600 text-white' 
-                                    : 'bg-cyan-500 hover:bg-cyan-600 text-white'
-                                }`}
-                            >
-                                {confirmModal.actionLabel}
-                            </button>
+                            <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="px-4 py-2 text-slate-400 hover:text-white transition-colors">Cancel</button>
+                            <button onClick={confirmModal.onConfirm} className={`px-4 py-2 font-medium rounded-lg transition-colors ${confirmModal.isDanger ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-cyan-500 hover:bg-cyan-600 text-white'}`}>{confirmModal.actionLabel}</button>
                         </div>
                     </div>
                 </div>

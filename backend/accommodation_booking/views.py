@@ -5,8 +5,6 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser 
 from django.db.models import Q
 from datetime import date, timedelta
-from django.core.mail import send_mail # For email notifications
-from django.conf import settings
 
 from .models import Accommodation, Booking
 from .serializers import AccommodationSerializer, BookingSerializer
@@ -79,9 +77,11 @@ class BookingViewSet(viewsets.ModelViewSet):
         if user.is_staff or user.is_superuser:
             return qs.order_by('-created_at')
 
+        # --- FIX: Handle view_as parameter to filter specifically for Guide Dashboard ---
         view_as = self.request.query_params.get('view_as')
 
         if view_as == 'guide':
+            # Only return bookings where the user is the Service Provider (Guide, Host, or Agency)
             return qs.filter(
                 Q(accommodation__host=user) |
                 Q(guide=user) |
@@ -89,6 +89,7 @@ class BookingViewSet(viewsets.ModelViewSet):
                 Q(assigned_guides=user)
             ).distinct().order_by('-created_at')
         
+        # Default behavior: Returns bookings where user is EITHER tourist OR provider
         return qs.filter(
             Q(tourist=user) |
             Q(accommodation__host=user) |
@@ -117,24 +118,6 @@ class BookingViewSet(viewsets.ModelViewSet):
         instance.save()
         self.validate_booking_target(instance)
 
-        # Provider Submission Email
-        provider = instance.guide or instance.agency or (instance.accommodation.host if instance.accommodation else None)
-        if provider:
-            try:
-                subject = f"New Booking Request: {instance.destination or 'Tour Trip'}"
-                message = (
-                    f"Hello {provider.username},\n\n"
-                    f"You have received a new booking request from {user.username}.\n\n"
-                    f"Trip Summary:\n"
-                    f"Destination: {instance.destination or 'N/A'}\n"
-                    f"Dates: {instance.check_in} — {instance.check_out}\n"
-                    f"Total Price: ₱{instance.total_price:,.2f}\n\n"
-                    f"Please review this in your dashboard."
-                )
-                send_mail(subject, message, settings.EMAIL_HOST_USER, [provider.email])
-            except Exception as e:
-                print(f"Error sending submission email: {e}")
-
     @action(detail=False, methods=['get'])
     def guide_blocked_dates(self, request):
         guide_id = request.query_params.get('guide_id')
@@ -151,6 +134,7 @@ class BookingViewSet(viewsets.ModelViewSet):
             start = b['check_in']
             end = b['check_out']
             curr = start
+            # FIX: Use <= to include the check-out date as blocked (since guides work that day)
             while curr <= end: 
                 blocked_dates.append(curr.isoformat())
                 curr += timedelta(days=1)
@@ -343,33 +327,17 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
                 instance.guide.booking_count += 1
                 instance.guide.save()
              
-             instance.status = 'Accepted'
-             instance.save()
-
              SystemAlert.objects.create(
                 target_type='Tourist',
                 recipient=instance.tourist,
                 title="Booking Accepted!",
-                message=f"Great news! Your booking for {instance.destination or 'your trip'} has been accepted. You can now proceed to payment.",
+                message=f"Your booking for {instance.destination or 'your trip'} has been accepted.",
                 related_object_id=instance.id,
                 related_model='Booking',
                 is_read=False
             )
-
-             # --- EMAIL TO TOURIST ON ACCEPTANCE ---
-             try:
-                 subject = "Good News: Your Booking Request was Accepted!"
-                 message = (
-                     f"Hi {instance.tourist.username},\n\n"
-                     f"Your booking request for {instance.destination or 'your destination'} has been accepted by the agency.\n\n"
-                     f"Booking Ref: #{instance.id}\n"
-                     f"Dates: {instance.check_in} — {instance.check_out}\n\n"
-                     f"Please open the app to complete your down payment and secure your dates."
-                 )
-                 send_mail(subject, message, settings.EMAIL_HOST_USER, [instance.tourist.email])
-             except Exception as e:
-                 print(f"Error sending acceptance email: {e}")
-
+             instance.status = 'Accepted'
+             instance.save()
              return Response(self.get_serializer(instance).data)
 
         if new_status == 'Declined':
@@ -401,40 +369,28 @@ class AssignGuidesView(generics.UpdateAPIView):
     def update(self, request, *args, **kwargs):
         booking = self.get_object()
         user = self.request.user
-        if booking.agency != user:
-            raise PermissionDenied("You are not the agency for this booking.")
         
+        # [UPDATED] Robust Permission Check
+        is_owner = booking.agency == user
+        is_superuser = user.is_superuser
+        can_claim = (booking.agency is None) and user.is_staff
+        
+        if not (is_owner or is_superuser or can_claim):
+             raise PermissionDenied(f"You are not the agency for this booking. (Agency: {booking.agency}, You: {user.username})")
+        
+        # [CRITICAL FIX] "Convert" the booking to an Agency Booking to satisfy validation constraints
+        # The model requires: if is_agency is True, then is_guide AND is_accommodation must be False.
+        if can_claim and not is_owner:
+            booking.agency = user
+            booking.guide = None
+            booking.accommodation = None
+            booking.save()
+
         agency_guide_ids = request.data.get('agency_guide_ids', [])
-        booking.assigned_agency_guides.clear()
         
-        guide_details = []
+        # Clear and Re-assign
+        booking.assigned_agency_guides.clear()
         for guide_id in agency_guide_ids:
             booking.assigned_agency_guides.add(guide_id)
-            # Retrieve guide info for the email
-            try:
-                from agency_management_module.models import TouristGuide
-                tg = TouristGuide.objects.get(id=guide_id)
-                guide_details.append(f"- {tg.full_name()} (Contact: {tg.contact_number})")
-            except:
-                pass
-
-        booking.save()
-
-        # --- EMAIL TO TOURIST WITH ASSIGNED GUIDE DETAILS ---
-        if guide_details:
-            try:
-                guide_list_str = "\n".join(guide_details)
-                subject = f"Guides Assigned for your Trip - #{booking.id}"
-                message = (
-                    f"Hi {booking.tourist.username},\n\n"
-                    f"The agency has assigned guides to your upcoming trip to {booking.destination or 'your destination'}.\n\n"
-                    f"Your Assigned Guides:\n"
-                    f"{guide_list_str}\n\n"
-                    f"Dates: {booking.check_in} — {booking.check_out}\n\n"
-                    f"You can view their profiles and more details in the app. Have a safe trip!"
-                )
-                send_mail(subject, message, settings.EMAIL_HOST_USER, [booking.tourist.email])
-            except Exception as e:
-                print(f"Error sending guide assignment email: {e}")
-
+            
         return Response(self.get_serializer(booking).data)
