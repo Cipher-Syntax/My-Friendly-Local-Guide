@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Eye, Check, X, Loader2, Building, Shield } from 'lucide-react';
+import { Search, Eye, Check, X, Loader2, Building, Shield, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import api from '../../api/api';
 
 const getStatusColor = (isApproved) => {
@@ -19,6 +19,16 @@ export default function AgencyManagement() {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
 
+    // Toast State
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, show: false }));
+        }, 3000);
+    };
+
     const fetchAgencies = async () => {
         try {
             setLoading(true);
@@ -26,6 +36,7 @@ export default function AgencyManagement() {
             setAgencies(response.data);
         } catch (error) {
             console.error("Failed to fetch agencies:", error);
+            showToast("Failed to fetch agencies.", "error");
         } finally {
             setLoading(false);
         }
@@ -63,9 +74,10 @@ export default function AgencyManagement() {
             ));
 
             setIsReviewModalOpen(false);
+            showToast(`Agency ${isApproved ? 'approved' : 'rejected'} successfully.`, "success");
         } catch (error) {
             console.error("Failed to update agency status:", error);
-            alert("Failed to update status.");
+            showToast("Failed to update status.", "error");
         }
     };
 
@@ -75,7 +87,21 @@ export default function AgencyManagement() {
     const totalPages = Math.ceil(filteredAgencies.length / itemsPerPage);
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 relative">
+            {/* Toast Notification */}
+            {toast.show && (
+                <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
+                    ? 'bg-slate-800 border-green-500/50 text-green-400'
+                    : 'bg-slate-800 border-red-500/50 text-red-400'
+                    }`}>
+                    {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                    <span className="font-medium text-white">{toast.message}</span>
+                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
+                        <XCircle className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -212,8 +238,6 @@ export default function AgencyManagement() {
                                 </div>
                             )}
                         </div>
-
-
 
                         {
                             !reviewingItem.is_approved && (

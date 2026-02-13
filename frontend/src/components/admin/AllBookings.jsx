@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, AlertTriangle, Trash2, XCircle, CheckCircle, Eye } from 'lucide-react';
+import { Search, Filter, AlertTriangle, Trash2, XCircle, CheckCircle, Eye, AlertCircle } from 'lucide-react';
 import api from '../../api/api';
 
 export default function AllBookings() {
@@ -7,6 +7,16 @@ export default function AllBookings() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
+
+    // Toast State
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, show: false }));
+        }, 3000);
+    };
 
     useEffect(() => {
         fetchBookings();
@@ -19,6 +29,7 @@ export default function AllBookings() {
             setBookings(res.data);
         } catch (error) {
             console.error("Failed to fetch bookings:", error);
+            showToast("Failed to fetch bookings.", "error");
         } finally {
             setLoading(false);
         }
@@ -31,9 +42,9 @@ export default function AllBookings() {
         try {
             await api.patch(`/api/bookings/${id}/status/`, { status: newStatus });
             fetchBookings(); // Refresh list
-            alert(`Booking ${id} status forced to ${newStatus}.`);
+            showToast(`Booking ${id} status forced to ${newStatus}.`, "success");
         } catch (error) {
-            alert("Failed to force update. Check console.");
+            showToast("Failed to force update. Check console.", "error");
             console.error(error);
         }
     };
@@ -44,9 +55,9 @@ export default function AllBookings() {
         try {
             await api.delete(`/api/bookings/${id}/`);
             setBookings(prev => prev.filter(b => b.id !== id));
-            alert("Booking deleted permanently.");
+            showToast("Booking deleted permanently.", "success");
         } catch (error) {
-            alert("Failed to delete.");
+            showToast("Failed to delete booking.", "error");
             console.error(error);
         }
     };
@@ -63,7 +74,21 @@ export default function AllBookings() {
     if (loading) return <div className="p-8 text-white">Loading Admin Data...</div>;
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 relative">
+            {/* Toast Notification */}
+            {toast.show && (
+                <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
+                    ? 'bg-slate-800 border-green-500/50 text-green-400'
+                    : 'bg-slate-800 border-red-500/50 text-red-400'
+                    }`}>
+                    {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                    <span className="font-medium text-white">{toast.message}</span>
+                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
+                        <XCircle className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-white">Global Booking Registry</h1>
@@ -130,8 +155,8 @@ export default function AllBookings() {
                                 </td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2 py-1 rounded text-xs font-bold border ${booking.status === 'Confirmed' ? 'bg-green-500/20 text-green-400 border-green-500/50' :
-                                            booking.status === 'Cancelled' ? 'bg-red-500/20 text-red-400 border-red-500/50' :
-                                                'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
+                                        booking.status === 'Cancelled' ? 'bg-red-500/20 text-red-400 border-red-500/50' :
+                                            'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
                                         }`}>
                                         {booking.status}
                                     </span>

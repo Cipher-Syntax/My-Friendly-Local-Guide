@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, AlertTriangle, Lock, Trash2 } from 'lucide-react';
+import { Search, AlertTriangle, Lock, Trash2, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import { getStatusColor } from '../../data/adminData';
 import api from '../../api/api';
 
@@ -8,6 +8,16 @@ export default function UserManagement() {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
 
+    // Toast State
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, show: false }));
+        }, 3000);
+    };
+
     useEffect(() => {
         const fetchReports = async () => {
             try {
@@ -15,6 +25,7 @@ export default function UserManagement() {
                 setReports(response.data);
             } catch (error) {
                 console.error('Failed to fetch reports:', error);
+                showToast('Failed to fetch reports.', 'error');
             } finally {
                 setLoading(false);
             }
@@ -28,7 +39,7 @@ export default function UserManagement() {
 
     const warnUser = async () => {
         if (!warningMessage.trim()) {
-            alert('Warning message cannot be empty.');
+            showToast('Warning message cannot be empty.', 'error');
             return;
         }
         try {
@@ -40,10 +51,10 @@ export default function UserManagement() {
             });
             setWarningModal({ isOpen: false, user: null });
             setWarningMessage('');
-            alert('Warning sent successfully.');
+            showToast('Warning sent successfully.', 'success');
         } catch (error) {
             console.error('Failed to send warning:', error);
-            alert('Failed to send warning.');
+            showToast('Failed to send warning.', 'error');
         }
     };
 
@@ -57,9 +68,9 @@ export default function UserManagement() {
             uniqueKey: report.id || `${report.reported_user}-${index}`,
             id: report.reported_user,
             name: report.reported_username,
-            email: 'N/A', 
+            email: 'N/A',
             type: report.reported_user_type,
-            warnings: 0, 
+            warnings: 0,
             status: report.reported_user_is_active ? 'active' : 'restricted',
             isActive: report.reported_user_is_active,
             reason: report.reason,
@@ -78,10 +89,10 @@ export default function UserManagement() {
                     ? { ...report, reported_user_is_active: !isActive }
                     : report
             ));
-            alert(`User ${isActive ? 'restricted' : 'unrestricted'} successfully.`);
+            showToast(`User ${isActive ? 'restricted' : 'unrestricted'} successfully.`, 'success');
         } catch (error) {
             console.error('Failed to restrict user:', error);
-            alert('Failed to update user status.');
+            showToast('Failed to update user status.', 'error');
         }
     };
 
@@ -90,10 +101,10 @@ export default function UserManagement() {
             try {
                 await api.delete(`api/admin/users/${userId}/`);
                 setReports(reports.filter(report => report.reported_user !== userId));
-                alert('User deleted successfully.');
+                showToast('User deleted successfully.', 'success');
             } catch (error) {
                 console.error('Failed to delete user:', error);
-                alert('Failed to delete user.');
+                showToast('Failed to delete user.', 'error');
             }
         }
     };
@@ -103,7 +114,21 @@ export default function UserManagement() {
     }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 relative">
+            {/* Toast Notification */}
+            {toast.show && (
+                <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
+                    ? 'bg-slate-800 border-green-500/50 text-green-400'
+                    : 'bg-slate-800 border-red-500/50 text-red-400'
+                    }`}>
+                    {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                    <span className="font-medium text-white">{toast.message}</span>
+                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
+                        <XCircle className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />

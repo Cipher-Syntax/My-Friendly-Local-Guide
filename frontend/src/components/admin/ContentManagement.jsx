@@ -1,20 +1,20 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Image as ImageIcon, Eye, Trash2, AlertTriangle, MapPin, Star, XCircle, Plus, Filter, Landmark } from 'lucide-react';
-import api from '../../api/api'; 
+import { Search, Image as ImageIcon, Eye, Trash2, AlertTriangle, MapPin, Star, XCircle, Plus, Filter, Landmark, CheckCircle, AlertCircle } from 'lucide-react';
+import api from '../../api/api';
 
 const CATEGORY_CHOICES = ['Cultural', 'Historical', 'Adventure', 'Nature'];
 
 export default function ContentManagement() {
     const [destinations, setDestinations] = useState([]);
     const [loading, setLoading] = useState(true);
-    
+
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
 
     const [editingSpot, setEditingSpot] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    
+
     const [isAttractionModalOpen, setIsAttractionModalOpen] = useState(false);
     const [targetDestId, setTargetDestId] = useState(null);
     const [newAttraction, setNewAttraction] = useState({
@@ -26,25 +26,35 @@ export default function ContentManagement() {
     });
 
     const [isViewImagesModalOpen, setIsViewImagesModalOpen] = useState(false);
-    const [viewingSpotImages, setViewingSpotImages] = useState(null); 
+    const [viewingSpotImages, setViewingSpotImages] = useState(null);
     const [viewingSpotName, setViewingSpotName] = useState('');
 
     const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, itemName: '' });
+
+    // Toast State
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, show: false }));
+        }, 3000);
+    };
 
     const fetchDestinations = async () => {
         try {
             setLoading(true);
             const response = await api.get('api/destinations/');
-            
+
             const mappedData = response.data.map(item => ({
                 id: item.id,
-                name: item.name, 
+                name: item.name,
                 description: item.description,
                 category: item.category,
                 location: item.location,
                 rating: item.average_rating,
                 featured: item.is_featured,
-                
+
                 imageList: item.images ? item.images.map(img => img.image) : [],
                 imagesCount: item.images ? item.images.length : 0,
 
@@ -55,6 +65,7 @@ export default function ContentManagement() {
             setDestinations(mappedData);
         } catch (error) {
             console.error("Failed to fetch destinations:", error);
+            showToast("Failed to fetch destinations.", "error");
         } finally {
             setLoading(false);
         }
@@ -77,7 +88,7 @@ export default function ContentManagement() {
             };
 
             const response = await api.post('api/destinations/', payload);
-            
+
             const createdItem = {
                 id: response.data.id,
                 ...payload,
@@ -86,19 +97,20 @@ export default function ContentManagement() {
                 attractions: [],
                 attractionsCount: 0
             };
-            
+
             setDestinations([createdItem, ...destinations]);
             setIsCreateModalOpen(false);
             setNewSpot({ name: '', description: '', category: 'Cultural', location: '', rating: 0, is_featured: false });
+            showToast("Destination created successfully!", "success");
         } catch (error) {
             console.error("Failed to create:", error);
-            alert("Failed to create destination.");
+            showToast("Failed to create destination.", "error");
         }
     };
 
     const handleCreateAttraction = async () => {
         if (!targetDestId || !newAttraction.name || !newAttraction.photo) {
-            alert("Please provide a name and an image.");
+            showToast("Please provide a name and an image.", "error");
             return;
         }
 
@@ -115,8 +127,8 @@ export default function ContentManagement() {
 
             const createdAttraction = response.data;
 
-            alert("Attraction added successfully!");
-            
+            showToast("Attraction added successfully!", "success");
+
             setDestinations(prev => prev.map(s => {
                 if (s.id === targetDestId) {
                     return {
@@ -132,7 +144,7 @@ export default function ContentManagement() {
             setNewAttraction({ name: '', description: '', photo: null });
         } catch (error) {
             console.error("Failed to add attraction:", error);
-            alert("Failed to add attraction.");
+            showToast("Failed to add attraction.", "error");
         }
     };
 
@@ -156,8 +168,10 @@ export default function ContentManagement() {
             setDestinations(prev => prev.map(s => s.id === editingSpot.id ? { ...s, ...editingSpot } : s));
             setIsEditModalOpen(false);
             setEditingSpot(null);
+            showToast("Destination updated successfully!", "success");
         } catch (error) {
             console.error("Failed to save changes:", error);
+            showToast("Failed to update destination.", "error");
         }
     };
 
@@ -166,23 +180,24 @@ export default function ContentManagement() {
 
         try {
             await api.delete(`api/attractions/${attractionId}/`);
-            
+
             const updatedAttractions = editingSpot.attractions.filter(a => a.id !== attractionId);
-            
-            setEditingSpot(prev => ({ 
-                ...prev, 
-                attractions: updatedAttractions 
+
+            setEditingSpot(prev => ({
+                ...prev,
+                attractions: updatedAttractions
             }));
-            
-            setDestinations(prev => prev.map(s => 
-                s.id === editingSpot.id 
-                ? { ...s, attractions: updatedAttractions, attractionsCount: updatedAttractions.length } 
-                : s
+
+            setDestinations(prev => prev.map(s =>
+                s.id === editingSpot.id
+                    ? { ...s, attractions: updatedAttractions, attractionsCount: updatedAttractions.length }
+                    : s
             ));
+            showToast("Attraction deleted successfully.", "success");
 
         } catch (error) {
             console.error("Failed to delete attraction:", error);
-            alert("Failed to delete attraction.");
+            showToast("Failed to delete attraction.", "error");
         }
     };
 
@@ -191,8 +206,10 @@ export default function ContentManagement() {
             try {
                 await api.delete(`api/destinations/${deleteConfirmation.itemId}/`);
                 setDestinations(prev => prev.filter(s => s.id !== deleteConfirmation.itemId));
+                showToast("Destination deleted successfully.", "success");
             } catch (error) {
                 console.error("Failed to delete:", error);
+                showToast("Failed to delete destination.", "error");
             }
         }
         setDeleteConfirmation({ isOpen: false, itemId: null, itemName: '' });
@@ -206,6 +223,7 @@ export default function ContentManagement() {
         } catch (error) {
             console.error("Failed to toggle feature:", error);
             setDestinations(prev => prev.map(s => s.id === spot.id ? { ...s, featured: !spot.featured } : s));
+            showToast("Failed to update status.", "error");
         }
     };
 
@@ -217,16 +235,29 @@ export default function ContentManagement() {
 
     const filteredDestinations = useMemo(() => {
         return destinations.filter(spot => {
-            const matchesSearch = spot.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                  spot.location.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch = spot.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                spot.location.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesCategory = selectedCategory === 'All' || spot.category === selectedCategory;
             return matchesSearch && matchesCategory;
         });
     }, [destinations, searchTerm, selectedCategory]);
 
     return (
-        <div className="space-y-6">
-            
+        <div className="space-y-6 relative">
+            {/* Toast Notification */}
+            {toast.show && (
+                <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
+                    ? 'bg-slate-800 border-green-500/50 text-green-400'
+                    : 'bg-slate-800 border-red-500/50 text-red-400'
+                    }`}>
+                    {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                    <span className="font-medium text-white">{toast.message}</span>
+                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
+                        <XCircle className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
             <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
                 <div className="flex gap-2 w-full md:w-auto flex-1">
                     <div className="relative flex-1">
@@ -311,14 +342,13 @@ export default function ContentManagement() {
                                 <ImageIcon className="w-4 h-4" />
                                 Gallery
                             </button>
-                            
+
                             <button
                                 onClick={() => toggleFeatured(spot)}
-                                className={`flex-1 px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border ${
-                                    spot.featured
+                                className={`flex-1 px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border ${spot.featured
                                         ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30'
                                         : 'bg-slate-700/50 hover:bg-slate-700 text-slate-400 border-transparent'
-                                }`}
+                                    }`}
                             >
                                 <Star className={`w-4 h-4 ${spot.featured ? 'fill-current' : ''}`} />
                                 {spot.featured ? 'Unfeature' : 'Feature'}
@@ -357,26 +387,26 @@ export default function ContentManagement() {
                         <div className="px-6 py-6 space-y-4">
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Name</label>
-                                <input type="text" value={newSpot.name} onChange={(e) => setNewSpot({...newSpot, name: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
+                                <input type="text" value={newSpot.name} onChange={(e) => setNewSpot({ ...newSpot, name: e.target.value })} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-white text-sm font-medium mb-2">Category</label>
-                                    <select value={newSpot.category} onChange={(e) => setNewSpot({...newSpot, category: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white">
+                                    <select value={newSpot.category} onChange={(e) => setNewSpot({ ...newSpot, category: e.target.value })} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white">
                                         {CATEGORY_CHOICES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-white text-sm font-medium mb-2">Location</label>
-                                    <input type="text" value={newSpot.location} onChange={(e) => setNewSpot({...newSpot, location: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
+                                    <input type="text" value={newSpot.location} onChange={(e) => setNewSpot({ ...newSpot, location: e.target.value })} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Description</label>
-                                <textarea rows="4" value={newSpot.description} onChange={(e) => setNewSpot({...newSpot, description: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
+                                <textarea rows="4" value={newSpot.description} onChange={(e) => setNewSpot({ ...newSpot, description: e.target.value })} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
                             </div>
                             <div className="flex items-center gap-3 p-4 bg-slate-900/30 rounded-lg border border-slate-700/30">
-                                <input type="checkbox" checked={newSpot.is_featured} onChange={(e) => setNewSpot({...newSpot, is_featured: e.target.checked})} className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-offset-slate-900" />
+                                <input type="checkbox" checked={newSpot.is_featured} onChange={(e) => setNewSpot({ ...newSpot, is_featured: e.target.checked })} className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-offset-slate-900" />
                                 <label className="text-white font-medium">Feature this destination?</label>
                             </div>
                         </div>
@@ -400,30 +430,30 @@ export default function ContentManagement() {
                         <div className="px-6 py-6 space-y-4">
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Attraction Name</label>
-                                <input 
-                                    type="text" 
-                                    value={newAttraction.name} 
-                                    onChange={(e) => setNewAttraction({...newAttraction, name: e.target.value})} 
-                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" 
+                                <input
+                                    type="text"
+                                    value={newAttraction.name}
+                                    onChange={(e) => setNewAttraction({ ...newAttraction, name: e.target.value })}
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white"
                                 />
                             </div>
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Description</label>
-                                <textarea 
-                                    rows="3" 
-                                    value={newAttraction.description} 
-                                    onChange={(e) => setNewAttraction({...newAttraction, description: e.target.value})} 
-                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" 
+                                <textarea
+                                    rows="3"
+                                    value={newAttraction.description}
+                                    onChange={(e) => setNewAttraction({ ...newAttraction, description: e.target.value })}
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white"
                                 />
                             </div>
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Main Photo</label>
                                 <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-cyan-500 transition-colors">
-                                    <input 
-                                        type="file" 
+                                    <input
+                                        type="file"
                                         accept="image/*"
-                                        onChange={(e) => setNewAttraction({...newAttraction, photo: e.target.files[0]})} 
-                                        className="hidden" 
+                                        onChange={(e) => setNewAttraction({ ...newAttraction, photo: e.target.files[0] })}
+                                        className="hidden"
                                         id="attraction-photo-upload"
                                     />
                                     <label htmlFor="attraction-photo-upload" className="cursor-pointer flex flex-col items-center">
@@ -453,23 +483,23 @@ export default function ContentManagement() {
                         <div className="px-6 py-6 space-y-4">
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Name</label>
-                                <input type="text" value={editingSpot.name} onChange={(e) => setEditingSpot({...editingSpot, name: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
+                                <input type="text" value={editingSpot.name} onChange={(e) => setEditingSpot({ ...editingSpot, name: e.target.value })} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-white text-sm font-medium mb-2">Category</label>
-                                    <select value={editingSpot.category} onChange={(e) => setEditingSpot({...editingSpot, category: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white">
+                                    <select value={editingSpot.category} onChange={(e) => setEditingSpot({ ...editingSpot, category: e.target.value })} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white">
                                         {CATEGORY_CHOICES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-white text-sm font-medium mb-2">Location</label>
-                                    <input type="text" value={editingSpot.location} onChange={(e) => setEditingSpot({...editingSpot, location: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
+                                    <input type="text" value={editingSpot.location} onChange={(e) => setEditingSpot({ ...editingSpot, location: e.target.value })} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Description</label>
-                                <textarea rows="4" value={editingSpot.description} onChange={(e) => setEditingSpot({...editingSpot, description: e.target.value})} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
+                                <textarea rows="4" value={editingSpot.description} onChange={(e) => setEditingSpot({ ...editingSpot, description: e.target.value })} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
                             </div>
 
                             <div className="mt-6 border-t border-slate-700/50 pt-4">
@@ -484,10 +514,10 @@ export default function ContentManagement() {
                                                 <div className="flex items-center gap-3">
                                                     {attr.image ? (
                                                         // Handle mixed content URL
-                                                        <img 
-                                                            src={attr.image.startsWith('http') ? attr.image : `http://127.0.0.1:8000${attr.image}`} 
-                                                            alt={attr.name} 
-                                                            className="w-10 h-10 rounded object-cover border border-slate-700" 
+                                                        <img
+                                                            src={attr.image.startsWith('http') ? attr.image : `http://127.0.0.1:8000${attr.image}`}
+                                                            alt={attr.name}
+                                                            className="w-10 h-10 rounded object-cover border border-slate-700"
                                                         />
                                                     ) : (
                                                         <div className="w-10 h-10 rounded bg-slate-800 flex items-center justify-center">
@@ -499,7 +529,7 @@ export default function ContentManagement() {
                                                         <p className="text-slate-500 text-xs truncate w-32">{attr.description}</p>
                                                     </div>
                                                 </div>
-                                                <button 
+                                                <button
                                                     onClick={() => handleDeleteAttraction(attr.id)}
                                                     className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                                                     title="Delete Attraction"
@@ -548,7 +578,7 @@ export default function ContentManagement() {
                             <button onClick={() => setIsViewImagesModalOpen(false)}><XCircle className="w-6 h-6 text-slate-400 hover:text-white" /></button>
                         </div>
                         <div className="p-6 grid grid-cols-2 md:grid-cols-3 gap-4">
-                            {viewingSpotImages.length === 0 ? <p className="text-slate-400 col-span-3 text-center">No images.</p> : 
+                            {viewingSpotImages.length === 0 ? <p className="text-slate-400 col-span-3 text-center">No images.</p> :
                                 viewingSpotImages.map((imgUrl, idx) => (
                                     <div key={idx} className="aspect-video rounded-lg overflow-hidden border border-slate-700">
                                         <img src={imgUrl.startsWith('http') ? imgUrl : `http://127.0.0.1:8000${imgUrl}`} alt="Gallery" className="w-full h-full object-cover" />

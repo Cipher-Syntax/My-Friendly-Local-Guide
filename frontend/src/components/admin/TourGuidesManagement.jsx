@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Eye, Check, X, Image as ImageIcon, Loader2, FileText, Shield, Ban, ExternalLink } from 'lucide-react';
+import { Search, Eye, Check, X, Image as ImageIcon, Loader2, FileText, Shield, Ban, ExternalLink, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import api from '../../api/api';
 
 const getStatusColor = (status) => {
@@ -20,6 +20,16 @@ export default function TourGuidesManagement() {
     const [viewingCredentialImage, setViewingCredentialImage] = useState(null);
     const [isViewCredentialImageModalOpen, setIsViewCredentialImageModalOpen] = useState(false);
 
+    // Toast State
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, show: false }));
+        }, 3000);
+    };
+
     const fetchGuides = async () => {
         try {
             setLoading(true);
@@ -33,6 +43,7 @@ export default function TourGuidesManagement() {
             }
         } catch (error) {
             console.error("Failed to fetch guides:", error);
+            showToast("Failed to fetch guides.", "error");
             setTourGuides([]);
         } finally {
             setLoading(false);
@@ -63,9 +74,10 @@ export default function TourGuidesManagement() {
                 g.id === selectedGuide.id ? { ...g, status: status } : g
             ));
             setIsDetailsModalOpen(false);
+            showToast(`Application status updated to ${status}.`, "success");
         } catch (error) {
             console.error(`Failed to set status to ${status}:`, error);
-            alert(`Failed to update application status.`);
+            showToast(`Failed to update application status.`, "error");
         }
     };
 
@@ -87,7 +99,21 @@ export default function TourGuidesManagement() {
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 relative">
+            {/* Toast Notification */}
+            {toast.show && (
+                <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
+                    ? 'bg-slate-800 border-green-500/50 text-green-400'
+                    : 'bg-slate-800 border-red-500/50 text-red-400'
+                    }`}>
+                    {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                    <span className="font-medium text-white">{toast.message}</span>
+                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
+                        <XCircle className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
             {/* Search Bar */}
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
                 <div className="relative">

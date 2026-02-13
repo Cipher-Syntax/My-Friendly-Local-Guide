@@ -7,7 +7,9 @@ import {
     Clock,
     Search,
     Filter,
-    Download
+    Download,
+    AlertCircle,
+    XCircle
 } from 'lucide-react';
 
 export default function PaymentsManagement() {
@@ -20,6 +22,16 @@ export default function PaymentsManagement() {
         pendingPayouts: 0,
         settledPayouts: 0
     });
+
+    // Toast State
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, show: false }));
+        }, 3000);
+    };
 
     useEffect(() => {
         fetchBookings();
@@ -37,6 +49,7 @@ export default function PaymentsManagement() {
             calculateStats(relevantBookings);
         } catch (error) {
             console.error('Failed to fetch bookings:', error);
+            showToast("Failed to fetch bookings.", "error");
         } finally {
             setLoading(false);
         }
@@ -70,10 +83,10 @@ export default function PaymentsManagement() {
                 is_payout_settled: true
             });
             fetchBookings();
-            alert("Payout marked as settled!");
+            showToast("Payout marked as settled!", "success");
         } catch (error) {
             console.error("Failed to update payout:", error);
-            alert("Failed to update status.");
+            showToast("Failed to update status.", "error");
         }
     };
 
@@ -123,7 +136,21 @@ export default function PaymentsManagement() {
     if (loading) return <div className="text-white p-10">Loading financial data...</div>;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+            {/* Toast Notification */}
+            {toast.show && (
+                <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
+                    ? 'bg-slate-800 border-green-500/50 text-green-400'
+                    : 'bg-slate-800 border-red-500/50 text-red-400'
+                    }`}>
+                    {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                    <span className="font-medium text-white">{toast.message}</span>
+                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
+                        <XCircle className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-white">Payments & Payouts</h1>
@@ -245,8 +272,8 @@ export default function PaymentsManagement() {
                                     {/* STATUS */}
                                     <td className="p-4 text-center">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${booking.is_payout_settled
-                                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                                                : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
+                                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                            : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
                                             }`}>
                                             {booking.is_payout_settled ? 'Settled' : 'Pending'}
                                         </span>
