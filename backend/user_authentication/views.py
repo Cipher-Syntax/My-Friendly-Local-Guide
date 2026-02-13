@@ -21,7 +21,8 @@ from .serializers import (
     GuideApplicationSerializer,
     AdminTokenObtainPairSerializer,
     AgencyTokenObtainPairSerializer,
-    FavoriteGuideSerializer
+    FavoriteGuideSerializer,
+    CustomTokenObtainPairSerializer # Import the new serializer
 )
 from .models import GuideApplication, FavoriteGuide
 
@@ -308,6 +309,10 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 
 class AdminTokenObtainPairView(TokenObtainPairView):
     serializer_class = AdminTokenObtainPairSerializer
+
+# NEW: View for custom login
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 class ApplyAsGuideView(APIView):

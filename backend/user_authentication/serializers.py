@@ -1,6 +1,7 @@
 from rest_framework import serializers #type: ignore
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  #type: ignore
+from rest_framework.exceptions import AuthenticationFailed # Import this
 from .models import FeaturedPlace, AccommodationImage, GuideApplication, FavoriteGuide
 from personalization.serializers import PersonalizationSerializer
 
@@ -197,3 +198,18 @@ class FavoriteGuideSerializer(serializers.ModelSerializer):
         model = FavoriteGuide
         fields = ['id', 'user', 'guide', 'created_at']
         read_only_fields = ['user', 'created_at']
+
+# NEW: Custom Serializer for specific error messages
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        username = attrs.get(self.username_field)
+        
+        if username and not User.objects.filter(username=username).exists():
+            raise AuthenticationFailed('User not found.')
+
+        try:
+            data = super().validate(attrs)
+        except AuthenticationFailed:
+            raise AuthenticationFailed('Invalid Credentials.')
+            
+        return data

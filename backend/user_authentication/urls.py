@@ -22,11 +22,13 @@ from .views import (
     AgencyTokenObtainPairView,
     AcceptTermsView,
     ToggleFavoriteGuideView,
-    FavoriteGuideListView
+    FavoriteGuideListView,
+    CustomTokenObtainPairView # Import the new view
 )
 
 urlpatterns = [
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'), 
+    # Changed from TokenObtainPairView to CustomTokenObtainPairView
+    path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'), 
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'), 
     path('auth/admin/login/', AdminTokenObtainPairView.as_view(), name='admin_login'),
     path('auth/agency/login/', AgencyTokenObtainPairView.as_view(), name='agency_login'),
