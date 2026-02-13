@@ -74,14 +74,14 @@ class BookingViewSet(viewsets.ModelViewSet):
         user = self.request.user
         qs = Booking.objects.select_related('tourist', 'accommodation', 'guide', 'agency')
         
-        if user.is_staff or user.is_superuser:
+        # --- FIX: Only Superuser should see ALL bookings ---
+        if user.is_superuser:
             return qs.order_by('-created_at')
 
         # --- FIX: Handle view_as parameter to filter specifically for Guide Dashboard ---
         view_as = self.request.query_params.get('view_as')
 
         if view_as == 'guide':
-            # Only return bookings where the user is the Service Provider (Guide, Host, or Agency)
             return qs.filter(
                 Q(accommodation__host=user) |
                 Q(guide=user) |
@@ -89,7 +89,6 @@ class BookingViewSet(viewsets.ModelViewSet):
                 Q(assigned_guides=user)
             ).distinct().order_by('-created_at')
         
-        # Default behavior: Returns bookings where user is EITHER tourist OR provider
         return qs.filter(
             Q(tourist=user) |
             Q(accommodation__host=user) |
@@ -117,6 +116,12 @@ class BookingViewSet(viewsets.ModelViewSet):
         
         instance.save()
         self.validate_booking_target(instance)
+        
+    def destroy(self, request, *args, **kwargs):
+        # --- ADMIN ONLY: Only superuser can delete a booking ---
+        if not request.user.is_superuser:
+             return Response({"error": "Only Admins can delete bookings entirely. Please Cancel instead."}, status=403)
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'])
     def guide_blocked_dates(self, request):
@@ -134,7 +139,6 @@ class BookingViewSet(viewsets.ModelViewSet):
             start = b['check_in']
             end = b['check_out']
             curr = start
-            # FIX: Use <= to include the check-out date as blocked (since guides work that day)
             while curr <= end: 
                 blocked_dates.append(curr.isoformat())
                 curr += timedelta(days=1)
@@ -293,7 +297,9 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
             (booking.accommodation and booking.accommodation.host == user) or
             booking.agency == user
         )
-        if not is_participant:
+        
+        # --- ADMIN OVERRIDE: Allow superuser to manage ANY booking ---
+        if not (is_participant or user.is_superuser):
             raise PermissionDenied("You cannot manage this booking.")
         return booking
 

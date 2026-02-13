@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import { BarChart3, Map, Users, Home, AlertCircle, Settings } from 'lucide-react';
+import { BarChart3, Map, Users, Home, AlertCircle, Settings, Calendar } from 'lucide-react';
 
 export default function AdminLayout() {
     const location = useLocation();
@@ -9,54 +9,61 @@ export default function AdminLayout() {
     const getPageHeader = () => {
         const path = location.pathname;
 
-
         if (path === '/admin' || path === '/admin/') {
-            return { 
-                title: 'Dashboard', 
-                icon: BarChart3, 
-                subtitle: 'Platform Overview & Statistics' 
+            return {
+                title: 'Dashboard',
+                icon: BarChart3,
+                subtitle: 'Platform Overview & Statistics'
+            };
+        }
+        // Added Bookings Header
+        if (path.includes('/admin/bookings')) {
+            return {
+                title: 'Global Booking Registry',
+                icon: Calendar,
+                subtitle: 'Superuser Oversight & Management'
             };
         }
         if (path.includes('/admin/agency')) {
-            return { 
-                title: 'Agency Management', 
-                icon: Map, 
-                subtitle: 'Manage Partner Agencies & Approvals' 
+            return {
+                title: 'Agency Management',
+                icon: Map,
+                subtitle: 'Manage Partner Agencies & Approvals'
             };
         }
         if (path.includes('/admin/guides')) {
-            return { 
-                title: 'Tour Guides', 
-                icon: Users, 
-                subtitle: 'Verify & Manage Guide Applications' 
+            return {
+                title: 'Tour Guides',
+                icon: Users,
+                subtitle: 'Verify & Manage Guide Applications'
             };
         }
         if (path.includes('/admin/content')) {
-            return { 
-                title: 'Content Management', 
-                icon: Home, 
-                subtitle: 'Curate Destinations & Attractions' 
+            return {
+                title: 'Content Management',
+                icon: Home,
+                subtitle: 'Curate Destinations & Attractions'
             };
         }
         if (path.includes('/admin/reports')) {
-            return { 
-                title: 'Reports & Analysis', 
-                icon: AlertCircle, 
-                subtitle: 'Safety Alerts & User Moderation' 
+            return {
+                title: 'Reports & Analysis',
+                icon: AlertCircle,
+                subtitle: 'Safety Alerts & User Moderation'
             };
         }
         if (path.includes('/admin/settings')) {
-            return { 
-                title: 'Settings', 
-                icon: Settings, 
-                subtitle: 'System Configuration & Preferences' 
+            return {
+                title: 'Settings',
+                icon: Settings,
+                subtitle: 'System Configuration & Preferences'
             };
         }
 
-        return { 
-            title: 'Admin Portal', 
-            icon: BarChart3, 
-            subtitle: 'System Management' 
+        return {
+            title: 'Admin Portal',
+            icon: BarChart3,
+            subtitle: 'System Management'
         };
     };
 
@@ -78,7 +85,7 @@ export default function AdminLayout() {
                                 <div className="p-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-xl">
                                     <Icon className="w-8 h-8 text-white" />
                                 </div>
-                                
+
                                 <div>
                                     <h1 className="text-3xl font-bold text-white tracking-tight">
                                         {title}
@@ -91,7 +98,7 @@ export default function AdminLayout() {
                         </div>
                     </div>
                 </header>
-                
+
                 <div className="flex-1 overflow-auto p-8">
                     <Outlet />
                 </div>

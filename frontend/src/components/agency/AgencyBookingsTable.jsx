@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { MapPin, Check, XCircle, Filter, Calendar } from 'lucide-react';
+import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 
 export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, openManageGuidesModal, agencyTier, freeBookingLimit }) {
-    
+
     const [filterStatus, setFilterStatus] = useState('all');
+
+    // Custom Toast State (Matching AgencyLayout)
+    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
 
     const acceptedBookingsCount = bookings.filter(b => b.status === 'accepted').length;
     const isLimitReached = agencyTier === 'free' && acceptedBookingsCount >= freeBookingLimit;
 
-    const filteredBookings = filterStatus === 'all' 
-        ? bookings 
+    const filteredBookings = filterStatus === 'all'
+        ? bookings
         : bookings.filter(b => b.status === filterStatus);
 
-    // Helper to format dates nicely
     const formatDate = (dateStr) => {
         if (!dateStr) return 'N/A';
         return new Date(dateStr).toLocaleDateString('en-US', {
@@ -22,9 +24,29 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
         });
     };
 
+    const showToast = (message, type = 'error') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, show: false }));
+        }, 3000);
+    };
+
     return (
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden flex flex-col h-full">
-            
+        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden flex flex-col h-full relative">
+
+            {toast.show && (
+                <div className={`fixed top-6 right-6 z-[100] px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
+                        ? 'bg-slate-800 border-green-500/50 text-green-400'
+                        : 'bg-slate-800 border-red-500/50 text-red-400'
+                    }`}>
+                    {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                    <span className="font-medium text-white">{toast.message}</span>
+                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
+                        <XCircle className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
             {/* Filter Header */}
             <div className="p-4 border-b border-slate-700/50 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-2">
@@ -33,10 +55,10 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                         {filteredBookings.length}
                     </span>
                 </div>
-                
+
                 <div className="relative group">
                     <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-hover:text-cyan-400 transition-colors" />
-                    <select 
+                    <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
                         className="pl-9 pr-8 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-slate-300 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer hover:bg-slate-800 transition-all appearance-none capitalize min-w-[160px]"
@@ -73,6 +95,10 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                         {filteredBookings.length > 0 ? (
                             filteredBookings.map((booking) => {
                                 const isManageDisabled = ['accepted', 'paid', 'completed', 'declined', 'cancelled'].includes(booking.status);
+                                const isDecisionMade = ['accepted', 'paid', 'completed', 'declined', 'cancelled'].includes(booking.status);
+
+                                // Check if guides are assigned
+                                const hasGuides = booking.guideIds && booking.guideIds.length > 0;
 
                                 return (
                                     <tr key={booking.id} className="hover:bg-slate-700/20 transition-colors">
@@ -123,11 +149,10 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                             <button
                                                 onClick={() => openManageGuidesModal(booking.id)}
                                                 disabled={isManageDisabled}
-                                                className={`px-3 py-1.5 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
-                                                    isManageDisabled
+                                                className={`px-3 py-1.5 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${isManageDisabled
                                                         ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
                                                         : 'bg-cyan-500 hover:bg-cyan-600 shadow-lg shadow-cyan-500/20'
-                                                }`}
+                                                    }`}
                                                 title={isManageDisabled ? `Cannot manage guides when ${booking.status}` : "Assign guides"}
                                             >
                                                 Manage Guides
@@ -135,43 +160,46 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
+                                                {/* Accept / Accepted Button */}
                                                 <button
-                                                    onClick={() => updateBookingStatus(booking.id, 'accepted')}
-                                                    disabled={
-                                                        booking.status === 'accepted' || 
-                                                        booking.status === 'paid' || 
-                                                        booking.status === 'declined' || 
-                                                        booking.status === 'completed' ||
-                                                        booking.status === 'cancelled' ||
-                                                        (booking.status !== 'accepted' && isLimitReached)
-                                                    }
-                                                    className={`p-2 rounded-lg transition-colors 
-                                                        ${booking.status === 'accepted' ? 'bg-green-500 text-white cursor-default' : 
-                                                        ['paid', 'completed'].includes(booking.status) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
-                                                        isLimitReached ? 'bg-yellow-900/30 text-yellow-600 cursor-not-allowed' :
-                                                        'bg-slate-700/50 text-slate-400 hover:bg-green-500 hover:text-white'
+                                                    onClick={() => {
+                                                        // Validation Check using Custom Toast
+                                                        if (!hasGuides) {
+                                                            showToast("Please choose a guide for this booking", "error");
+                                                            return;
+                                                        }
+                                                        updateBookingStatus(booking.id, 'accepted');
+                                                    }}
+                                                    disabled={isDecisionMade || isLimitReached}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors w-[80px]
+                                                        ${['accepted', 'paid', 'completed'].includes(booking.status)
+                                                            ? 'bg-green-500 text-white cursor-default' // Active Green State
+                                                            : isDecisionMade
+                                                                ? 'bg-slate-800 text-slate-600 cursor-not-allowed' // Disabled state if other action taken
+                                                                : 'bg-slate-700/50 text-slate-400 hover:bg-green-500 hover:text-white' // Default Gray
                                                         }`}
                                                     title={
                                                         booking.status === 'accepted' ? "Booking already accepted" :
-                                                        ['paid', 'completed'].includes(booking.status) ? "Booking finalized" :
-                                                        isLimitReached ? `Upgrade to accept more bookings (Limit: ${freeBookingLimit})` : "Accept booking"
+                                                            !hasGuides ? "Please assign a guide first" :
+                                                                isLimitReached ? `Upgrade to accept more bookings (Limit: ${freeBookingLimit})` : "Accept booking"
                                                     }
                                                 >
-                                                    <Check className="w-4 h-4" />
+                                                    {['accepted', 'paid', 'completed'].includes(booking.status) ? 'Accepted' : 'Accept'}
                                                 </button>
+
+                                                {/* Decline / Declined Button */}
                                                 <button
                                                     onClick={() => updateBookingStatus(booking.id, 'declined')}
-                                                    disabled={['accepted', 'paid', 'completed', 'cancelled'].includes(booking.status)}
-                                                    className={`p-2 rounded-lg transition-colors ${
-                                                        booking.status === 'declined'
-                                                            ? 'bg-red-500 text-white'
-                                                            : ['accepted', 'paid', 'completed', 'cancelled'].includes(booking.status)
-                                                            ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                                            : 'bg-slate-700/50 text-slate-400 hover:bg-red-500 hover:text-white'
-                                                    }`}
-                                                    title={['accepted', 'paid', 'completed'].includes(booking.status) ? 'Cannot decline active/finalized booking' : 'Decline booking'}
+                                                    disabled={isDecisionMade}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors w-[80px]
+                                                        ${booking.status === 'declined'
+                                                            ? 'bg-red-500 text-white cursor-default' // Active Red State
+                                                            : isDecisionMade
+                                                                ? 'bg-slate-800 text-slate-600 cursor-not-allowed' // Disabled state if other action taken
+                                                                : 'bg-slate-700/50 text-slate-400 hover:bg-red-500 hover:text-white' // Default Gray
+                                                        }`}
                                                 >
-                                                    <XCircle className="w-4 h-4" />
+                                                    {booking.status === 'declined' ? 'Declined' : 'Decline'}
                                                 </button>
                                             </div>
                                         </td>

@@ -13,9 +13,9 @@ import ContentManagement from './components/admin/ContentManagement';
 import Settings from './components/admin/Settings';
 import PaymentsManagement from './components/admin/PaymentsManagement';
 
-// 1. Import the two separate components
-import ReportsAndAnalysis from './components/admin/ReportsAndAnalysis'; // The new Analytics page
-import Feedback from './components/admin/Feedback'; // The renamed Report/Warning page
+import ReportsAndAnalysis from './components/admin/ReportsAndAnalysis';
+import Feedback from './components/admin/Feedback';
+import AllBookings from './components/admin/AllBookings'; // Import the new component
 
 import AgencyProfileCompletion from './pages/AgencyProfileCompletion';
 
@@ -41,13 +41,13 @@ const App = () => {
                 }>
                     <Route index element={<Dashboard />} />
                     <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="bookings" element={<AllBookings />} /> {/* Added Route */}
                     <Route path="agency" element={<AgencyManagement />} />
                     <Route path="guides" element={<TourGuidesManagement />} />
                     <Route path="payments" element={<PaymentsManagement />} />
                     <Route path="content" element={<ContentManagement />} />
                     <Route path="settings" element={<Settings />} />
 
-                    {/* 2. Update these routes to match your Sidebar paths */}
                     <Route path="analytics" element={<ReportsAndAnalysis />} />
                     <Route path="feedback" element={<Feedback />} />
                 </Route>

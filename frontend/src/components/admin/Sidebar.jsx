@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { BarChart3, Map, Users, User, Home, MessageSquare, Settings, LogOut, CircleDollarSign, PieChart } from 'lucide-react';
+import { BarChart3, Map, Users, User, Home, MessageSquare, Settings, LogOut, CircleDollarSign, PieChart, Calendar } from 'lucide-react';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
 
 const menuItems = [
     { id: 'dashboard', icon: BarChart3, label: 'Dashboard', path: '/admin/dashboard' },
+    { id: 'bookings', icon: Calendar, label: 'All Bookings', path: '/admin/bookings' }, // Added here
     { id: 'agency', icon: Map, label: 'Agency', path: '/admin/agency' },
     { id: 'guides', icon: Users, label: 'Tour Guides', path: '/admin/guides' },
     { id: 'payments', icon: CircleDollarSign, label: 'Payments & Payouts', path: '/admin/payments' },
