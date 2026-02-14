@@ -23,7 +23,8 @@ from .views import (
     AcceptTermsView,
     ToggleFavoriteGuideView,
     FavoriteGuideListView,
-    CustomTokenObtainPairView # Import the new view
+    CustomTokenObtainPairView,
+    GoogleLoginAPIView # Import the new View
 )
 
 urlpatterns = [
@@ -32,6 +33,10 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'), 
     path('auth/admin/login/', AdminTokenObtainPairView.as_view(), name='admin_login'),
     path('auth/agency/login/', AgencyTokenObtainPairView.as_view(), name='agency_login'),
+    
+    # NEW GOOGLE LOGIN ENDPOINT
+    path('auth/google/', GoogleLoginAPIView.as_view(), name='google_login'),
+
     path('register/', CreateUserView.as_view(), name='register'),
     path('profile/', UpdateUserView.as_view(), name='profile-update'),
     path('accept-terms/', AcceptTermsView.as_view(), name='accept-terms'),

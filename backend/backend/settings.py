@@ -209,3 +209,6 @@ from corsheaders.defaults import default_headers #type: ignore
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "ngrok-skip-browser-warning",
 ]
+
+
+GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID')

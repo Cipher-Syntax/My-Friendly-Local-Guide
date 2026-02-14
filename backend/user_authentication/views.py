@@ -25,11 +25,12 @@ from .serializers import (
     CustomTokenObtainPairSerializer # Import the new serializer
 )
 from .models import GuideApplication, FavoriteGuide
+from .utils import verify_google_token
+from rest_framework_simplejwt.tokens import RefreshToken #type: ignore
 
 User = get_user_model()
 
 # --- CUSTOM REDIRECT CLASS ---
-# (Optional helper if you decide to use HttpResponseRedirect in future)
 class CustomSchemeRedirect(HttpResponse):
     pass
 
@@ -136,7 +137,6 @@ class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
                 except Exception as e:
                     print(f"Could not send alert: {e}")
 
-# --- BRIDGE VIEW FOR EXPO GO & DEEP LINKING ---
 class PasswordResetAppRedirectView(APIView):
     """
     Renders a simple HTML page that attempts to open the app via JS
@@ -454,3 +454,24 @@ class FavoriteGuideListView(generics.ListAPIView):
         user = self.request.user
         # Return the actual guide objects
         return User.objects.filter(favorites_received__user=user)
+    
+class GoogleLoginAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        token = request.data.get("token")
+        if not token:
+            return Response({"detail": "Token is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        user = verify_google_token(token)
+
+        if user is None:
+            return Response({"detail": "Invalid Google token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "user": user.username # Or serialize the user object if needed
+        })
