@@ -24,7 +24,9 @@ from .views import (
     ToggleFavoriteGuideView,
     FavoriteGuideListView,
     CustomTokenObtainPairView,
-    GoogleLoginAPIView # Import the new View
+    GoogleLoginAPIView,
+    DeactivateAccountView, # NEW IMPORT
+    ReactivateAccountView  # NEW IMPORT
 )
 
 urlpatterns = [
@@ -36,6 +38,10 @@ urlpatterns = [
     
     # NEW GOOGLE LOGIN ENDPOINT
     path('auth/google/', GoogleLoginAPIView.as_view(), name='google_login'),
+
+    # --- NEW ACCOUNT DEACTIVATION ENDPOINTS ---
+    path('auth/deactivate/', DeactivateAccountView.as_view(), name='deactivate_account'),
+    path('auth/reactivate/', ReactivateAccountView.as_view(), name='reactivate_account'),
 
     path('register/', CreateUserView.as_view(), name='register'),
     path('profile/', UpdateUserView.as_view(), name='profile-update'),

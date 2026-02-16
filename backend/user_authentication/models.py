@@ -12,6 +12,13 @@ class User(AbstractUser):
     booking_count = models.IntegerField(default=0)
     subscription_end_date = models.DateField(null=True, blank=True)
 
+    # NEW FIELD FOR DEACTIVATION
+    scheduled_deletion_date = models.DateTimeField(
+        null=True, 
+        blank=True, 
+        help_text="If set, this account is deactivated and will be deleted after this date."
+    )
+
     profile_picture = models.ImageField(upload_to='profiles/', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)

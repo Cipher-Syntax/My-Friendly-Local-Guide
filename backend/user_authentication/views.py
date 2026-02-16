@@ -6,6 +6,8 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
 from django.http import HttpResponse
+from django.utils import timezone # Added
+from datetime import timedelta # Added
 
 from rest_framework import viewsets, generics, permissions, status # type: ignore
 from rest_framework.response import Response # type: ignore
@@ -364,15 +366,23 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
              "application_id": application.id},
             status=status.HTTP_201_CREATED
         )
-
 class ApprovedLocalGuideListView(generics.ListAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny] 
+    
     def get_queryset(self):
-        return User.objects.filter(is_local_guide=True, guide_approved=True).order_by('-guide_rating')
+        return User.objects.filter(
+            is_local_guide=True, 
+            guide_approved=True,
+            scheduled_deletion_date__isnull=True
+        ).order_by('-guide_rating')
 
 class GuideDetailView(generics.RetrieveAPIView):
-    queryset = User.objects.filter(is_local_guide=True, guide_approved=True)
+    queryset = User.objects.filter(
+        is_local_guide=True, 
+        guide_approved=True,
+        scheduled_deletion_date__isnull=True
+    )
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -475,3 +485,52 @@ class GoogleLoginAPIView(APIView):
             "refresh": str(refresh),
             "user": user.username # Or serialize the user object if needed
         })
+
+# --- ACCOUNT DEACTIVATION VIEWS ---
+class DeactivateAccountView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        # Schedule deletion for 30 days from now
+        user.scheduled_deletion_date = timezone.now() + timedelta(days=30)
+        user.save()
+        
+        return Response({
+            "detail": "Account deactivated. It will be permanently deleted in 30 days.",
+            "deletion_date": user.scheduled_deletion_date
+        }, status=status.HTTP_200_OK)
+
+class ReactivateAccountView(APIView):
+    permission_classes = [permissions.AllowAny] # Must be public since user can't log in
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        if not username or not password:
+            return Response({"detail": "Username and password required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not user.check_password(password):
+            return Response({"detail": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if user.scheduled_deletion_date is None:
+            return Response({"detail": "Account is not deactivated."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Reactivate
+        user.scheduled_deletion_date = None
+        user.save()
+
+        # Generate tokens immediately so they are logged in
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "detail": "Account reactivated successfully.",
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "user": user.username
+        }, status=status.HTTP_200_OK)
