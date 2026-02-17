@@ -5,15 +5,15 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str 
 from django.core.mail import send_mail
 from django.conf import settings
-from django.http import HttpResponse
-from django.utils import timezone # Added
-from datetime import timedelta # Added
+from django.http import HttpResponse, HttpResponseRedirect # <--- Added HttpResponseRedirect
+from django.utils import timezone 
+from datetime import timedelta 
 
-from rest_framework import viewsets, generics, permissions, status # type: ignore
-from rest_framework.response import Response # type: ignore
-from rest_framework.views import APIView # type: ignore
-from rest_framework.exceptions import PermissionDenied, ValidationError # type: ignore
-from rest_framework_simplejwt.views import TokenObtainPairView # type: ignore
+from rest_framework import viewsets, generics, permissions, status 
+from rest_framework.response import Response 
+from rest_framework.views import APIView 
+from rest_framework.exceptions import PermissionDenied, ValidationError 
+from rest_framework_simplejwt.views import TokenObtainPairView 
 from system_management_module.models import SystemAlert
 
 from .serializers import (
@@ -24,17 +24,18 @@ from .serializers import (
     AdminTokenObtainPairSerializer,
     AgencyTokenObtainPairSerializer,
     FavoriteGuideSerializer,
-    CustomTokenObtainPairSerializer # Import the new serializer
+    CustomTokenObtainPairSerializer 
 )
 from .models import GuideApplication, FavoriteGuide
 from .utils import verify_google_token
-from rest_framework_simplejwt.tokens import RefreshToken #type: ignore
+from rest_framework_simplejwt.tokens import RefreshToken 
 
 User = get_user_model()
 
-# --- CUSTOM REDIRECT CLASS ---
-class CustomSchemeRedirect(HttpResponse):
-    pass
+# --- FIXED: CUSTOM REDIRECT CLASS ---
+# This allows Django to redirect to "localynk://" without throwing a security error
+class CustomSchemeRedirect(HttpResponseRedirect):
+    allowed_schemes = ['http', 'https', 'ftp', 'localynk']
 
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all().order_by('-date_joined')
@@ -57,23 +58,30 @@ class CreateUserView(generics.CreateAPIView):
             fail_silently=False,
         )
 
+# --- UPDATED VERIFY EMAIL VIEW ---
 class VerifyEmailView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, uid, token):
+        # FOR DEVELOPMENT BUILD (Custom APK)
+        APP_SCHEME = "localynk://auth/login" 
+
         try:
             uid_decoded = force_str(urlsafe_base64_decode(uid))
             user = User.objects.get(pk=uid_decoded)
-        except:
-            return Response({"detail": "Invalid link."}, status=400)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            # Using CustomSchemeRedirect to allow 'localynk://'
+            return CustomSchemeRedirect(f"{APP_SCHEME}?status=error&message=Invalid link")
 
         if not default_token_generator.check_token(user, token):
-            return Response({"detail": "Invalid or expired token."}, status=400)
+            return CustomSchemeRedirect(f"{APP_SCHEME}?status=error&message=Expired token")
 
         user.is_active = True
         user.save()
 
-        return Response({"detail": "Email verified successfully!"}, status=200)
+        # Redirect to app with Success
+        return CustomSchemeRedirect(f"{APP_SCHEME}?status=success&message=Email verified successfully")
+
 
 class ResendVerificationEmailView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -148,6 +156,8 @@ class PasswordResetAppRedirectView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, uid, token):
+        # NOTE: If you are using Development Build for password reset too, 
+        # you might want to change this to your local IP: 10.138.121.101
         EXPO_IP = "192.168.137.89" 
         app_scheme_url = f"exp://{EXPO_IP}:8081/--/auth/resetPassword?uid={uid}&token={token}"
         
