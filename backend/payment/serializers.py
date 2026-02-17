@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Payment
 from accommodation_booking.models import Booking
 from django.contrib.auth import get_user_model 
+from datetime import date # Added for date checking
 
 User = get_user_model()
 
@@ -62,6 +63,25 @@ class PaymentInitiationSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"booking_id": f"Payment can only be initiated for 'Accepted' or 'Pending_Payment' bookings (current status: {booking.status})."}
                 )
+            
+            # --- NEW: Free Tier "One Active Booking" Limit Check ---
+            if booking.guide:
+                # Check if guide is on Free Tier (assuming anything not 'paid' is free)
+                guide_tier = getattr(booking.guide, 'guide_tier', 'free')
+                
+                if guide_tier != 'paid':
+                    # Count ACTIVE bookings only (Confirmed status AND not yet finished)
+                    # We exclude the current booking ID to be safe
+                    active_bookings_count = Booking.objects.filter(
+                        guide=booking.guide,
+                        status='Confirmed',
+                        check_out__gte=date.today() # Trip is happening today or in the future
+                    ).exclude(id=booking.id).count()
+
+                    if active_bookings_count >= 1:
+                        raise serializers.ValidationError(
+                            {"booking_id": "This guide is currently on the Free Tier and already has an active booking. They cannot accept another until the current trip is finished."}
+                        )
             
             self.booking_instance = booking
             
