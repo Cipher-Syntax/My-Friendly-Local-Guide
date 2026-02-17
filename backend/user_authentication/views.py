@@ -158,8 +158,10 @@ class PasswordResetAppRedirectView(APIView):
     def get(self, request, uid, token):
         # NOTE: If you are using Development Build for password reset too, 
         # you might want to change this to your local IP: 10.138.121.101
-        EXPO_IP = "192.168.137.89" 
-        app_scheme_url = f"exp://{EXPO_IP}:8081/--/auth/resetPassword?uid={uid}&token={token}"
+        # EXPO_IP = "192.168.137.89" 
+        # app_scheme_url = f"exp://{EXPO_IP}:8081/--/auth/resetPassword?uid={uid}&token={token}"
+        
+        app_scheme_url = f"localynk://auth/resetPassword?uid={uid}&token={token}"
         
         html_content = f"""
         <!DOCTYPE html>
