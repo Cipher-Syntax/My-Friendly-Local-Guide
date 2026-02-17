@@ -36,7 +36,7 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
 
 class PaymentInitiationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    SUBSCRIPTION_PRICE = Decimal("3000.00")
+    SUBSCRIPTION_PRICE = Decimal("30.00")
 
     def post(self, request, *args, **kwargs):
         serializer = PaymentInitiationSerializer(data=request.data)
