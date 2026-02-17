@@ -20,6 +20,9 @@ export default function TourGuidesManagement() {
     const [viewingCredentialImage, setViewingCredentialImage] = useState(null);
     const [isViewCredentialImageModalOpen, setIsViewCredentialImageModalOpen] = useState(false);
 
+    // Track which action is currently processing ('Approved', 'Rejected', or null)
+    const [processingAction, setProcessingAction] = useState(null);
+
     // Toast State
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
@@ -66,6 +69,10 @@ export default function TourGuidesManagement() {
 
     const handleApprovalAction = async (status) => {
         if (!selectedGuide) return;
+
+        // Start processing state
+        setProcessingAction(status);
+
         try {
             await api.patch(`api/admin/guide-reviews/${selectedGuide.id}/`, {
                 status: status
@@ -78,6 +85,9 @@ export default function TourGuidesManagement() {
         } catch (error) {
             console.error(`Failed to set status to ${status}:`, error);
             showToast(`Failed to update application status.`, "error");
+        } finally {
+            // Stop processing state regardless of success/failure
+            setProcessingAction(null);
         }
     };
 
@@ -97,6 +107,47 @@ export default function TourGuidesManagement() {
         setViewingCredentialImage({ type: credentialKey, guideName, url });
         setIsViewCredentialImageModalOpen(true);
     };
+
+    // Render logic for documents list
+    const renderDocuments = () => {
+        const documents = [
+            { key: 'certificate', label: 'Tour Guide Certificate' },
+            { key: 'residency', label: 'Proof of Residency' },
+            { key: 'validId', label: 'Valid Government ID' },
+            { key: 'nbiClearance', label: 'NBI Clearance' },
+        ];
+
+        return documents.map((doc) => {
+            const credentials = selectedGuide.credentials;
+            // Check if credentials object exists and if the specific key is present/truthy
+            const isSubmitted = credentials && credentials[doc.key];
+
+            return (
+                <div key={doc.key} className="flex items-center justify-between p-4 bg-slate-900/30 border border-slate-700/50 rounded-xl hover:border-slate-600 transition-colors">
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${isSubmitted ? 'bg-cyan-500/10 text-cyan-400' : 'bg-slate-800 text-slate-600'}`}>
+                            <ImageIcon className="w-5 h-5" />
+                        </div>
+                        <span className="text-slate-200">{doc.label}</span>
+                    </div>
+
+                    {isSubmitted ? (
+                        <button
+                            onClick={() => viewCredentialImage(doc.key, selectedGuide.name, selectedGuide.credentials)}
+                            className="px-4 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                        >
+                            <Eye className="w-3 h-3" /> View
+                        </button>
+                    ) : (
+                        <span className="text-red-400 text-xs bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">
+                            Missing
+                        </span>
+                    )}
+                </div>
+            );
+        });
+    }
+
 
     return (
         <div className="space-y-4 relative">
@@ -191,7 +242,11 @@ export default function TourGuidesManagement() {
                                 <h3 className="text-xl font-bold text-white">Application Details</h3>
                                 <p className="text-slate-400 text-sm mt-1">Review documents and manage status</p>
                             </div>
-                            <button onClick={() => setIsDetailsModalOpen(false)} className="text-slate-400 hover:text-white">
+                            <button
+                                onClick={() => setIsDetailsModalOpen(false)}
+                                className="text-slate-400 hover:text-white"
+                                disabled={!!processingAction} // Disable close during processing
+                            >
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
@@ -213,46 +268,16 @@ export default function TourGuidesManagement() {
                                 Submitted Documents
                             </h4>
                             <div className="space-y-3">
-                                {[
-                                    { key: 'certificate', label: 'Tour Guide Certificate' },
-                                    { key: 'residency', label: 'Proof of Residency' },
-                                    { key: 'validId', label: 'Valid Government ID' },
-                                    { key: 'nbiClearance', label: 'NBI Clearance' },
-                                ].map((doc) => {
-                                    const credentials = selectedGuide.credentials;
-                                    const isSubmitted = credentials && credentials[doc.key];
-
-                                    return (
-                                        <div key={doc.key} className="flex items-center justify-between p-4 bg-slate-900/30 border border-slate-700/50 rounded-xl hover:border-slate-600 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`p-2 rounded-lg ${isSubmitted ? 'bg-cyan-500/10 text-cyan-400' : 'bg-slate-800 text-slate-600'}`}>
-                                                    <ImageIcon className="w-5 h-5" />
-                                                </div>
-                                                <span className="text-slate-200">{doc.label}</span>
-                                            </div>
-
-                                            {isSubmitted ? (
-                                                <button
-                                                    onClick={() => viewCredentialImage(doc.key, selectedGuide.name, selectedGuide.credentials)}
-                                                    className="px-4 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                                                >
-                                                    <Eye className="w-3 h-3" /> View
-                                                </button>
-                                            ) : (
-                                                <span className="text-red-400 text-xs bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">
-                                                    Missing
-                                                </span>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                {renderDocuments()}
                             </div>
                         </div>
 
                         <div className="px-6 py-5 border-t border-slate-700/50 flex justify-end gap-3 bg-slate-800/50 rounded-b-2xl">
                             <button
                                 onClick={() => setIsDetailsModalOpen(false)}
-                                className="px-5 py-2.5 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors font-medium"
+                                disabled={!!processingAction}
+                                className={`px-5 py-2.5 text-slate-400 rounded-lg transition-colors font-medium ${processingAction ? 'opacity-50 cursor-not-allowed' : 'hover:text-white hover:bg-slate-700/50'
+                                    }`}
                             >
                                 Close
                             </button>
@@ -260,17 +285,44 @@ export default function TourGuidesManagement() {
                                 <>
                                     <button
                                         onClick={() => handleApprovalAction('Rejected')}
-                                        className="px-5 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-colors font-medium flex items-center gap-2"
+                                        disabled={!!processingAction}
+                                        className={`px-5 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg transition-colors font-medium flex items-center gap-2 ${processingAction
+                                                ? 'opacity-50 cursor-not-allowed text-red-400/50'
+                                                : 'hover:bg-red-500/20 text-red-400'
+                                            }`}
                                     >
-                                        <Ban className="w-4 h-4" />
-                                        Reject
+                                        {processingAction === 'Rejected' ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Rejecting...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Ban className="w-4 h-4" />
+                                                Reject
+                                            </>
+                                        )}
                                     </button>
+
                                     <button
                                         onClick={() => handleApprovalAction('Approved')}
-                                        className="px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-500/20 rounded-lg transition-colors font-medium flex items-center gap-2"
+                                        disabled={!!processingAction}
+                                        className={`px-5 py-2.5 bg-green-500 shadow-lg shadow-green-500/20 rounded-lg transition-colors font-medium flex items-center gap-2 ${processingAction
+                                                ? 'opacity-70 cursor-not-allowed'
+                                                : 'hover:bg-green-600'
+                                            } text-white`}
                                     >
-                                        <Check className="w-4 h-4" />
-                                        Approve Guide
+                                        {processingAction === 'Approved' ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Approving...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Check className="w-4 h-4" />
+                                                Approve Guide
+                                            </>
+                                        )}
                                     </button>
                                 </>
                             )}
