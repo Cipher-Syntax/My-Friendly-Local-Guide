@@ -6,10 +6,10 @@ import {
     CheckCircle,
     Clock,
     Search,
-    Filter,
     Download,
     AlertCircle,
-    XCircle
+    XCircle,
+    AlertTriangle
 } from 'lucide-react';
 
 export default function PaymentsManagement() {
@@ -22,6 +22,11 @@ export default function PaymentsManagement() {
         pendingPayouts: 0,
         settledPayouts: 0
     });
+
+    // --- MODAL STATES ---
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedBookingId, setSelectedBookingId] = useState(null);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     // Toast State
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -75,19 +80,35 @@ export default function PaymentsManagement() {
         });
     };
 
-    const handleMarkSettled = async (bookingId) => {
-        if (!window.confirm("Are you sure you have sent the money to the guide?")) return;
+    // 1. Open Modal instead of Window Confirm
+    const initiateSettlement = (bookingId) => {
+        setSelectedBookingId(bookingId);
+        setIsModalOpen(true);
+    };
 
+    // 2. Actual API Call (Triggered by Modal Confirm)
+    const confirmSettlement = async () => {
+        if (!selectedBookingId) return;
+
+        setIsProcessing(true);
         try {
-            await api.patch(`/api/bookings/${bookingId}/`, {
+            await api.patch(`/api/bookings/${selectedBookingId}/`, {
                 is_payout_settled: true
             });
-            fetchBookings();
+            await fetchBookings(); // Refresh list
             showToast("Payout marked as settled!", "success");
+            closeModal();
         } catch (error) {
             console.error("Failed to update payout:", error);
             showToast("Failed to update status.", "error");
+        } finally {
+            setIsProcessing(false);
         }
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setSelectedBookingId(null);
     };
 
     const filteredBookings = bookings.filter(booking => {
@@ -114,7 +135,7 @@ export default function PaymentsManagement() {
     const getProviderPhone = (b) => {
         if (b.guide_detail) return b.guide_detail.phone_number;
         if (b.agency_detail) return b.agency_detail.phone_number;
-        if (b.accommodation_detail) return "Check Profile"; // Host phone might be elsewhere
+        if (b.accommodation_detail) return "Check Profile";
         return "N/A";
     };
 
@@ -148,6 +169,47 @@ export default function PaymentsManagement() {
                     <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
                         <XCircle className="w-4 h-4" />
                     </button>
+                </div>
+            )}
+
+            {/* --- CUSTOM CONFIRMATION MODAL --- */}
+            {isModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl transform transition-all scale-100 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                                    <AlertTriangle className="w-6 h-6 text-orange-500" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white">Confirm Payout Settlement</h3>
+                                    <p className="text-slate-400 text-sm">Action cannot be undone.</p>
+                                </div>
+                            </div>
+
+                            <p className="text-slate-300 mb-6 leading-relaxed">
+                                Are you sure you have manually transferred the funds to this guide?
+                                Marking this as settled will update the guide's dashboard status to "Paid".
+                            </p>
+
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={closeModal}
+                                    disabled={isProcessing}
+                                    className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors font-medium text-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmSettlement}
+                                    disabled={isProcessing}
+                                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg shadow-lg shadow-cyan-500/20 font-medium text-sm flex items-center gap-2 transition-all"
+                                >
+                                    {isProcessing ? 'Processing...' : 'Yes, Mark as Settled'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -283,8 +345,8 @@ export default function PaymentsManagement() {
                                     <td className="p-4 text-right">
                                         {!booking.is_payout_settled && (
                                             <button
-                                                onClick={() => handleMarkSettled(booking.id)}
-                                                className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white text-xs rounded-lg transition-colors flex items-center gap-1 ml-auto"
+                                                onClick={() => initiateSettlement(booking.id)}
+                                                className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white text-xs rounded-lg transition-colors flex items-center gap-1 ml-auto shadow-md shadow-cyan-500/10"
                                             >
                                                 Mark Settled
                                             </button>
