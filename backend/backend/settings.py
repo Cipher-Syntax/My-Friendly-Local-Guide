@@ -14,6 +14,8 @@ from pathlib import Path
 import os
 from datetime import timedelta
 from decouple import config, Csv #type: ignore
+from corsheaders.defaults import default_headers #type: ignore
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -44,7 +46,11 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    
+    # Cloudinary Apps (must be before staticfiles)
+    'cloudinary_storage',
     'django.contrib.staticfiles',
+    'cloudinary',
     
     # OWN APPS
     'user_authentication',
@@ -84,6 +90,12 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=config('ACCESS_LIFETIME_TOKEN', cast=int, default=5)),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=config('REFRESH_TOKEN_LIFETIME', cast=int, default=7)),
     
+}
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': config('CLOUDINARY_API_KEY'),
+    'API_SECRET': config('CLOUDINARY_API_SECRET'),
 }
 
 MIDDLEWARE = [
@@ -203,12 +215,20 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',  # Keep default as fallback
 ]
 
-from corsheaders.defaults import default_headers #type: ignore
 
 # 1. Allow the specific header
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "ngrok-skip-browser-warning",
 ]
 
+# FOR DJANGO 5+: Use STORAGES instead of DEFAULT_FILE_STORAGE
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID')

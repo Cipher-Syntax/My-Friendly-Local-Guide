@@ -85,15 +85,15 @@ class UserSerializer(serializers.ModelSerializer):
     def get_full_name(self, obj):
         return obj.get_full_name()
 
-    # NEW: Logic to determine which steps are done
     def get_setup_progress(self, obj):
-        # Step 1: Info is done if specialty and price are set
-        has_info = bool(obj.specialty and obj.price_per_day)
+        has_info = bool(
+            obj.specialty and 
+            obj.specialty.strip() != "" and 
+            obj.price_per_day is not None
+        )
         
-        # Step 2: Accommodation is done if they have created at least one
         has_accommodation = obj.accommodations.exists()
         
-        # Step 3: Tour is done if they have created at least one tour package
         has_tour = obj.tours.exists()
         
         return {
