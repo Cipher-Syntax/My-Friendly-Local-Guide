@@ -5,6 +5,8 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser 
 from django.db.models import Q
 from datetime import date, timedelta
+from django.core.mail import send_mail
+from django.conf import settings
 
 from .models import Accommodation, Booking
 from .serializers import AccommodationSerializer, BookingSerializer
@@ -74,11 +76,9 @@ class BookingViewSet(viewsets.ModelViewSet):
         user = self.request.user
         qs = Booking.objects.select_related('tourist', 'accommodation', 'guide', 'agency')
         
-        # --- FIX: Only Superuser should see ALL bookings ---
         if user.is_superuser:
             return qs.order_by('-created_at')
 
-        # --- FIX: Handle view_as parameter to filter specifically for Guide Dashboard ---
         view_as = self.request.query_params.get('view_as')
 
         if view_as == 'guide':
@@ -116,9 +116,34 @@ class BookingViewSet(viewsets.ModelViewSet):
         
         instance.save()
         self.validate_booking_target(instance)
+
+        # Notify the provider (Guide, Agency, or Host) via Email
+        provider = instance.guide or instance.agency or (instance.accommodation.host if instance.accommodation else None)
+        if provider and provider.email:
+            try:
+                tourist_name = f"{user.first_name} {user.last_name}".strip() or user.username
+                subject = "New Booking Request Received"
+                message = (
+                    f"Hi {provider.username},\n\n"
+                    f"You have received a new booking request from {tourist_name}!\n\n"
+                    f"Details:\n"
+                    f"- Destination: {instance.destination or 'N/A'}\n"
+                    f"- Dates: {instance.check_in} to {instance.check_out}\n"
+                    f"- Guests: {instance.num_guests}\n\n"
+                    f"This booking is currently 'Pending Payment'. You will receive another notification once the tourist completes their down payment.\n\n"
+                    f"Please check your dashboard for more details."
+                )
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [provider.email],
+                    fail_silently=True,
+                )
+            except Exception as e:
+                print(f"Failed to send request notification email: {e}")
         
     def destroy(self, request, *args, **kwargs):
-        # --- ADMIN ONLY: Only superuser can delete a booking ---
         if not request.user.is_superuser:
              return Response({"error": "Only Admins can delete bookings entirely. Please Cancel instead."}, status=403)
         return super().destroy(request, *args, **kwargs)
@@ -172,6 +197,53 @@ class BookingViewSet(viewsets.ModelViewSet):
             related_model='Booking',
             is_read=False
         )
+
+        provider_name = "LocaLynk"
+        if booking.guide:
+            provider_name = f"Guide {booking.guide.first_name}"
+        elif booking.agency:
+            provider_name = f"Agency {booking.agency.business_name}"
+
+        plain_text_receipt = (
+            f"Hi {booking.tourist.username},\n\n"
+            f"Your payment has been fully processed and your booking is complete!\n"
+            f"Total Paid: ₱{booking.total_price}\n"
+            f"Provider: {provider_name}\n"
+            f"Dates: {booking.check_in} to {booking.check_out}\n\n"
+            f"Thank you for using LocaLynk!"
+        )
+
+        html_receipt = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; color: #333; padding: 20px;">
+                <h2 style="color: #0072FF;">Payment Receipt</h2>
+                <p>Hi <strong>{booking.tourist.username}</strong>,</p>
+                <p>Your payment has been successfully processed and your trip is marked as completed!</p>
+                
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin: 20px 0;">
+                    <p><strong>Destination:</strong> {booking.destination}</p>
+                    <p><strong>Provider:</strong> {provider_name}</p>
+                    <p><strong>Dates:</strong> {booking.check_in} to {booking.check_out}</p>
+                    <hr style="border: 0; border-top: 1px solid #ccc;">
+                    <h3 style="margin-bottom: 0;">Total Amount Paid: <span style="color: #28a745;">₱{booking.total_price}</span></h3>
+                </div>
+                
+                <p>Thank you for booking with <strong>LocaLynk</strong>!</p>
+            </body>
+        </html>
+        """
+
+        try:
+            send_mail(
+                subject=f"Receipt: Your LocaLynk Trip to {booking.destination}",
+                message=plain_text_receipt,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[booking.tourist.email],
+                html_message=html_receipt,
+                fail_silently=True, 
+            )
+        except Exception as e:
+            print(f"Failed to send receipt email: {e}")
 
         return Response(self.get_serializer(booking).data)
 
@@ -298,7 +370,6 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
             booking.agency == user
         )
         
-        # --- ADMIN OVERRIDE: Allow superuser to manage ANY booking ---
         if not (is_participant or user.is_superuser):
             raise PermissionDenied("You cannot manage this booking.")
         return booking
@@ -376,7 +447,6 @@ class AssignGuidesView(generics.UpdateAPIView):
         booking = self.get_object()
         user = self.request.user
         
-        # [UPDATED] Robust Permission Check
         is_owner = booking.agency == user
         is_superuser = user.is_superuser
         can_claim = (booking.agency is None) and user.is_staff
@@ -384,8 +454,6 @@ class AssignGuidesView(generics.UpdateAPIView):
         if not (is_owner or is_superuser or can_claim):
              raise PermissionDenied(f"You are not the agency for this booking. (Agency: {booking.agency}, You: {user.username})")
         
-        # [CRITICAL FIX] "Convert" the booking to an Agency Booking to satisfy validation constraints
-        # The model requires: if is_agency is True, then is_guide AND is_accommodation must be False.
         if can_claim and not is_owner:
             booking.agency = user
             booking.guide = None
@@ -394,7 +462,6 @@ class AssignGuidesView(generics.UpdateAPIView):
 
         agency_guide_ids = request.data.get('agency_guide_ids', [])
         
-        # Clear and Re-assign
         booking.assigned_agency_guides.clear()
         for guide_id in agency_guide_ids:
             booking.assigned_agency_guides.add(guide_id)

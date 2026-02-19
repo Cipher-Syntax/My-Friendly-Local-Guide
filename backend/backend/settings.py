@@ -52,6 +52,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'cloudinary',
     
+    # Anymail integration
+    'anymail',
+    
     # OWN APPS
     'user_authentication',
     'destinations_and_attractions',
@@ -199,13 +202,12 @@ BACKEND_BASE_URL = config('BACKEND_BASE_URL')
 BLACKLIST_AFTER_ROTATION = config('BLACKLIST_AFTER_ROTATION', cast=bool)
 
 
-# EMAIL
-EMAIL_BACKEND = config('EMAIL_BACKEND')
-EMAIL_HOST = config('EMAIL_HOST')
-EMAIL_PORT = config('EMAIL_PORT', cast=int)
-EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+# --- EMAIL CONFIGURATION (HARDCODED ANYMAIL TO FIX WINERROR 10061) ---
+ANYMAIL = {
+    "SENDINBLUE_API_KEY": config('ANYMAIL_API_KEY', default=''),
+}
+# Hardcoded to force Django to use Anymail API instead of default localhost SMTP
+EMAIL_BACKEND = 'anymail.backends.sendinblue.EmailBackend'
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
 
 CORS_ALLOW_ALL_ORIGINS = True

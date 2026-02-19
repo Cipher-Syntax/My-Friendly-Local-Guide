@@ -11,7 +11,7 @@ from django.core.exceptions import ValidationError as ModelValidationError
 from django.shortcuts import get_object_or_404
 from django.apps import apps 
 from requests.exceptions import RequestException #type: ignore
-from django.core.mail import send_mail # For email notifications
+from django.core.mail import send_mail 
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -84,12 +84,9 @@ class PaymentInitiationView(APIView):
         try:
             paymongo_types = []
             
-            # --- UPDATED MAPPING FOR QRPh ---
             if 'card' in raw_method: 
                 paymongo_types = ['card']
             else:
-                # Since GCash/Maya specific toggles are inactive, we use QRPh.
-                # QRPh generates a QR code that can be scanned by GCash, Maya, Grab, etc.
                 paymongo_types = ['qrph']
 
             print(f"DEBUG: Payment Method Requested: '{raw_method}' -> Mapped to PayMongo Type: {paymongo_types}")
@@ -153,41 +150,32 @@ class PaymentWebhookView(APIView):
         return Response({"status": "Webhook processed"}, status=200)
 
     def _handle_success(self, payment, data):
-        """Helper to handle success logic so we don't duplicate code"""
         if payment.status != 'succeeded':
             payment.status = "succeeded"
             payment.gateway_response = data
             payment.save()
 
-            # --- UPDATE BOOKING STATUS TO 'Confirmed' ---
             if payment.related_booking:
                 booking = payment.related_booking
                 
                 try:
                     booking.status = "Confirmed"
                     
-                    # --- COMMISSION & PAYOUT LOGIC ---
-                    # 1. Calculate 2% Commission on TOTAL Price
                     commission_rate = Decimal("0.02")
                     platform_fee = (booking.total_price * commission_rate).quantize(Decimal("0.01"))
                     
-                    # 2. Calculate what belongs to the Guide
-                    # (Down Payment Held by App) - (2% Commission)
                     net_payout = (booking.down_payment - platform_fee).quantize(Decimal("0.01"))
                     
-                    # 3. Update Financial Fields
                     booking.platform_fee = platform_fee
                     booking.guide_payout_amount = net_payout
                     booking.is_payout_settled = False
                     
                     booking.save() 
                     
-                    # --- SUCCESS SCENARIO ---
                     if booking.guide:
                         booking.guide.booking_count += 1
                         booking.guide.save()
 
-                    # --- SEND DETAILED HTML RECEIPT TO TOURIST (Like the Modal) ---
                     try:
                         provider_name = "Local Service"
                         if booking.guide:
@@ -233,11 +221,10 @@ class PaymentWebhookView(APIView):
                         </body>
                         </html>
                         """
-                        send_mail(subject, "", settings.EMAIL_HOST_USER, [payment.payer.email], html_message=html_content)
+                        send_mail(subject, "", settings.DEFAULT_FROM_EMAIL, [payment.payer.email], html_message=html_content)
                     except Exception as e:
                         print(f"Error sending HTML receipt: {e}")
 
-                    # Notify GUIDE / AGENCY via App & Email
                     provider = booking.guide or booking.agency or (booking.accommodation.host if booking.accommodation else None)
                     if provider:
                         tourist_name = f"{booking.tourist.first_name} {booking.tourist.last_name}"
@@ -251,7 +238,6 @@ class PaymentWebhookView(APIView):
                             is_read=False
                         )
                         
-                        # Provider Confirmation Email
                         try:
                             p_subject = "Action Required: New Confirmed Booking"
                             p_message = (
@@ -261,12 +247,11 @@ class PaymentWebhookView(APIView):
                                 f"Your Pending Payout (from down payment): ₱{net_payout:,.2f}\n\n"
                                 f"The tourist will pay the remaining balance of ₱{booking.balance_due:,.2f} directly to you. Please check your dashboard for details."
                             )
-                            send_mail(p_subject, p_message, settings.EMAIL_HOST_USER, [provider.email])
+                            send_mail(p_subject, p_message, settings.DEFAULT_FROM_EMAIL, [provider.email])
                         except Exception as e:
                             print(f"Error notifying provider: {e}")
 
                 except ModelValidationError as e:
-                    # --- FAIL SCENARIO (Double Booking) ---
                     print(f"CRITICAL: Booking Save Failed for Payment {payment.id}. Error: {e}")
                     payment.status = "refund_required" 
                     payment.save()
@@ -322,9 +307,8 @@ class SubscriptionPriceView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, *args, **kwargs):
-        # Return price AND limits for the frontend to consume
         return Response({
             "price": PaymentInitiationView.SUBSCRIPTION_PRICE,
-            "guide_limit": 2, # Limit for free tier
-            "booking_limit": 1 # Limit for free tier
+            "guide_limit": 2, 
+            "booking_limit": 1 
         })

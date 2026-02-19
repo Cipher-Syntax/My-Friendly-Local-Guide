@@ -1,26 +1,38 @@
-"""
-URL configuration for backend project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.core.mail import send_mail
+from django.http import HttpResponse
+
+# --- TEMPORARY TEST VIEW TO FORCE ERRORS TO SHOW ---
+def test_email_view(request):
+    try:
+        send_mail(
+            subject="LocaLynk Diagnostic Test",
+            message="If you receive this, your Django Anymail setup is working perfectly!",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[settings.DEFAULT_FROM_EMAIL], # Sending it to yourself
+            fail_silently=False, # Setting this to False forces Django to print the exact error!
+        )
+        return HttpResponse("""
+            <h2 style='color: green;'>Success!</h2> 
+            <p>The email API was triggered without any code errors. Please check your inbox (and spam folder) for the test email.</p>
+        """)
+    except Exception as e:
+        return HttpResponse(f"""
+            <h2 style='color: red;'>EMAIL FAILED!</h2>
+            <p>Here is the exact error preventing your emails from sending:</p>
+            <div style='background: #eee; padding: 15px; border-radius: 5px; font-family: monospace;'>
+                {str(e)}
+            </div>
+            <p>Look at the error message above to see if it is an API Key issue, an unverified sender issue, or a network issue.</p>
+        """)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    
+    # --- YOUR APP URLS ---
     path('api/', include('user_authentication.urls')),
     path('api/', include('destinations_and_attractions.urls')),
     path('api/', include('accommodation_booking.urls')),
@@ -32,6 +44,9 @@ urlpatterns = [
     
     path('api/', include('system_management_module.urls')),
     path('api/', include('agency_management_module.urls')),
+    # --- TEMPORARY TEST ROUTE ---
+    path('test-email/', test_email_view, name='test_email'),
 ]
 
-urlpatterns = urlpatterns + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

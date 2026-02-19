@@ -5,7 +5,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str 
 from django.core.mail import send_mail
 from django.conf import settings
-from django.http import HttpResponse, HttpResponseRedirect # <--- Added HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect 
 from django.utils import timezone 
 from datetime import timedelta 
 
@@ -33,7 +33,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 User = get_user_model()
 
 # --- FIXED: CUSTOM REDIRECT CLASS ---
-# This allows Django to redirect to "localynk://" without throwing a security error
 class CustomSchemeRedirect(HttpResponseRedirect):
     allowed_schemes = ['http', 'https', 'ftp', 'localynk']
 
@@ -58,19 +57,16 @@ class CreateUserView(generics.CreateAPIView):
             fail_silently=False,
         )
 
-# --- UPDATED VERIFY EMAIL VIEW ---
 class VerifyEmailView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, uid, token):
-        # FOR DEVELOPMENT BUILD (Custom APK)
         APP_SCHEME = "localynk://auth/login" 
 
         try:
             uid_decoded = force_str(urlsafe_base64_decode(uid))
             user = User.objects.get(pk=uid_decoded)
         except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            # Using CustomSchemeRedirect to allow 'localynk://'
             return CustomSchemeRedirect(f"{APP_SCHEME}?status=error&message=Invalid link")
 
         if not default_token_generator.check_token(user, token):
@@ -78,8 +74,6 @@ class VerifyEmailView(APIView):
 
         user.is_active = True
         user.save()
-
-        # Redirect to app with Success
         return CustomSchemeRedirect(f"{APP_SCHEME}?status=success&message=Email verified successfully")
 
 
@@ -148,19 +142,9 @@ class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
                     print(f"Could not send alert: {e}")
 
 class PasswordResetAppRedirectView(APIView):
-    """
-    Renders a simple HTML page that attempts to open the app via JS
-    and provides a manual button fallback.
-    It is configured for EXPO GO usage (exp://).
-    """
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, uid, token):
-        # NOTE: If you are using Development Build for password reset too, 
-        # you might want to change this to your local IP: 10.138.121.101
-        # EXPO_IP = "192.168.137.89" 
-        # app_scheme_url = f"exp://{EXPO_IP}:8081/--/auth/resetPassword?uid={uid}&token={token}"
-        
         app_scheme_url = f"localynk://auth/resetPassword?uid={uid}&token={token}"
         
         html_content = f"""
@@ -215,7 +199,7 @@ class PasswordResetAppRedirectView(APIView):
             <p>We are trying to open the app to reset your password.</p>
             <p>If nothing happens automatically, click the button below:</p>
             
-            <a href="{{app_scheme_url}}" class="btn">Open App & Reset Password</a>
+            <a href="{app_scheme_url}" class="btn">Open App & Reset Password</a>
             
             <div class="debug">
                 Trying to open: {app_scheme_url}
@@ -324,7 +308,6 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 class AdminTokenObtainPairView(TokenObtainPairView):
     serializer_class = AdminTokenObtainPairSerializer
 
-# NEW: View for custom login
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
@@ -362,7 +345,6 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
         if not user.is_local_guide:
             user.apply_as_guide()
         
-        # Notify Admins via Email
         admin_emails = User.objects.filter(is_superuser=True).values_list('email', flat=True)
         if admin_emails:
             send_mail(
@@ -378,6 +360,7 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
              "application_id": application.id},
             status=status.HTTP_201_CREATED
         )
+
 class ApprovedLocalGuideListView(generics.ListAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny] 
@@ -474,7 +457,6 @@ class FavoriteGuideListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        # Return the actual guide objects
         return User.objects.filter(favorites_received__user=user)
     
 class GoogleLoginAPIView(APIView):
@@ -490,21 +472,18 @@ class GoogleLoginAPIView(APIView):
         if user is None:
             return Response({"detail": "Invalid Google token"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
         return Response({
             "access": str(refresh.access_token),
             "refresh": str(refresh),
-            "user": user.username # Or serialize the user object if needed
+            "user": user.username 
         })
 
-# --- ACCOUNT DEACTIVATION VIEWS ---
 class DeactivateAccountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         user = request.user
-        # Schedule deletion for 30 days from now
         user.scheduled_deletion_date = timezone.now() + timedelta(days=30)
         user.save()
         
@@ -514,7 +493,7 @@ class DeactivateAccountView(APIView):
         }, status=status.HTTP_200_OK)
 
 class ReactivateAccountView(APIView):
-    permission_classes = [permissions.AllowAny] # Must be public since user can't log in
+    permission_classes = [permissions.AllowAny] 
 
     def post(self, request):
         username = request.data.get('username')
@@ -534,11 +513,9 @@ class ReactivateAccountView(APIView):
         if user.scheduled_deletion_date is None:
             return Response({"detail": "Account is not deactivated."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Reactivate
         user.scheduled_deletion_date = None
         user.save()
 
-        # Generate tokens immediately so they are logged in
         refresh = RefreshToken.for_user(user)
         return Response({
             "detail": "Account reactivated successfully.",
