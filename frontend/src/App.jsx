@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ForgotPassword, Home, LandingPage, Login, NotFound, Register } from './pages';
 import { ProtectedRoute } from './components';
-import { AgencyLayout, AgencyDashboard, Agencysignin, AgencyRegister } from './agency';
+import { AgencyLayout, AgencyDashboard, AgencySignin, AgencyRegister } from './agency';
 import { Adminsignin } from './admin';
 
 import AdminLayout from './components/admin/AdminLayout';
@@ -53,7 +53,7 @@ const App = () => {
                 </Route>
 
                 <Route path='/admin-signin' element={<Adminsignin />} />
-                <Route path='/agency-signin' element={<Agencysignin />} />
+                <Route path='/agency-signin' element={<AgencySignin />} />
                 <Route path='/agency-register' element={<AgencyRegister />} />
             </Routes>
         </BrowserRouter>
