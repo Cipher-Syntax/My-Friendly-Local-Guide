@@ -28,14 +28,32 @@ class DestinationSerializer(serializers.ModelSerializer):
     images = DestinationImageSerializer(many=True, read_only=True)
     attractions = AttractionSerializer(many=True, read_only=True)
     
+    # Add a write-only field to accept multiple images
+    uploaded_images = serializers.ListField(
+        child=serializers.ImageField(), write_only=True, required=False
+    )
+    
     class Meta:
         model = Destination
         fields = [
-            'id', 'name', 'description', 'category', 'location', 'category',
+            'id', 'name', 'description', 'category', 'location', 
             'latitude', 'longitude', 'average_rating', 
-            'images', 'attractions', 'is_featured'
+            'images', 'uploaded_images', 'attractions', 'is_featured'
         ]
         read_only_fields = ['average_rating']
+
+    def create(self, validated_data):
+        # Pop the uploaded images from the validated data
+        uploaded_images = validated_data.pop('uploaded_images', [])
+        
+        # Create the main Destination
+        destination = Destination.objects.create(**validated_data)
+        
+        # Loop through and create DestinationImage objects linked to this destination
+        for image in uploaded_images:
+            DestinationImage.objects.create(destination=destination, image=image)
+            
+        return destination
 
 class DestinationListSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()

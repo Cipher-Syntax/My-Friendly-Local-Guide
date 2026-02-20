@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Image as ImageIcon, Eye, Trash2, AlertTriangle, MapPin, Star, XCircle, Plus, Filter, Landmark, CheckCircle, AlertCircle } from 'lucide-react';
+import { Search, Image as ImageIcon, Eye, Trash2, AlertTriangle, MapPin, Star, XCircle, Plus, Filter, Landmark, CheckCircle, AlertCircle, Loader2, Upload } from 'lucide-react';
 import api from '../../api/api';
 
 const CATEGORY_CHOICES = ['Cultural', 'Historical', 'Adventure', 'Nature'];
@@ -13,7 +13,9 @@ export default function ContentManagement() {
 
     const [editingSpot, setEditingSpot] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
 
     const [isAttractionModalOpen, setIsAttractionModalOpen] = useState(false);
     const [targetDestId, setTargetDestId] = useState(null);
@@ -21,8 +23,9 @@ export default function ContentManagement() {
         name: '', description: '', photo: null
     });
 
+    // Added 'images' array to the state
     const [newSpot, setNewSpot] = useState({
-        name: '', description: '', category: 'Cultural', location: '', rating: 0, is_featured: false
+        name: '', description: '', category: 'Cultural', location: '', rating: 0, is_featured: false, images: []
     });
 
     const [isViewImagesModalOpen, setIsViewImagesModalOpen] = useState(false);
@@ -75,37 +78,68 @@ export default function ContentManagement() {
         fetchDestinations();
     }, []);
 
-
     const handleCreate = async () => {
-        try {
-            const payload = {
-                name: newSpot.name,
-                description: newSpot.description,
-                category: newSpot.category,
-                location: newSpot.location,
-                average_rating: newSpot.rating,
-                is_featured: newSpot.is_featured
-            };
+        if (!newSpot.name || !newSpot.location || !newSpot.description) {
+            showToast("Please fill in all required text fields.", "error");
+            return;
+        }
 
-            const response = await api.post('api/destinations/', payload);
+        setIsCreating(true);
+        try {
+            // Use FormData to support image uploads
+            const formData = new FormData();
+            formData.append('name', newSpot.name);
+            formData.append('description', newSpot.description);
+            formData.append('category', newSpot.category);
+            formData.append('location', newSpot.location);
+            formData.append('average_rating', newSpot.rating);
+            formData.append('is_featured', newSpot.is_featured);
+
+            // Append each image to the FormData
+            newSpot.images.forEach((image) => {
+                formData.append('uploaded_images', image);
+            });
+
+            const response = await api.post('api/destinations/', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
 
             const createdItem = {
                 id: response.data.id,
-                ...payload,
-                imageList: [],
-                imagesCount: 0,
+                name: response.data.name,
+                description: response.data.description,
+                category: response.data.category,
+                location: response.data.location,
+                rating: response.data.average_rating || 0,
+                featured: response.data.is_featured,
+                imageList: response.data.images ? response.data.images.map(img => img.image) : [],
+                imagesCount: response.data.images ? response.data.images.length : 0,
                 attractions: [],
                 attractionsCount: 0
             };
 
             setDestinations([createdItem, ...destinations]);
             setIsCreateModalOpen(false);
-            setNewSpot({ name: '', description: '', category: 'Cultural', location: '', rating: 0, is_featured: false });
+            setNewSpot({ name: '', description: '', category: 'Cultural', location: '', rating: 0, is_featured: false, images: [] });
             showToast("Destination created successfully!", "success");
         } catch (error) {
             console.error("Failed to create:", error);
             showToast("Failed to create destination.", "error");
+        } finally {
+            setIsCreating(false);
         }
+    };
+
+    const handleDestinationImageChange = (e) => {
+        const files = Array.from(e.target.files);
+        setNewSpot(prev => ({ ...prev, images: [...prev.images, ...files] }));
+    };
+
+    const removeDestinationImage = (indexToRemove) => {
+        setNewSpot(prev => ({
+            ...prev,
+            images: prev.images.filter((_, index) => index !== indexToRemove)
+        }));
     };
 
     const handleCreateAttraction = async () => {
@@ -340,14 +374,14 @@ export default function ContentManagement() {
                                 className="flex-1 px-4 py-2.5 bg-slate-700/50 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
                             >
                                 <ImageIcon className="w-4 h-4" />
-                                Gallery
+                                Gallery ({spot.imagesCount})
                             </button>
 
                             <button
                                 onClick={() => toggleFeatured(spot)}
                                 className={`flex-1 px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border ${spot.featured
-                                        ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30'
-                                        : 'bg-slate-700/50 hover:bg-slate-700 text-slate-400 border-transparent'
+                                    ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                    : 'bg-slate-700/50 hover:bg-slate-700 text-slate-400 border-transparent'
                                     }`}
                             >
                                 <Star className={`w-4 h-4 ${spot.featured ? 'fill-current' : ''}`} />
@@ -405,6 +439,42 @@ export default function ContentManagement() {
                                 <label className="block text-white text-sm font-medium mb-2">Description</label>
                                 <textarea rows="4" value={newSpot.description} onChange={(e) => setNewSpot({ ...newSpot, description: e.target.value })} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
                             </div>
+
+                            {/* --- NEW IMAGE UPLOAD SECTION --- */}
+                            <div>
+                                <label className="block text-white text-sm font-medium mb-2">Destination Images</label>
+                                <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-cyan-500 transition-colors">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={handleDestinationImageChange}
+                                        className="hidden"
+                                        id="destination-images-upload"
+                                    />
+                                    <label htmlFor="destination-images-upload" className="cursor-pointer flex flex-col items-center">
+                                        <Upload className="w-8 h-8 text-slate-400 mb-2" />
+                                        <span className="text-sm text-slate-300">Click to upload images</span>
+                                    </label>
+                                </div>
+                                {/* Image Previews */}
+                                {newSpot.images.length > 0 && (
+                                    <div className="mt-4 grid grid-cols-4 gap-3">
+                                        {newSpot.images.map((img, index) => (
+                                            <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-slate-700">
+                                                <img src={URL.createObjectURL(img)} alt={`Preview ${index}`} className="w-full h-full object-cover" />
+                                                <button
+                                                    onClick={() => removeDestinationImage(index)}
+                                                    className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-500 text-white rounded-full transition-colors"
+                                                >
+                                                    <XCircle className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="flex items-center gap-3 p-4 bg-slate-900/30 rounded-lg border border-slate-700/30">
                                 <input type="checkbox" checked={newSpot.is_featured} onChange={(e) => setNewSpot({ ...newSpot, is_featured: e.target.checked })} className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-offset-slate-900" />
                                 <label className="text-white font-medium">Feature this destination?</label>
@@ -412,7 +482,21 @@ export default function ContentManagement() {
                         </div>
                         <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
                             <button onClick={() => setIsCreateModalOpen(false)} className="px-6 py-2 text-slate-400 hover:text-white">Cancel</button>
-                            <button onClick={handleCreate} className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg">Create Destination</button>
+                            <button
+                                onClick={handleCreate}
+                                disabled={isCreating}
+                                className={`px-6 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors ${isCreating ? 'bg-cyan-500/50 text-white/70 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-600 text-white'
+                                    }`}
+                            >
+                                {isCreating ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Creating...
+                                    </>
+                                ) : (
+                                    'Create Destination'
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -513,7 +597,6 @@ export default function ContentManagement() {
                                             <div key={attr.id} className="flex items-center justify-between p-3 bg-slate-900/30 border border-slate-700/50 rounded-lg hover:border-slate-600 transition-colors">
                                                 <div className="flex items-center gap-3">
                                                     {attr.image ? (
-                                                        // Handle mixed content URL
                                                         <img
                                                             src={attr.image.startsWith('http') ? attr.image : `http://127.0.0.1:8000${attr.image}`}
                                                             alt={attr.name}
