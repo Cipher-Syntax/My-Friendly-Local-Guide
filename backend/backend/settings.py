@@ -48,10 +48,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     
-    # Cloudinary Apps (Commented out to use local file system)
-    # 'cloudinary_storage',
+    # Cloudinary Apps (must be before staticfiles)
+    'cloudinary_storage',
     'django.contrib.staticfiles',
-    # 'cloudinary',
+    'cloudinary',
     
     # Anymail integration
     'anymail',
@@ -96,7 +96,6 @@ SIMPLE_JWT = {
     
 }
 
-# Commented out Cloudinary API keys
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME'),
     'API_KEY': config('CLOUDINARY_API_KEY'),
@@ -236,10 +235,10 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "ngrok-skip-browser-warning",
 ]
 
-# FOR DJANGO 5+: Switch BACKEND to Django's default FileSystemStorage
+# FOR DJANGO 5+: Use STORAGES instead of DEFAULT_FILE_STORAGE
 STORAGES = {
     "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
