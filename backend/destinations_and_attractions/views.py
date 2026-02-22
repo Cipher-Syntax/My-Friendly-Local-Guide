@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions, status, generics #type: ignore
 from rest_framework.views import APIView #type: ignore
 from rest_framework.response import Response #type: ignore
 from rest_framework.parsers import MultiPartParser, FormParser #type: ignore
+from rest_framework.decorators import api_view #type: ignore
 from django_filters.rest_framework import DjangoFilterBackend #type: ignore
 from django.contrib.auth import get_user_model
 from django.db.models import Q
@@ -26,6 +27,15 @@ class IsAdminOrReadOnly(permissions.BasePermission):
 class IsGuide(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and getattr(request.user, 'is_local_guide', False)
+
+
+@api_view(['GET'])
+def get_category_choices(request):
+    """
+    Returns the list of available categories for destinations.
+    """
+    categories = [choice[0] for choice in Destination.CATEGORY_CHOICES]
+    return Response(categories)
 
 
 class DestinationViewSet(viewsets.ModelViewSet):

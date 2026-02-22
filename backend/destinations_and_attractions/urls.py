@@ -13,7 +13,8 @@ from .views import (
     TourDetailView,
     GuideListView,
     GuideToursListView,
-    GuideDestinationsListView # Import the new view
+    GuideDestinationsListView,
+    get_category_choices # Imported the new view here
 )
 
 router = DefaultRouter()
@@ -22,6 +23,8 @@ router.register(r'attractions', AttractionViewSet, basename='attraction')
 
 urlpatterns = [
     path('', include(router.urls)),
+    
+    path('categories/', get_category_choices, name='category-choices'),
     
     path(
         'destinations/<int:destination_pk>/attractions/', 
@@ -36,7 +39,6 @@ urlpatterns = [
     
     path('guides/<int:guide_id>/tours/', GuideToursListView.as_view(), name='guide-tours-list'),
     
-    # NEW URL FOR GUIDE'S DESTINATIONS
     path('guides/<int:guide_id>/destinations/', GuideDestinationsListView.as_view(), name='guide-destinations-list'),
 
     path(

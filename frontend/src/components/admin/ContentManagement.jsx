@@ -2,10 +2,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Image as ImageIcon, Eye, Trash2, AlertTriangle, MapPin, Star, XCircle, Plus, Filter, Landmark, CheckCircle, AlertCircle, Loader2, Upload } from 'lucide-react';
 import api from '../../api/api';
 
-const CATEGORY_CHOICES = ['Cultural', 'Historical', 'Adventure', 'Nature'];
-
 export default function ContentManagement() {
     const [destinations, setDestinations] = useState([]);
+    const [categoryChoices, setCategoryChoices] = useState([]); // State for dynamic categories
     const [loading, setLoading] = useState(true);
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -23,9 +22,8 @@ export default function ContentManagement() {
         name: '', description: '', photo: null
     });
 
-    // Added 'images' array to the state
     const [newSpot, setNewSpot] = useState({
-        name: '', description: '', category: 'Cultural', location: '', rating: 0, is_featured: false, images: []
+        name: '', description: '', category: '', location: '', rating: 0, is_featured: false, images: []
     });
 
     const [isViewImagesModalOpen, setIsViewImagesModalOpen] = useState(false);
@@ -42,6 +40,22 @@ export default function ContentManagement() {
         setTimeout(() => {
             setToast(prev => ({ ...prev, show: false }));
         }, 3000);
+    };
+
+    // Fetch categories from the new Django endpoint
+    const fetchCategories = async () => {
+        try {
+            const response = await api.get('api/categories/');
+            setCategoryChoices(response.data);
+
+            // Default the new spot category to the first fetched category
+            if (response.data.length > 0) {
+                setNewSpot(prev => ({ ...prev, category: response.data[0] }));
+            }
+        } catch (error) {
+            console.error("Failed to fetch categories:", error);
+            showToast("Failed to load categories.", "error");
+        }
     };
 
     const fetchDestinations = async () => {
@@ -75,6 +89,7 @@ export default function ContentManagement() {
     };
 
     useEffect(() => {
+        fetchCategories();
         fetchDestinations();
     }, []);
 
@@ -86,16 +101,14 @@ export default function ContentManagement() {
 
         setIsCreating(true);
         try {
-            // Use FormData to support image uploads
             const formData = new FormData();
             formData.append('name', newSpot.name);
             formData.append('description', newSpot.description);
-            formData.append('category', newSpot.category);
+            formData.append('category', newSpot.category || categoryChoices[0]);
             formData.append('location', newSpot.location);
             formData.append('average_rating', newSpot.rating);
             formData.append('is_featured', newSpot.is_featured);
 
-            // Append each image to the FormData
             newSpot.images.forEach((image) => {
                 formData.append('uploaded_images', image);
             });
@@ -120,7 +133,7 @@ export default function ContentManagement() {
 
             setDestinations([createdItem, ...destinations]);
             setIsCreateModalOpen(false);
-            setNewSpot({ name: '', description: '', category: 'Cultural', location: '', rating: 0, is_featured: false, images: [] });
+            setNewSpot({ name: '', description: '', category: categoryChoices[0] || '', location: '', rating: 0, is_featured: false, images: [] });
             showToast("Destination created successfully!", "success");
         } catch (error) {
             console.error("Failed to create:", error);
@@ -314,12 +327,15 @@ export default function ContentManagement() {
                             className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white appearance-none focus:outline-none focus:border-cyan-500/50 cursor-pointer"
                         >
                             <option value="All">All Types</option>
-                            {CATEGORY_CHOICES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                            {categoryChoices.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                         </select>
                     </div>
                 </div>
                 <button
-                    onClick={() => setIsCreateModalOpen(true)}
+                    onClick={() => {
+                        setNewSpot(prev => ({ ...prev, category: categoryChoices[0] || '' }));
+                        setIsCreateModalOpen(true);
+                    }}
                     className="w-full md:w-auto px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 font-medium"
                 >
                     <Plus className="w-5 h-5" />
@@ -427,7 +443,7 @@ export default function ContentManagement() {
                                 <div>
                                     <label className="block text-white text-sm font-medium mb-2">Category</label>
                                     <select value={newSpot.category} onChange={(e) => setNewSpot({ ...newSpot, category: e.target.value })} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white">
-                                        {CATEGORY_CHOICES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                        {categoryChoices.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                     </select>
                                 </div>
                                 <div>
@@ -440,7 +456,6 @@ export default function ContentManagement() {
                                 <textarea rows="4" value={newSpot.description} onChange={(e) => setNewSpot({ ...newSpot, description: e.target.value })} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white" />
                             </div>
 
-                            {/* --- NEW IMAGE UPLOAD SECTION --- */}
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Destination Images</label>
                                 <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-cyan-500 transition-colors">
@@ -457,7 +472,6 @@ export default function ContentManagement() {
                                         <span className="text-sm text-slate-300">Click to upload images</span>
                                     </label>
                                 </div>
-                                {/* Image Previews */}
                                 {newSpot.images.length > 0 && (
                                     <div className="mt-4 grid grid-cols-4 gap-3">
                                         {newSpot.images.map((img, index) => (
@@ -573,7 +587,7 @@ export default function ContentManagement() {
                                 <div>
                                     <label className="block text-white text-sm font-medium mb-2">Category</label>
                                     <select value={editingSpot.category} onChange={(e) => setEditingSpot({ ...editingSpot, category: e.target.value })} className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white">
-                                        {CATEGORY_CHOICES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                        {categoryChoices.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                     </select>
                                 </div>
                                 <div>

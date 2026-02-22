@@ -10,6 +10,10 @@ class Destination(models.Model):
         ('Historical', 'Historical'),
         ('Adventure', 'Adventure'),
         ('Nature', 'Nature'),
+        ('Beaches', 'Beaches'),
+        ('Mountains', 'Mountains'),
+        ('Rivers', 'Rivers'),
+        ('Islands', 'Islands'),
     ]
 
     name = models.CharField(max_length=255)
