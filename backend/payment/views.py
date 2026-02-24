@@ -87,7 +87,7 @@ class PaymentInitiationView(APIView):
             if 'card' in raw_method: 
                 paymongo_types = ['card']
             else:
-                paymongo_types = ['qrph']
+                paymongo_types = ['gcash']
 
             print(f"DEBUG: Payment Method Requested: '{raw_method}' -> Mapped to PayMongo Type: {paymongo_types}")
 
