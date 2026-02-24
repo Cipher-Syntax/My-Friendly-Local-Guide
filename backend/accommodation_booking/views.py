@@ -7,6 +7,7 @@ from django.db.models import Q
 from datetime import date, timedelta
 from django.core.mail import send_mail
 from django.conf import settings
+from decimal import Decimal  # Added to fix decimal precision errors
 
 from .models import Accommodation, Booking
 from .serializers import AccommodationSerializer, BookingSerializer
@@ -106,9 +107,12 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         instance = serializer.save(tourist=user, status='Pending_Payment')
         
-        total_price = self.calculate_booking_price(instance)
-        down_payment = total_price * 0.30 
-        balance_due = total_price - down_payment
+        # FIX: Convert floats to strictly rounded Decimals (2 places) to avoid Django ValidationErrors
+        raw_total_price = self.calculate_booking_price(instance)
+        
+        total_price = Decimal(str(raw_total_price)).quantize(Decimal('0.01'))
+        down_payment = (total_price * Decimal('0.30')).quantize(Decimal('0.01'))
+        balance_due = (total_price - down_payment).quantize(Decimal('0.01'))
         
         instance.total_price = total_price
         instance.down_payment = down_payment
