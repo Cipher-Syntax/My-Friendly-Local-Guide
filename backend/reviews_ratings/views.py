@@ -1,5 +1,10 @@
-from rest_framework import viewsets, permissions, generics #type: ignore
+from rest_framework import viewsets, permissions, generics
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
 from django.db.models import Avg, Q
+from django.core.management import call_command
+import os
+
 from .models import Review, DestinationReview
 from .serializers import ReviewSerializer, DestinationReviewSerializer
 from user_authentication.models import User 
@@ -89,3 +94,24 @@ class DestinationReviewViewSet(viewsets.ModelViewSet):
         
         destination_instance.average_rating = round(avg_rating, 1)
         destination_instance.save(update_fields=['average_rating'])
+
+# --- NEW CRON TRIGGER ENDPOINT ---
+@api_view(['GET', 'POST'])
+@permission_classes([permissions.AllowAny]) # Allow any so external service can ping it
+def trigger_review_reminders(request):
+    # Get a secret key from the request headers or URL parameters
+    provided_key = request.GET.get('key') or request.headers.get('Authorization')
+    
+    # Define your secret key (you should set this in Render Environment Variables)
+    # Fallback to a hardcoded string just for testing, but ideally use os.environ
+    expected_key = os.environ.get('CRON_SECRET_KEY')
+
+    if provided_key != expected_key:
+        return Response({"error": "Unauthorized. Invalid cron key."}, status=403)
+
+    try:
+        # This executes the logic from your send_review_reminders.py file automatically!
+        call_command('send_review_reminders')
+        return Response({"status": "success", "message": "Review reminders executed successfully."})
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=500)
