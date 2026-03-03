@@ -111,7 +111,7 @@ export default function AgencyLayout() {
                 setBookings(formattedBookings);
             }
 
-            console.log("Fah: ", userRes.data.agency_profile?.is_approved)
+            console.log('User: ', userRes.data)
 
         } catch (error) {
             console.error("Dashboard Load Error:", error);
@@ -336,14 +336,14 @@ export default function AgencyLayout() {
 
     return (
         <div className="flex h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden relative">
-
+            
             {/* 🛑 INESCAPABLE PENDING APPROVAL MODAL 🛑 */}
             {isApproved === false && (
                 <div className="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6">
                     <div className="bg-slate-800 border-2 border-slate-700 rounded-3xl max-w-lg w-full p-10 shadow-[0_0_50px_rgba(0,0,0,0.5)] text-center relative overflow-hidden">
                         {/* Decorative Background Element */}
                         <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 blur-3xl rounded-full"></div>
-
+                        
                         <div className="relative z-10 space-y-6">
                             <div className="bg-slate-900/50 w-24 h-24 rounded-2xl flex items-center justify-center mx-auto border border-slate-700 shadow-inner">
                                 <Clock className="w-12 h-12 text-cyan-400 animate-pulse" />
@@ -368,8 +368,8 @@ export default function AgencyLayout() {
                                 <p className="text-xs text-slate-500 italic">
                                     You will receive full access to the dashboard and management tools once your account is verified.
                                 </p>
-                                <button
-                                    onClick={handleSignOut}
+                                <button 
+                                    onClick={handleSignOut} 
                                     className="w-full py-4 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-red-600 hover:to-red-700 text-white font-bold rounded-2xl transition-all duration-300 shadow-lg flex items-center justify-center gap-2 group"
                                 >
                                     <XCircle className="w-5 h-5 opacity-50 group-hover:opacity-100" />
@@ -383,8 +383,8 @@ export default function AgencyLayout() {
 
             {toast.show && (
                 <div className={`fixed top-6 right-6 z-[100] px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
-                    ? 'bg-slate-800 border-green-500/50 text-green-400'
-                    : 'bg-slate-800 border-red-500/50 text-red-400'
+                        ? 'bg-slate-800 border-green-500/50 text-green-400'
+                        : 'bg-slate-800 border-red-500/50 text-red-400'
                     }`}>
                     {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
                     <span className="font-medium text-white">{toast.message}</span>
