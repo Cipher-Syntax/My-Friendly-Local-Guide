@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock } from 'lucide-react';
 import api from '../api/api';
 
 import AgencySidebar from '../components/agency/AgencySidebar';
@@ -329,12 +329,45 @@ export default function AgencyLayout() {
         navigate('/agency-signin');
     };
 
+    // Determine if the agency is approved. Handles cases where it might be directly on user or nested in agency_profile
+    const isAgencyApproved = user?.agency_profile?.is_approved ?? user?.is_approved;
+
     return (
         <div className="flex h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden relative">
+
+            {/* FULL SCREEN PENDING APPROVAL OVERLAY */}
+            {(isAgencyApproved === false && !loading) && (
+                <div className="fixed inset-0 z-[200] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-8 shadow-2xl text-center space-y-5">
+                        <div className="bg-cyan-500/10 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Clock className="w-12 h-12 text-cyan-500 animate-pulse" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white">Application Under Review</h2>
+                        <div className="text-slate-300 space-y-2">
+                            <p>
+                                Your agency application has been submitted and is currently being reviewed.
+                            </p>
+                            <p className="font-medium">
+                                Please allow <span className="text-cyan-400">3-5 business days</span> for our administrators to verify your business permit.
+                            </p>
+                        </div>
+                        <p className="text-sm text-slate-500 mt-4 border-t border-slate-700/50 pt-4">
+                            You will gain full access to the dashboard and sidebars once your agency profile is officially approved.
+                        </p>
+                        <button
+                            onClick={handleSignOut}
+                            className="mt-6 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-xl transition-colors w-full flex items-center justify-center gap-2"
+                        >
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {toast.show && (
                 <div className={`fixed top-6 right-6 z-[100] px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
-                        ? 'bg-slate-800 border-green-500/50 text-green-400'
-                        : 'bg-slate-800 border-red-500/50 text-red-400'
+                    ? 'bg-slate-800 border-green-500/50 text-green-400'
+                    : 'bg-slate-800 border-red-500/50 text-red-400'
                     }`}>
                     {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
                     <span className="font-medium text-white">{toast.message}</span>
@@ -348,7 +381,6 @@ export default function AgencyLayout() {
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <header className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-10">
-                    {/* ... Header Content ... */}
                     <div className="relative h-48 bg-gradient-to-r from-cyan-600 to-blue-600 overflow-hidden">
                         <div className="absolute inset-0 opacity-20">
                             <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-400 rounded-full blur-3xl"></div>
@@ -473,7 +505,6 @@ export default function AgencyLayout() {
             />
 
             {confirmModal.isOpen && (
-                // ... Confirm Modal ...
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full shadow-2xl">
                         <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
