@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert } from 'lucide-react';
 import api from '../api/api';
 
 import AgencySidebar from '../components/agency/AgencySidebar';
@@ -16,7 +16,8 @@ export default function AgencyLayout() {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [loading, setLoading] = useState(true);
 
-    const [user, setUser] = useState({ guide_tier: 'free', guide_rating: 0 });
+    // Initial state set to null so we can distinguish between "loading" and "loaded but unapproved"
+    const [user, setUser] = useState(null);
 
     const [config, setConfig] = useState({
         subscriptionPrice: 3000,
@@ -76,36 +77,39 @@ export default function AgencyLayout() {
             const userRes = await api.get('api/profile/');
             setUser(userRes.data);
 
-            const guidesRes = await api.get('api/agency/guides/');
-            const bookingsRes = await api.get('api/bookings/');
+            // Only fetch management data if approved to save bandwidth
+            if (userRes.data.agency_profile?.is_approved) {
+                const guidesRes = await api.get('api/agency/guides/');
+                const bookingsRes = await api.get('api/bookings/');
 
-            const formattedGuides = guidesRes.data.map(g => ({
-                id: g.id,
-                name: `${g.first_name} ${g.last_name}`,
-                specialty: g.specialization,
-                languages: g.languages || [],
-                rating: 5.0,
-                tours: 0,
-                available: g.is_active, // Base availability
-                phone: g.contact_number,
-                email: "contact@agency.com",
-                avatar: g.first_name.charAt(0)
-            }));
-
-            const formattedBookings = bookingsRes.data
-                .map(b => ({
-                    id: b.id,
-                    name: `Booking #${b.id} - ${b.tourist_username}`,
-                    check_in: b.check_in,
-                    check_out: b.check_out,
-                    location: b.destination_detail?.name || b.accommodation_detail?.title || "General Booking",
-                    groupSize: b.num_guests,
-                    status: b.status.toLowerCase(),
-                    guideIds: b.assigned_agency_guides || []
+                const formattedGuides = guidesRes.data.map(g => ({
+                    id: g.id,
+                    name: `${g.first_name} ${g.last_name}`,
+                    specialty: g.specialization,
+                    languages: g.languages || [],
+                    rating: 5.0,
+                    tours: 0,
+                    available: g.is_active,
+                    phone: g.contact_number,
+                    email: "contact@agency.com",
+                    avatar: g.first_name.charAt(0)
                 }));
 
-            setGuides(formattedGuides);
-            setBookings(formattedBookings);
+                const formattedBookings = bookingsRes.data
+                    .map(b => ({
+                        id: b.id,
+                        name: `Booking #${b.id} - ${b.tourist_username}`,
+                        check_in: b.check_in,
+                        check_out: b.check_out,
+                        location: b.destination_detail?.name || b.accommodation_detail?.title || "General Booking",
+                        groupSize: b.num_guests,
+                        status: b.status.toLowerCase(),
+                        guideIds: b.assigned_agency_guides || []
+                    }));
+
+                setGuides(formattedGuides);
+                setBookings(formattedBookings);
+            }
 
         } catch (error) {
             console.error("Dashboard Load Error:", error);
@@ -218,7 +222,7 @@ export default function AgencyLayout() {
     };
 
     const updateBookingStatus = async (id, status) => {
-        if (status === 'accepted' && user.guide_tier === 'free') {
+        if (status === 'accepted' && user?.guide_tier === 'free') {
             const acceptedBookingsCount = bookings.filter(b => b.status === 'accepted').length;
             if (acceptedBookingsCount >= config.bookingLimit) {
                 showToast(`Free tier is limited to ${config.bookingLimit} accepted booking(s). Upgrade for unlimited bookings.`, "error");
@@ -235,17 +239,14 @@ export default function AgencyLayout() {
         }
     };
 
-    // [UPDATED] Core function to handle BOTH single and bulk assignments
     const updateGuideAssignments = async (bookingId, newGuideIds) => {
         try {
             await api.patch(`api/bookings/${bookingId}/assign-guides/`, {
                 agency_guide_ids: newGuideIds
             });
-
             setBookings(prev => prev.map(b =>
                 b.id === bookingId ? { ...b, guideIds: newGuideIds } : b
             ));
-
             showToast("Guides assigned successfully.");
         } catch (error) {
             console.error("Assign Guide Error:", error);
@@ -253,12 +254,10 @@ export default function AgencyLayout() {
         }
     };
 
-    // [UPDATED] Wrapper for manual toggling (Single Click)
     const assignGuide = async (bookingId, guide) => {
         const booking = bookings.find(b => b.id === bookingId);
         const isAssigned = booking.guideIds.includes(guide.id);
 
-        // Prevent manual assignment of booked guides
         if (!isAssigned && !guide.available) {
             showToast("This guide is busy or unavailable for these dates.", "error");
             return;
@@ -271,14 +270,10 @@ export default function AgencyLayout() {
         await updateGuideAssignments(bookingId, newGuideIds);
     };
 
-    // --- SMART AVAILABILITY LOGIC ---
     const getComputedGuides = () => {
         if (selectedBookingId && isManageGuidesModalOpen) {
             const currentBooking = bookings.find(b => b.id === selectedBookingId);
-
-            if (!currentBooking || !currentBooking.check_in || !currentBooking.check_out) {
-                return guides;
-            }
+            if (!currentBooking || !currentBooking.check_in || !currentBooking.check_out) return guides;
 
             const targetStart = new Date(currentBooking.check_in);
             const targetEnd = new Date(currentBooking.check_out);
@@ -287,10 +282,8 @@ export default function AgencyLayout() {
             bookings.forEach(b => {
                 if (b.id === currentBooking.id) return;
                 if (['cancelled', 'declined', 'refunded', 'pending_payment'].includes(b.status)) return;
-
                 const bookStart = new Date(b.check_in);
                 const bookEnd = new Date(b.check_out);
-
                 if (targetStart <= bookEnd && targetEnd >= bookStart) {
                     b.guideIds.forEach(gid => busyGuideIds.add(gid));
                 }
@@ -298,7 +291,6 @@ export default function AgencyLayout() {
 
             return guides.map(g => ({
                 ...g,
-                // STRICT availability: Must be Active (is_active) AND Not Busy
                 available: g.available && !busyGuideIds.has(g.id),
                 availabilityReason: busyGuideIds.has(g.id) ? 'Booked' : (g.available ? 'Available' : 'Inactive')
             }));
@@ -307,7 +299,6 @@ export default function AgencyLayout() {
     };
 
     const computedGuides = getComputedGuides();
-
     const filteredGuides = computedGuides.filter(g =>
         g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         g.specialty?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -329,37 +320,61 @@ export default function AgencyLayout() {
         navigate('/agency-signin');
     };
 
-    // Determine if the agency is approved. Handles cases where it might be directly on user or nested in agency_profile
-    const isAgencyApproved = user?.agency_profile?.is_approved ?? user?.is_approved;
+    // --- LOGIC FOR THE HARD BLOCK MODAL ---
+    // We check specifically for the 'is_approved' boolean in the agency_profile
+    const isApproved = user?.agency_profile?.is_approved;
+
+    if (loading) {
+        return (
+            <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
+                <Loader2 className="w-12 h-12 text-cyan-500 animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden relative">
 
-            {/* FULL SCREEN PENDING APPROVAL OVERLAY */}
-            {(isAgencyApproved === false && !loading) && (
-                <div className="fixed inset-0 z-[200] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4">
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-8 shadow-2xl text-center space-y-5">
-                        <div className="bg-cyan-500/10 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Clock className="w-12 h-12 text-cyan-500 animate-pulse" />
+            {/* 🛑 INESCAPABLE PENDING APPROVAL MODAL 🛑 */}
+            {isApproved === false && (
+                <div className="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6">
+                    <div className="bg-slate-800 border-2 border-slate-700 rounded-3xl max-w-lg w-full p-10 shadow-[0_0_50px_rgba(0,0,0,0.5)] text-center relative overflow-hidden">
+                        {/* Decorative Background Element */}
+                        <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 blur-3xl rounded-full"></div>
+
+                        <div className="relative z-10 space-y-6">
+                            <div className="bg-slate-900/50 w-24 h-24 rounded-2xl flex items-center justify-center mx-auto border border-slate-700 shadow-inner">
+                                <Clock className="w-12 h-12 text-cyan-400 animate-pulse" />
+                            </div>
+
+                            <div className="space-y-2">
+                                <h2 className="text-3xl font-black text-white tracking-tight">Application Pending</h2>
+                                <p className="text-cyan-400 font-semibold uppercase tracking-widest text-xs">Review in Progress</p>
+                            </div>
+
+                            <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-700/50 text-slate-300 leading-relaxed text-sm">
+                                <p className="mb-4">
+                                    Thank you for submitting your business permit! Our administrators are currently verifying your agency credentials.
+                                </p>
+                                <p className="flex items-center justify-center gap-2 text-white font-medium">
+                                    <ShieldAlert className="w-4 h-4 text-amber-400" />
+                                    Estimated time: 3-5 Business Days
+                                </p>
+                            </div>
+
+                            <div className="pt-4 space-y-4">
+                                <p className="text-xs text-slate-500 italic">
+                                    You will receive full access to the dashboard and management tools once your account is verified.
+                                </p>
+                                <button
+                                    onClick={handleSignOut}
+                                    className="w-full py-4 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-red-600 hover:to-red-700 text-white font-bold rounded-2xl transition-all duration-300 shadow-lg flex items-center justify-center gap-2 group"
+                                >
+                                    <XCircle className="w-5 h-5 opacity-50 group-hover:opacity-100" />
+                                    Sign Out & Check Later
+                                </button>
+                            </div>
                         </div>
-                        <h2 className="text-2xl font-bold text-white">Application Under Review</h2>
-                        <div className="text-slate-300 space-y-2">
-                            <p>
-                                Your agency application has been submitted and is currently being reviewed.
-                            </p>
-                            <p className="font-medium">
-                                Please allow <span className="text-cyan-400">3-5 business days</span> for our administrators to verify your business permit.
-                            </p>
-                        </div>
-                        <p className="text-sm text-slate-500 mt-4 border-t border-slate-700/50 pt-4">
-                            You will gain full access to the dashboard and sidebars once your agency profile is officially approved.
-                        </p>
-                        <button
-                            onClick={handleSignOut}
-                            className="mt-6 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-xl transition-colors w-full flex items-center justify-center gap-2"
-                        >
-                            Sign Out
-                        </button>
                     </div>
                 </div>
             )}
@@ -405,7 +420,7 @@ export default function AgencyLayout() {
                                     </div>
                                 </div>
 
-                                {user.guide_tier === 'free' ? (
+                                {user?.guide_tier === 'free' ? (
                                     <div className="flex flex-col items-end">
                                         <p className="text-sm font-semibold text-white/70 mb-1">
                                             Tier: <span className="text-yellow-400">FREE (Limited)</span>
@@ -445,7 +460,7 @@ export default function AgencyLayout() {
                                 <AgencyDashboardContent
                                     activeGuides={guides.filter(g => g.available).length}
                                     completedTours={bookings.filter(b => b.status === 'completed').length}
-                                    avgRating={user.guide_rating ? parseFloat(user.guide_rating) : 0.0}
+                                    avgRating={user?.guide_rating ? parseFloat(user.guide_rating) : 0.0}
                                     tourGuides={guides}
                                     bookings={bookings}
                                     getStatusBg={getStatusBg}
@@ -461,7 +476,7 @@ export default function AgencyLayout() {
                                         setSelectedBookingId(id);
                                         setIsManageGuidesModalOpen(true);
                                     }}
-                                    agencyTier={user.guide_tier}
+                                    agencyTier={user?.guide_tier}
                                     freeBookingLimit={config.bookingLimit}
                                 />
                             )}
@@ -488,8 +503,8 @@ export default function AgencyLayout() {
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 filteredGuides={filteredGuides}
-                assignGuide={assignGuide} // For manual click
-                updateGuideAssignments={updateGuideAssignments} // For bulk auto-assign
+                assignGuide={assignGuide}
+                updateGuideAssignments={updateGuideAssignments}
                 selectedBookingId={selectedBookingId}
             />
 
