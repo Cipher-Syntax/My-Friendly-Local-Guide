@@ -111,7 +111,7 @@ export default function AgencyLayout() {
                 setBookings(formattedBookings);
             }
 
-            console.log(userRes.data.agency_profile?.is_approved)
+            console.log("Fah: ", userRes.data.agency_profile?.is_approved)
 
         } catch (error) {
             console.error("Dashboard Load Error:", error);
