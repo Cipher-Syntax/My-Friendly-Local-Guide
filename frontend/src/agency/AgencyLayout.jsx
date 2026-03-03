@@ -111,6 +111,8 @@ export default function AgencyLayout() {
                 setBookings(formattedBookings);
             }
 
+            console.log(userRes.data.agency_profile?.is_approved)
+
         } catch (error) {
             console.error("Dashboard Load Error:", error);
             showToast("Failed to load dashboard data.", "error");
