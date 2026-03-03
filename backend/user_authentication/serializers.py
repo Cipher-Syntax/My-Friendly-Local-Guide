@@ -5,6 +5,7 @@ from rest_framework.exceptions import AuthenticationFailed # Import this
 from django.utils import timezone # Added for date checking
 from .models import FeaturedPlace, AccommodationImage, GuideApplication, FavoriteGuide
 from personalization.serializers import PersonalizationSerializer
+from agency_management_module.serializers import AgencySerializer
 
 User = get_user_model()
 
@@ -51,11 +52,13 @@ class UserSerializer(serializers.ModelSerializer):
     # NEW: Add setup_progress field
     setup_progress = serializers.SerializerMethodField()
     personalization_profile = PersonalizationSerializer(read_only=True)
+    
+    agency_profile = AgencySerializer(read_only=True)
 
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'password', 'confirm_password',
+            'id', 'username', 'email', 'password', 'confirm_password', 'agency_profile',
             'first_name', 'middle_name', 'last_name', 'date_joined',
             'profile_picture', 'bio', 'phone_number', 'location', 'valid_id_image', 'personalization_profile',
             
