@@ -324,7 +324,7 @@ export default function AgencyLayout() {
 
     // --- LOGIC FOR THE HARD BLOCK MODAL ---
     // We check specifically for the 'is_approved' boolean in the agency_profile
-    const isApproved = user?.agency_profile?.is_approved;
+    const isApproved = user?.guide_approved;
 
     if (loading) {
         return (
