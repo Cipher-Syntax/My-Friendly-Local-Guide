@@ -11,9 +11,17 @@ User = get_user_model()
 
 # --- FIX: Define a Simple User Serializer here to prevent 502 Infinite Recursion ---
 class SimpleUserSerializer(serializers.ModelSerializer):
+    # (Optional) If your agency saves their phone number in the Agency model instead of the User model, add this line:
+    agency_phone = serializers.CharField(source='agency_profile.phone', read_only=True)
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'profile_picture', 'is_local_guide', 'is_staff']
+        # ADD 'phone_number' and 'agency_phone' to the fields array below!
+        fields = [
+            'id', 'username', 'first_name', 'last_name', 'email', 
+            'profile_picture', 'is_local_guide', 'is_staff', 
+            'phone_number', 'agency_phone' 
+        ]
 
 class SimpleDestinationSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()

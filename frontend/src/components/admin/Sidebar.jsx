@@ -12,7 +12,7 @@ const menuItems = [
     { id: 'content', icon: Home, label: 'Content Management', path: '/admin/content' },
     { id: 'feedback', icon: MessageSquare, label: 'Feedback', path: '/admin/feedback' },
     { id: 'analytics', icon: PieChart, label: 'Reports & Analytics', path: '/admin/analytics' },
-    { id: 'settings', icon: Settings, label: 'Settings', path: '/admin/settings' },
+    // { id: 'settings', icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 
 export default function Sidebar() {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, AlertTriangle, Trash2, XCircle, CheckCircle, Eye, AlertCircle, X } from 'lucide-react';
+import { Search, Filter, AlertTriangle, Trash2, XCircle, CheckCircle, Eye, AlertCircle, X, Download } from 'lucide-react';
+import * as XLSX from 'xlsx'; // IMPORT XLSX FOR EXPORT
 import api from '../../api/api';
 
 export default function AllBookings() {
@@ -16,7 +17,7 @@ export default function AllBookings() {
         isOpen: false,
         title: '',
         message: '',
-        type: 'warning', // 'warning' (orange) or 'danger' (red)
+        type: 'warning',
         confirmText: 'Confirm',
         onConfirm: () => { }
     });
@@ -35,7 +36,7 @@ export default function AllBookings() {
     const fetchBookings = async () => {
         try {
             const res = await api.get('/api/bookings/');
-            setBookings(res.data);
+            setBookings(res.data.results || res.data); // Safely handle pagination format
         } catch (error) {
             console.error("Failed to fetch bookings:", error);
             showToast("Failed to fetch bookings.", "error");
@@ -43,8 +44,6 @@ export default function AllBookings() {
             setLoading(false);
         }
     };
-
-    // --- ACTION HANDLERS ---
 
     const executeForceUpdate = async (id, newStatus) => {
         try {
@@ -69,8 +68,6 @@ export default function AllBookings() {
             console.error(error);
         }
     };
-
-    // --- MODAL TRIGGERS ---
 
     const promptForceUpdate = (id, newStatus) => {
         setModal({
@@ -98,7 +95,6 @@ export default function AllBookings() {
         setModal(prev => ({ ...prev, isOpen: false }));
     };
 
-    // Filtering logic
     const filteredBookings = bookings.filter(b => {
         const matchesSearch =
             b.tourist_username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -107,11 +103,47 @@ export default function AllBookings() {
         return matchesSearch && matchesStatus;
     });
 
+    // --- EXPORT TO EXCEL FUNCTIONALITY ---
+    const handleExport = () => {
+        if (filteredBookings.length === 0) {
+            showToast("No data to export.", "error");
+            return;
+        }
+
+        const exportData = filteredBookings.map(b => ({
+            "Booking ID": b.id,
+            "Tourist Name": b.tourist_username || "Unknown",
+            "Target Provider": b.accommodation ? `Accom: ${b.accommodation_detail?.title || 'Unknown'}` :
+                b.guide ? `Guide: ${b.guide_detail?.username || 'Unknown'}` :
+                    b.agency ? `Agency: ${b.agency_detail?.username || 'Unknown'}` : 'N/A',
+            "Check-In Date": b.check_in,
+            "Check-Out Date": b.check_out,
+            "Total Amount": parseFloat(b.total_price || 0),
+            "Down Payment": parseFloat(b.down_payment || 0),
+            "Status": b.status,
+            "Date Created": new Date(b.created_at).toLocaleDateString()
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(exportData);
+
+        // Auto-size columns slightly
+        const colWidths = [
+            { wch: 12 }, { wch: 20 }, { wch: 30 }, { wch: 15 },
+            { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
+        ];
+        ws['!cols'] = colWidths;
+
+        XLSX.utils.book_append_sheet(wb, ws, "All Bookings");
+
+        const dateStr = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, `global-bookings-${dateStr}.xlsx`);
+    };
+
     if (loading) return <div className="p-8 text-white">Loading Admin Data...</div>;
 
     return (
         <div className="p-6 space-y-6 relative">
-            {/* Toast Notification */}
             {toast.show && (
                 <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
                     ? 'bg-slate-800 border-green-500/50 text-green-400'
@@ -125,7 +157,6 @@ export default function AllBookings() {
                 </div>
             )}
 
-            {/* Confirmation Modal */}
             {modal.isOpen && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl max-w-md w-full overflow-hidden transform transition-all animate-in fade-in zoom-in-95">
@@ -150,8 +181,8 @@ export default function AllBookings() {
                             <button
                                 onClick={modal.onConfirm}
                                 className={`px-4 py-2 text-white rounded-lg font-medium transition-all shadow-lg ${modal.type === 'danger'
-                                        ? 'bg-red-600 hover:bg-red-700 shadow-red-500/20'
-                                        : 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/20'
+                                    ? 'bg-red-600 hover:bg-red-700 shadow-red-500/20'
+                                    : 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/20'
                                     }`}
                             >
                                 {modal.confirmText}
@@ -166,13 +197,23 @@ export default function AllBookings() {
                     <h1 className="text-2xl font-bold text-white">Global Booking Registry</h1>
                     <p className="text-slate-400 text-sm">Superuser Access • View & Override All Bookings</p>
                 </div>
-                <div className="bg-red-500/10 border border-red-500/50 px-4 py-2 rounded-lg flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-red-500" />
-                    <span className="text-red-400 text-xs font-bold">ADMIN MODE ACTIVE</span>
+
+                {/* Updated Header Buttons */}
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-500/20"
+                    >
+                        <Download className="w-4 h-4" />
+                        Export Bookings
+                    </button>
+                    <div className="bg-red-500/10 border border-red-500/50 px-4 py-2 rounded-lg flex items-center gap-2">
+                        <AlertTriangle className="w-5 h-5 text-red-500" />
+                        <span className="text-red-400 text-xs font-bold">ADMIN MODE ACTIVE</span>
+                    </div>
                 </div>
             </div>
 
-            {/* Controls */}
             <div className="flex gap-4 bg-slate-800/50 p-4 rounded-xl border border-slate-700">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -199,7 +240,6 @@ export default function AllBookings() {
                 </select>
             </div>
 
-            {/* Table */}
             <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-slate-900/50 text-slate-400 text-sm uppercase">
@@ -234,7 +274,6 @@ export default function AllBookings() {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-right flex justify-end gap-2">
-                                    {/* Override Status Button */}
                                     {booking.status !== 'Cancelled' && (
                                         <button
                                             onClick={() => promptForceUpdate(booking.id, 'Cancelled')}
@@ -245,7 +284,6 @@ export default function AllBookings() {
                                         </button>
                                     )}
 
-                                    {/* Force Confirm Button (if stuck) */}
                                     {booking.status !== 'Confirmed' && booking.status !== 'Completed' && (
                                         <button
                                             onClick={() => promptForceUpdate(booking.id, 'Confirmed')}
@@ -256,7 +294,6 @@ export default function AllBookings() {
                                         </button>
                                     )}
 
-                                    {/* The Nuclear Option: DELETE */}
                                     <button
                                         onClick={() => promptDelete(booking.id)}
                                         title="PERMANENTLY DELETE RECORD"

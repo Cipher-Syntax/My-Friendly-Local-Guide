@@ -1,7 +1,7 @@
 from rest_framework import generics, permissions, status, viewsets #type: ignore
 from rest_framework.response import Response #type: ignore
 from django.db import transaction #type: ignore
-from django.db.models import Q
+from django.db.models import Q, Sum
 from rest_framework.views import APIView #type: ignore
 from django.core.mail import send_mail
 from django.conf import settings
@@ -9,6 +9,9 @@ from django.contrib.auth import get_user_model
 
 from .models import GuideReviewRequest, SystemAlert
 from user_authentication.models import GuideApplication
+from agency_management_module.models import Agency
+from accommodation_booking.models import Booking
+from destinations_and_attractions.models import Destination
 from .serializers import (
     GuideApplicationSubmissionSerializer, 
     AdminGuideReviewSerializer,
@@ -160,3 +163,61 @@ class CreateSystemAlertView(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
+
+class AdminDashboardSummaryView(APIView):
+    # permission_classes = [permissions.IsAdminUser] 
+
+    def get(self, request):
+        # 1. Users & Partners
+        total_tourists = User.objects.filter(is_tourist=True, is_staff=False).count()
+        total_guides = User.objects.filter(is_local_guide=True, is_staff=False).count()
+        pending_guides = User.objects.filter(is_local_guide=True, guide_approved=False).count()
+        
+        total_agencies = Agency.objects.count()
+        pending_agencies = Agency.objects.filter(is_approved=False).count()
+
+        total_users = total_tourists + total_guides + total_agencies
+
+        # 2. Content
+        total_destinations = Destination.objects.count()
+
+        # 3. Bookings
+        all_bookings = Booking.objects.all()
+        total_bookings = all_bookings.count()
+        active_bookings = all_bookings.filter(status__in=['Pending_Payment', 'Confirmed', 'Accepted']).count()
+        
+        # Get the 5 most recent bookings
+        recent_bookings = list(all_bookings.order_by('-created_at')[:5].values(
+            'id', 'status', 'total_price', 'created_at', 'tourist__username'
+        ))
+
+        # 4. Financials (Total Platform Earnings from settled payouts)
+        platform_revenue = all_bookings.filter(is_payout_settled=True).aggregate(
+            total=Sum('platform_fee')
+        )['total'] or 0.0
+
+        return Response({
+            'users': {
+                'total_users': total_users,
+                'tourists': total_tourists,
+                'guides': total_guides,
+                'agencies': total_agencies,
+                'pending_guides': pending_guides,
+                'pending_agencies': pending_agencies,
+                'total_pending': pending_guides + pending_agencies,
+            },
+            'content': {
+                'destinations': total_destinations,
+            },
+            'bookings': {
+                'total': total_bookings,
+                'active': active_bookings,
+                'recent': recent_bookings,
+            },
+            'finance': {
+                'platform_revenue': float(platform_revenue)
+            },
+            'system': {
+                'health': 100, 
+            }
+        })

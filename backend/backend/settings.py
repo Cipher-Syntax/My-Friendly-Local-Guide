@@ -91,7 +91,7 @@ REST_FRAMEWORK = {
 
 # TOKEN LIFETIMES
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=config('ACCESS_LIFETIME_TOKEN', cast=int, default=5)),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=config('ACCESS_LIFETIME_TOKEN', cast=int, default=1)),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=config('REFRESH_TOKEN_LIFETIME', cast=int, default=7)),
     
 }

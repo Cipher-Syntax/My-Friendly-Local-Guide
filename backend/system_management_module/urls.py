@@ -5,7 +5,8 @@ from .views import (
     UserAlertListView,
     UserAlertMarkReadView,
     UnreadAlertCountView,
-    CreateSystemAlertView
+    CreateSystemAlertView,
+    AdminDashboardSummaryView
 )
 
 urlpatterns = [
@@ -18,4 +19,6 @@ urlpatterns = [
     path('alerts/', UserAlertListView.as_view(), name='user-alerts-list'),
     path('alerts/<int:id>/read/', UserAlertMarkReadView.as_view(), name='user-alert-mark-read'),
     path('alerts/unread-count/', UnreadAlertCountView.as_view(), name='unread-alert-count'),
+    
+    path('dashboard-summary/', AdminDashboardSummaryView.as_view(), name='dashboard-summary'),
 ]
