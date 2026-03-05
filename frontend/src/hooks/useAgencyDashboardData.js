@@ -28,10 +28,9 @@ export const useAgencyDashboardData = () => {
         showLanguageDropdown: false
     });
 
-    // Replace mock data with live state
     const [bookings, setBookings] = useState([]);
     const [tourGuides, setTourGuides] = useState([]);
-    const [availableSpecialties, setAvailableSpecialties] = useState([]); // NEW: State for backend categories
+    const [availableSpecialties, setAvailableSpecialties] = useState([]); 
     const [isLoading, setIsLoading] = useState(true);
 
     // Fetch data from backend API
@@ -39,16 +38,15 @@ export const useAgencyDashboardData = () => {
         const fetchDashboardData = async () => {
             try {
                 setIsLoading(true);
-                // NEW: Added the categories fetch to the Promise.all
                 const [bookingsRes, guidesRes, categoriesRes] = await Promise.all([
                     api.get('api/bookings/'),
                     api.get('api/guides/'),
-                    api.get('api/categories/') // Adjust this URL if your base route is different (e.g., 'api/destinations_and_attractions/categories/')
+                    api.get('api/categories/') 
                 ]);
                 
                 setBookings(bookingsRes.data.results || bookingsRes.data || []);
                 setTourGuides(guidesRes.data.results || guidesRes.data || []);
-                setAvailableSpecialties(categoriesRes.data || []); // Automatically populate the dropdown choices
+                setAvailableSpecialties(categoriesRes.data || []); 
                 
             } catch (error) {
                 console.error("Error fetching agency dashboard data:", error);
@@ -82,14 +80,14 @@ export const useAgencyDashboardData = () => {
         if (!ids || !Array.isArray(ids)) return ['N/A'];
         return ids.map(id => {
             const guide = tourGuides.find(g => g.id === id);
-            return guide ? (guide.shortName || guide.name || guide.first_name) : 'N/A';
+            return guide ? (guide.shortName || guide.name || guide.full_name || guide.first_name) : 'N/A';
         });
     }, [tourGuides]);
 
     const filteredGuides = useMemo(() => tourGuides.filter(guide => {
         const searchLower = searchTerm.toLowerCase();
-        const nameMatch = (guide.name || guide.first_name || '').toLowerCase().includes(searchLower);
-        const specialtyMatch = (guide.specialty || '').toLowerCase().includes(searchLower);
+        const nameMatch = (guide.name || guide.full_name || guide.first_name || '').toLowerCase().includes(searchLower);
+        const specialtyMatch = (guide.specialty || guide.specialization || '').toLowerCase().includes(searchLower);
         const langMatch = (guide.languages || []).some(lang => lang.toLowerCase().includes(searchLower));
         return nameMatch || specialtyMatch || langMatch;
     }), [tourGuides, searchTerm]);
@@ -98,40 +96,98 @@ export const useAgencyDashboardData = () => {
         bookings.find(b => b.id === selectedBookingId)
         , [bookings, selectedBookingId]);
 
+    // Used for toggling a single guide manually
     const assignGuide = async (bookingId, guide) => {
-        setBookings(bookings.map(booking => {
-            if (booking.id !== bookingId) {
-                return booking;
-            }
+        // Find current booking state
+        const targetBooking = bookings.find(b => b.id === bookingId);
+        if (!targetBooking) return;
 
-            const currentGuideIds = booking.guideIds || booking.assigned_guides || [];
-            const isAssigned = currentGuideIds.includes(guide.id);
-            let newGuideIds;
+        const currentGuideIds = targetBooking.guideIds || targetBooking.assigned_agency_guides || targetBooking.assigned_guides || [];
+        const isAssigned = currentGuideIds.includes(guide.id);
+        let newGuideIds;
 
-            if (isAssigned) {
-                newGuideIds = currentGuideIds.filter(id => id !== guide.id);
-            } else {
-                newGuideIds = [...currentGuideIds, guide.id];
-            }
+        if (isAssigned) {
+            newGuideIds = currentGuideIds.filter(id => id !== guide.id);
+        } else {
+            newGuideIds = [...currentGuideIds, guide.id];
+        }
 
-            const newStatus = newGuideIds.length > 0 ? 'Accepted' : 'Pending_Payment';
+        const newStatus = newGuideIds.length > 0 ? 'Accepted' : 'Pending_Payment';
 
+        // 1. Optimistic UI Update (Makes it feel instant)
+        setBookings(prevBookings => prevBookings.map(booking => {
+            if (booking.id !== bookingId) return booking;
             return {
                 ...booking,
                 guideIds: newGuideIds,
                 assigned_guides: newGuideIds,
+                assigned_agency_guides: newGuideIds,
                 status: newStatus
             };
         }));
+
+        // 2. SAVING TO DJANGO DATABASE
+        try {
+            await api.patch(`api/bookings/${bookingId}/`, {
+                assigned_agency_guides: newGuideIds,
+                status: newStatus
+            });
+            console.log(`Successfully saved guide assignment for booking ${bookingId}`);
+        } catch (error) {
+            console.error("Failed to save guide assignment to database:", error);
+            // If it fails, we could optionally refetch the bookings here to revert the UI
+        }
     };
 
+    // Used by Auto-Assign to assign multiple guides at once cleanly
+    const updateGuideAssignments = async (bookingId, newGuideIds) => {
+        const newStatus = newGuideIds.length > 0 ? 'Accepted' : 'Pending_Payment';
+
+        // 1. Optimistic UI Update
+        setBookings(prevBookings => prevBookings.map(booking => {
+            if (booking.id !== bookingId) return booking;
+            return {
+                ...booking,
+                guideIds: newGuideIds,
+                assigned_guides: newGuideIds,
+                assigned_agency_guides: newGuideIds,
+                status: newStatus
+            };
+        }));
+
+        // 2. SAVING TO DJANGO DATABASE
+        try {
+            await api.patch(`api/bookings/${bookingId}/`, {
+                assigned_agency_guides: newGuideIds,
+                status: newStatus
+            });
+            console.log(`Successfully Auto-Assigned guides to booking ${bookingId}`);
+        } catch (error) {
+            console.error("Failed to auto-assign guides to database:", error);
+        }
+    };
+
+    // Used when clicking the Accept/Decline buttons directly on the table
     const updateBookingStatus = async (bookingId, newStatus) => {
-        setBookings(bookings.map(booking => {
+        // 1. Optimistic UI Update
+        setBookings(prevBookings => prevBookings.map(booking => {
             if (booking.id === bookingId) {
                 return { ...booking, status: newStatus };
             }
             return booking;
         }));
+
+        // 2. SAVING TO DJANGO DATABASE
+        try {
+            // Ensure status strings map correctly to your backend choices (e.g., 'Accepted', 'Declined')
+            const capitalizedStatus = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+            await api.patch(`api/bookings/${bookingId}/`, {
+                status: capitalizedStatus
+            });
+            console.log(`Successfully updated booking ${bookingId} status to ${capitalizedStatus}`);
+        } catch (error) {
+            console.error("Failed to update booking status in database:", error);
+        }
     };
 
     const openManageGuidesModal = (bookingId) => {
@@ -197,8 +253,6 @@ export const useAgencyDashboardData = () => {
     const handleSubmitNewGuide = async () => {
         if (newGuideForm.fullName && newGuideForm.specialty && newGuideForm.languages.length > 0 && newGuideForm.phone && newGuideForm.email) {
             
-            // Artificial delay so the loading animation is visible. 
-            // Once you hook this up to your actual API, you can replace this with your api.post() request.
             await new Promise(resolve => setTimeout(resolve, 1500));
             
             const newGuide = {
@@ -286,6 +340,7 @@ export const useAgencyDashboardData = () => {
         // Actions
         getStatusBg,
         assignGuide,
+        updateGuideAssignments,
         updateBookingStatus,
         openManageGuidesModal,
         closeModal,

@@ -11,7 +11,6 @@ import AgencyReviews from '../components/agency/AgencyReviews';
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
 
-// IMPORTED availableLanguages FROM THE HOOK FILE
 import { useAgencyDashboardData, availableLanguages } from '../hooks/useAgencyDashboardData';
 
 export default function AgencyLayout() {
@@ -86,6 +85,7 @@ export default function AgencyLayout() {
                 const bookingsRes = await api.get('api/bookings/');
 
                 const formattedGuides = guidesRes.data.map(g => ({
+                    ...g, // THIS PREVENTS DATA LOSS!
                     id: g.id,
                     name: `${g.first_name} ${g.last_name}`,
                     specialty: g.specialization,
@@ -100,6 +100,7 @@ export default function AgencyLayout() {
 
                 const formattedBookings = bookingsRes.data
                     .map(b => ({
+                        ...b, // THIS PREVENTS DATA LOSS (Keeps destination_detail & category!)
                         id: b.id,
                         name: `Booking #${b.id} - ${b.tourist_username}`,
                         check_in: b.check_in,
@@ -113,8 +114,6 @@ export default function AgencyLayout() {
                 setGuides(formattedGuides);
                 setBookings(formattedBookings);
             }
-
-            console.log('User: ', userRes.data)
 
         } catch (error) {
             console.error("Dashboard Load Error:", error);
@@ -327,7 +326,6 @@ export default function AgencyLayout() {
 
     const isApproved = user?.agency_profile?.is_approved;
 
-    // LOCAL FILTERING LOGIC FOR THE MODAL'S LANGUAGE DROPDOWN
     const filteredFormLanguages = useMemo(() => availableLanguages.filter(lang =>
         lang.toLowerCase().includes((newGuideForm.languageSearchTerm || '').toLowerCase()) &&
         !newGuideForm.languages.includes(lang)
@@ -344,11 +342,9 @@ export default function AgencyLayout() {
     return (
         <div className="flex h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden relative">
 
-            {/* 🛑 INESCAPABLE PENDING APPROVAL MODAL 🛑 */}
             {isApproved === false && (
                 <div className="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6">
                     <div className="bg-slate-800 border-2 border-slate-700 rounded-3xl max-w-lg w-full p-10 shadow-[0_0_50px_rgba(0,0,0,0.5)] text-center relative overflow-hidden">
-                        {/* Decorative Background Element */}
                         <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 blur-3xl rounded-full"></div>
 
                         <div className="relative z-10 space-y-6">
@@ -522,7 +518,7 @@ export default function AgencyLayout() {
                 closeAddGuideModal={() => setIsAddGuideModalOpen(false)}
                 newGuideForm={newGuideForm}
                 setNewGuideForm={setNewGuideForm}
-                filteredLanguages={filteredFormLanguages} // <--- DYNAMICALLY FILTERED HERE
+                filteredLanguages={filteredFormLanguages}
                 handleAddLanguage={(lang) => !newGuideForm.languages.includes(lang) && setNewGuideForm(prev => ({ ...prev, languages: [...prev.languages, lang] }))}
                 handleRemoveLanguage={(lang) => setNewGuideForm(prev => ({ ...prev, languages: prev.languages.filter(l => l !== lang) }))}
                 handleSubmitNewGuide={handleAddGuide}

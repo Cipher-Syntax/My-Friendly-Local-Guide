@@ -16,7 +16,6 @@ class SimpleUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        # ADD 'phone_number' and 'agency_phone' to the fields array below!
         fields = [
             'id', 'username', 'first_name', 'last_name', 'email', 
             'profile_picture', 'is_local_guide', 'is_staff', 
@@ -28,7 +27,7 @@ class SimpleDestinationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Destination
-        fields = ['id', 'name', 'image']
+        fields = ['id', 'name', 'category', 'image']
 
     def get_image(self, obj):
         first_img = obj.images.first() 
@@ -112,7 +111,6 @@ class BookingSerializer(serializers.ModelSerializer):
             'assigned_guides', 'assigned_agency_guides', 'destination_detail'
         ]
 
-    # --- FIX: Use SimpleUserSerializer to avoid circular import crash (502) ---
     def get_guide_detail(self, obj):
         if obj.guide:
             return SimpleUserSerializer(obj.guide, context=self.context).data
@@ -159,7 +157,6 @@ class BookingSerializer(serializers.ModelSerializer):
         return guides_data
 
     def validate(self, data):
-        # --- Handle Partial Updates (PATCH) ---
         if self.instance:
             accommodation = data.get('accommodation', self.instance.accommodation)
             guide = data.get('guide', self.instance.guide)
@@ -175,7 +172,6 @@ class BookingSerializer(serializers.ModelSerializer):
             check_in = data.get('check_in')
             check_out = data.get('check_out')
 
-        # --- Date Validation ---
         if check_in and check_out:
             if check_out <= check_in:
                 raise serializers.ValidationError({"check_out": "Check-out must be after check-in."})
@@ -184,7 +180,6 @@ class BookingSerializer(serializers.ModelSerializer):
                 if check_in < date.today():
                     raise serializers.ValidationError({"check_in": "Check-in date cannot be in the past."})
 
-        # --- Target Validation ---
         is_accommodation = accommodation is not None
         is_guide = guide is not None
         is_agency = agency is not None
@@ -192,14 +187,4 @@ class BookingSerializer(serializers.ModelSerializer):
         if not (is_guide or is_accommodation or is_agency):
             raise serializers.ValidationError("A booking must target a Guide, Accommodation, or Agency.")
 
-        # --- FIX: Relaxed validation rules (Commented out to prevent 400 errors) ---
-        
-        # 1. Allow Agency + Accommodation
-        # if is_agency and (is_guide or is_accommodation):
-        #      raise serializers.ValidationError("Agency bookings cannot be combined with independent Guide or Accommodation bookings.")
-
-        # 2. Allow booking without explicit destination (e.g., generic guide hiring)
-        # if (is_guide or is_agency) and destination is None:
-        #    raise serializers.ValidationError({"destination": "A destination is required when booking a guide or agency."})
-        
         return data
