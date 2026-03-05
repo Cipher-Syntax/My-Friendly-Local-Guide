@@ -5,7 +5,7 @@ export default function DashboardStats({ tourGuides = [], bookings = [], avgRati
     const activeGuidesCount = tourGuides.filter(g => g.available).length;
     const totalBookings = bookings.length;
 
-    console.log('Bookings in DashboardStats:', bookings); // Debugging log
+    // console.log('Bookings in DashboardStats:', bookings); // Debugging log
     const completedTours = bookings.filter(b => b.status === 'completed').length;
 
 

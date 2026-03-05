@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert } from 'lucide-react';
 import api from '../api/api';
@@ -11,12 +11,14 @@ import AgencyReviews from '../components/agency/AgencyReviews';
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
 
+// IMPORTED availableLanguages FROM THE HOOK FILE
+import { useAgencyDashboardData, availableLanguages } from '../hooks/useAgencyDashboardData';
+
 export default function AgencyLayout() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [loading, setLoading] = useState(true);
 
-    // Initial state set to null so we can distinguish between "loading" and "loaded but unapproved"
     const [user, setUser] = useState(null);
 
     const [config, setConfig] = useState({
@@ -36,6 +38,8 @@ export default function AgencyLayout() {
         isDanger: false,
         actionLabel: 'Confirm'
     });
+
+    const { availableSpecialties } = useAgencyDashboardData();
 
     const [guides, setGuides] = useState([]);
     const [bookings, setBookings] = useState([]);
@@ -77,7 +81,6 @@ export default function AgencyLayout() {
             const userRes = await api.get('api/profile/');
             setUser(userRes.data);
 
-            // Only fetch management data if approved to save bandwidth
             if (userRes.data.agency_profile?.is_approved) {
                 const guidesRes = await api.get('api/agency/guides/');
                 const bookingsRes = await api.get('api/bookings/');
@@ -322,9 +325,13 @@ export default function AgencyLayout() {
         navigate('/agency-signin');
     };
 
-    // --- LOGIC FOR THE HARD BLOCK MODAL ---
-    // We check specifically for the 'is_approved' boolean in the agency_profile
     const isApproved = user?.agency_profile?.is_approved;
+
+    // LOCAL FILTERING LOGIC FOR THE MODAL'S LANGUAGE DROPDOWN
+    const filteredFormLanguages = useMemo(() => availableLanguages.filter(lang =>
+        lang.toLowerCase().includes((newGuideForm.languageSearchTerm || '').toLowerCase()) &&
+        !newGuideForm.languages.includes(lang)
+    ), [newGuideForm.languageSearchTerm, newGuideForm.languages]);
 
     if (loading) {
         return (
@@ -336,14 +343,14 @@ export default function AgencyLayout() {
 
     return (
         <div className="flex h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden relative">
-            
+
             {/* 🛑 INESCAPABLE PENDING APPROVAL MODAL 🛑 */}
             {isApproved === false && (
                 <div className="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6">
                     <div className="bg-slate-800 border-2 border-slate-700 rounded-3xl max-w-lg w-full p-10 shadow-[0_0_50px_rgba(0,0,0,0.5)] text-center relative overflow-hidden">
                         {/* Decorative Background Element */}
                         <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 blur-3xl rounded-full"></div>
-                        
+
                         <div className="relative z-10 space-y-6">
                             <div className="bg-slate-900/50 w-24 h-24 rounded-2xl flex items-center justify-center mx-auto border border-slate-700 shadow-inner">
                                 <Clock className="w-12 h-12 text-cyan-400 animate-pulse" />
@@ -368,8 +375,8 @@ export default function AgencyLayout() {
                                 <p className="text-xs text-slate-500 italic">
                                     You will receive full access to the dashboard and management tools once your account is verified.
                                 </p>
-                                <button 
-                                    onClick={handleSignOut} 
+                                <button
+                                    onClick={handleSignOut}
                                     className="w-full py-4 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-red-600 hover:to-red-700 text-white font-bold rounded-2xl transition-all duration-300 shadow-lg flex items-center justify-center gap-2 group"
                                 >
                                     <XCircle className="w-5 h-5 opacity-50 group-hover:opacity-100" />
@@ -383,8 +390,8 @@ export default function AgencyLayout() {
 
             {toast.show && (
                 <div className={`fixed top-6 right-6 z-[100] px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
-                        ? 'bg-slate-800 border-green-500/50 text-green-400'
-                        : 'bg-slate-800 border-red-500/50 text-red-400'
+                    ? 'bg-slate-800 border-green-500/50 text-green-400'
+                    : 'bg-slate-800 border-red-500/50 text-red-400'
                     }`}>
                     {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
                     <span className="font-medium text-white">{toast.message}</span>
@@ -515,10 +522,11 @@ export default function AgencyLayout() {
                 closeAddGuideModal={() => setIsAddGuideModalOpen(false)}
                 newGuideForm={newGuideForm}
                 setNewGuideForm={setNewGuideForm}
-                filteredLanguages={['English', 'Tagalog', 'Spanish', 'Mandarin']}
+                filteredLanguages={filteredFormLanguages} // <--- DYNAMICALLY FILTERED HERE
                 handleAddLanguage={(lang) => !newGuideForm.languages.includes(lang) && setNewGuideForm(prev => ({ ...prev, languages: [...prev.languages, lang] }))}
                 handleRemoveLanguage={(lang) => setNewGuideForm(prev => ({ ...prev, languages: prev.languages.filter(l => l !== lang) }))}
                 handleSubmitNewGuide={handleAddGuide}
+                availableSpecialties={availableSpecialties}
             />
 
             {confirmModal.isOpen && (

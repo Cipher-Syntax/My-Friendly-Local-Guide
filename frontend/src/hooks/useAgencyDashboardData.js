@@ -1,69 +1,26 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../api/api';
 
-const availableLanguages = [
+export const availableLanguages = [
     'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
     'Russian', 'Chinese', 'Japanese', 'Korean', 'Arabic', 'Hindi',
     'Dutch', 'Swedish', 'Polish', 'Greek', 'Turkish', 'Thai',
     'Vietnamese', 'Indonesian', 'Filipino', 'Hebrew', 'Danish', 'Norwegian'
 ].sort();
 
-const initialBookings = [
-    {
-        id: 1,
-        name: 'French Versailles (Group)',
-        guideIds: [],
-        status: 'pending',
-        progress: 65,
-        date: '2024-11-15',
-        time: '09:00 AM',
-        location: 'Versailles, France',
-        groupSize: 18,
-    },
-    {
-        id: 2,
-        name: 'Sistine Tours (Small)',
-        guideIds: [2],
-        status: 'accepted',
-        progress: 45,
-        date: '2024-11-16',
-        time: '02:00 PM',
-        location: 'Vatican City',
-        groupSize: 5,
-    },
-    {
-        id: 3,
-        name: 'Paolo Bubboni (Solo)',
-        guideIds: [3],
-        status: 'declined',
-        progress: 0,
-        date: '2024-11-14',
-        time: '11:30 AM',
-        location: 'Rome, Italy',
-        groupSize: 1,
-    }
-];
-
-const initialTourGuides = [
-    { id: 1, name: 'John Dubois', shortName: 'John D.', rating: 4.9, tours: 156, languages: ['English', 'French', 'Spanish'], specialty: 'Historical Tours', phone: '+33 6 12 34 56 78', email: 'john.d@tours.com', avatar: 'JD', available: true },
-    { id: 2, name: 'Maria Santos', shortName: 'Maria S.', rating: 4.8, tours: 142, languages: ['English', 'Italian', 'Portuguese'], specialty: 'Art & Culture', phone: '+39 345 678 9012', email: 'maria.s@tours.com', avatar: 'MS', available: true },
-    { id: 3, name: 'Paolo Bubboni', shortName: 'Paolo B.', rating: 4.7, tours: 98, languages: ['English', 'Italian'], specialty: 'Food & Wine', phone: '+39 320 123 4567', email: 'paolo.b@tours.com', avatar: 'PB', available: false },
-    { id: 4, name: 'Sophie Laurent', shortName: 'Sophie L.', rating: 4.9, tours: 203, languages: ['English', 'French', 'German'], specialty: 'Architecture', phone: '+33 7 98 76 54 32', email: 'sophie.l@tours.com', avatar: 'SL', available: true },
-    { id: 5, name: 'Carlos Rodriguez', shortName: 'Carlos R.', rating: 4.6, tours: 87, languages: ['English', 'Spanish', 'French'], specialty: 'Adventure Tours', phone: '+34 612 345 678', email: 'carlos.r@tours.com', avatar: 'CR', available: true }
-];
-
 export const useAgencyDashboardData = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('dashboard');
-    const [isModalOpen, setIsModalOpen] = useState(false); // For Manage Guides Modal
+    const [isModalOpen, setIsModalOpen] = useState(false); 
     const [isAddGuideModalOpen, setIsAddGuideModalOpen] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [guideToDelete, setGuideToDelete] = useState(null);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
-    const [searchTerm, setSearchTerm] = useState(''); // For guide search in modal
+    const [searchTerm, setSearchTerm] = useState(''); 
     const [newGuideForm, setNewGuideForm] = useState({
         fullName: '',
-        specialty: '',
+        specialty: '', 
         languages: [],
         phone: '',
         email: '',
@@ -71,62 +28,104 @@ export const useAgencyDashboardData = () => {
         showLanguageDropdown: false
     });
 
-    const [bookings, setBookings] = useState(initialBookings);
-    const [tourGuides, setTourGuides] = useState(initialTourGuides);
+    // Replace mock data with live state
+    const [bookings, setBookings] = useState([]);
+    const [tourGuides, setTourGuides] = useState([]);
+    const [availableSpecialties, setAvailableSpecialties] = useState([]); // NEW: State for backend categories
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Fetch data from backend API
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                setIsLoading(true);
+                // NEW: Added the categories fetch to the Promise.all
+                const [bookingsRes, guidesRes, categoriesRes] = await Promise.all([
+                    api.get('api/bookings/'),
+                    api.get('api/guides/'),
+                    api.get('api/categories/') // Adjust this URL if your base route is different (e.g., 'api/destinations_and_attractions/categories/')
+                ]);
+                
+                setBookings(bookingsRes.data.results || bookingsRes.data || []);
+                setTourGuides(guidesRes.data.results || guidesRes.data || []);
+                setAvailableSpecialties(categoriesRes.data || []); // Automatically populate the dropdown choices
+                
+            } catch (error) {
+                console.error("Error fetching agency dashboard data:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, []);
 
     // --- Helper Functions ---
     const getStatusBg = (status) => {
-        switch (status) {
-            case 'accepted': return 'bg-green-500/10 text-green-500';
-            case 'pending': return 'bg-yellow-500/10 text-yellow-500';
-            case 'declined': return 'bg-red-500/10 text-red-500';
-            default: return 'bg-gray-500/10 text-gray-500';
+        const lowerStatus = status?.toLowerCase();
+        switch (lowerStatus) {
+            case 'accepted': 
+            case 'confirmed': 
+                return 'bg-green-500/10 text-green-500 border-green-500/20';
+            case 'pending': 
+            case 'pending_payment':
+                return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
+            case 'declined': 
+            case 'cancelled': 
+                return 'bg-red-500/10 text-red-500 border-red-500/20';
+            default: 
+                return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
         }
     };
 
     const getGuideNames = useMemo(() => (ids) => {
+        if (!ids || !Array.isArray(ids)) return ['N/A'];
         return ids.map(id => {
             const guide = tourGuides.find(g => g.id === id);
-            return guide ? guide.shortName : 'N/A';
+            return guide ? (guide.shortName || guide.name || guide.first_name) : 'N/A';
         });
     }, [tourGuides]);
 
-    const filteredGuides = useMemo(() => tourGuides.filter(guide =>
-        guide.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        guide.specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        guide.languages.some(lang => lang.toLowerCase().includes(searchTerm.toLowerCase()))
-    ), [tourGuides, searchTerm]);
+    const filteredGuides = useMemo(() => tourGuides.filter(guide => {
+        const searchLower = searchTerm.toLowerCase();
+        const nameMatch = (guide.name || guide.first_name || '').toLowerCase().includes(searchLower);
+        const specialtyMatch = (guide.specialty || '').toLowerCase().includes(searchLower);
+        const langMatch = (guide.languages || []).some(lang => lang.toLowerCase().includes(searchLower));
+        return nameMatch || specialtyMatch || langMatch;
+    }), [tourGuides, searchTerm]);
 
     const currentSelectedBooking = useMemo(() =>
         bookings.find(b => b.id === selectedBookingId)
         , [bookings, selectedBookingId]);
 
-    const assignGuide = (bookingId, guide) => {
+    const assignGuide = async (bookingId, guide) => {
         setBookings(bookings.map(booking => {
             if (booking.id !== bookingId) {
                 return booking;
             }
 
-            const isAssigned = booking.guideIds.includes(guide.id);
+            const currentGuideIds = booking.guideIds || booking.assigned_guides || [];
+            const isAssigned = currentGuideIds.includes(guide.id);
             let newGuideIds;
 
             if (isAssigned) {
-                newGuideIds = booking.guideIds.filter(id => id !== guide.id);
+                newGuideIds = currentGuideIds.filter(id => id !== guide.id);
             } else {
-                newGuideIds = [...booking.guideIds, guide.id];
+                newGuideIds = [...currentGuideIds, guide.id];
             }
 
-            const newStatus = newGuideIds.length > 0 ? 'accepted' : 'pending';
+            const newStatus = newGuideIds.length > 0 ? 'Accepted' : 'Pending_Payment';
 
             return {
                 ...booking,
                 guideIds: newGuideIds,
+                assigned_guides: newGuideIds,
                 status: newStatus
             };
         }));
     };
 
-    const updateBookingStatus = (bookingId, newStatus) => {
+    const updateBookingStatus = async (bookingId, newStatus) => {
         setBookings(bookings.map(booking => {
             if (booking.id === bookingId) {
                 return { ...booking, status: newStatus };
@@ -195,13 +194,14 @@ export const useAgencyDashboardData = () => {
         !newGuideForm.languages.includes(lang)
     ), [newGuideForm.languageSearchTerm, newGuideForm.languages]);
 
-    const handleSubmitNewGuide = () => {
+    const handleSubmitNewGuide = async () => {
         if (newGuideForm.fullName && newGuideForm.specialty && newGuideForm.languages.length > 0 && newGuideForm.phone && newGuideForm.email) {
+            
             const newGuide = {
                 id: tourGuides.length + 1,
                 name: newGuideForm.fullName,
                 shortName: newGuideForm.fullName.split(' ').map(n => n[0]).join('').slice(0, 2),
-                rating: 4.5,
+                rating: 0,
                 tours: 0,
                 languages: newGuideForm.languages,
                 specialty: newGuideForm.specialty,
@@ -220,7 +220,7 @@ export const useAgencyDashboardData = () => {
         setIsDeleteConfirmOpen(true);
     };
 
-    const confirmDeleteGuide = () => {
+    const confirmDeleteGuide = async () => {
         if (guideToDelete) {
             setTourGuides(tourGuides.filter(guide => guide.id !== guideToDelete));
             setIsDeleteConfirmOpen(false);
@@ -233,11 +233,15 @@ export const useAgencyDashboardData = () => {
         setGuideToDelete(null);
     };
 
-    const activeGuides = tourGuides.filter(g => g.available).length;
-    const completedTours = 15; // Mock data for now
-    const avgRating = 4.8; // Mock data for now
+    const activeGuides = tourGuides.filter(g => g.available || g.is_active).length;
+    const completedTours = bookings.filter(b => b.status === 'Completed').length; 
+    const avgRating = tourGuides.length > 0 
+        ? tourGuides.reduce((acc, guide) => acc + (guide.rating || guide.average_rating || 0), 0) / tourGuides.length 
+        : 0;
 
     const handleSignOut = () => {
+        localStorage.removeItem('ACCESS_TOKEN'); 
+        localStorage.removeItem('REFRESH_TOKEN');
         navigate('/agency-signin');
     };
 
@@ -263,12 +267,14 @@ export const useAgencyDashboardData = () => {
         setBookings,
         tourGuides,
         setTourGuides,
+        isLoading,
 
         // Computed values
         getGuideNames,
         filteredGuides,
         currentSelectedBooking,
         filteredFormLanguages,
+        availableSpecialties, // Now successfully coming from your Django backend!
         activeGuides,
         completedTours,
         avgRating,
@@ -288,5 +294,6 @@ export const useAgencyDashboardData = () => {
         confirmDeleteGuide,
         cancelDeleteGuide,
         handleSignOut,
+        availableLanguages,
     };
 };
