@@ -197,6 +197,10 @@ export const useAgencyDashboardData = () => {
     const handleSubmitNewGuide = async () => {
         if (newGuideForm.fullName && newGuideForm.specialty && newGuideForm.languages.length > 0 && newGuideForm.phone && newGuideForm.email) {
             
+            // Artificial delay so the loading animation is visible. 
+            // Once you hook this up to your actual API, you can replace this with your api.post() request.
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
             const newGuide = {
                 id: tourGuides.length + 1,
                 name: newGuideForm.fullName,
@@ -274,7 +278,7 @@ export const useAgencyDashboardData = () => {
         filteredGuides,
         currentSelectedBooking,
         filteredFormLanguages,
-        availableSpecialties, // Now successfully coming from your Django backend!
+        availableSpecialties,
         activeGuides,
         completedTours,
         avgRating,

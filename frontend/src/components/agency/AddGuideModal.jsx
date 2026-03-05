@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, Plus, User, Phone, Book, Languages } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Plus, User, Phone, Book, Languages, Loader2 } from 'lucide-react';
 
 export default function AddGuideModal({
     isAddGuideModalOpen,
@@ -12,6 +12,17 @@ export default function AddGuideModal({
     handleSubmitNewGuide,
     availableSpecialties = []
 }) {
+    const [isCreating, setIsCreating] = useState(false);
+
+    const handleCreateProfile = async () => {
+        setIsCreating(true);
+        try {
+            await handleSubmitNewGuide();
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
     if (!isAddGuideModalOpen) return null;
 
     return (
@@ -22,7 +33,7 @@ export default function AddGuideModal({
                         <Plus className="w-5 h-5 text-cyan-400" />
                         Add New Tour Guide
                     </h3>
-                    <button onClick={closeAddGuideModal} className="text-slate-400 hover:text-white transition-colors">
+                    <button onClick={closeAddGuideModal} disabled={isCreating} className="text-slate-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         <X className="w-6 h-6" />
                     </button>
                 </div>
@@ -34,7 +45,8 @@ export default function AddGuideModal({
                         </label>
                         <input
                             type="text"
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
+                            disabled={isCreating}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             placeholder="e.g. Juan Dela Cruz"
                             value={newGuideForm.fullName}
                             onChange={(e) => setNewGuideForm({ ...newGuideForm, fullName: e.target.value })}
@@ -48,8 +60,9 @@ export default function AddGuideModal({
                             </label>
                             <input
                                 type="tel"
-                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
-                                placeholder="+63 9..."
+                                disabled={isCreating}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                placeholder="09..."
                                 value={newGuideForm.phone}
                                 onChange={(e) => setNewGuideForm({ ...newGuideForm, phone: e.target.value })}
                             />
@@ -59,7 +72,8 @@ export default function AddGuideModal({
                                 <Book className="w-4 h-4 text-slate-500" /> Specialty
                             </label>
                             <select
-                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all appearance-none cursor-pointer"
+                                disabled={isCreating}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 value={newGuideForm.specialty}
                                 onChange={(e) => setNewGuideForm({ ...newGuideForm, specialty: e.target.value })}
                             >
@@ -77,7 +91,7 @@ export default function AddGuideModal({
                         <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
                             <Languages className="w-4 h-4 text-slate-500" /> Languages
                         </label>
-                        <div className="flex flex-wrap gap-2 mb-2 p-2 bg-slate-900/50 rounded-xl border border-slate-700 min-h-[3rem]">
+                        <div className={`flex flex-wrap gap-2 mb-2 p-2 bg-slate-900/50 rounded-xl border border-slate-700 min-h-[3rem] ${isCreating ? 'opacity-50 pointer-events-none' : ''}`}>
                             {newGuideForm.languages.map(lang => (
                                 <span key={lang} className="bg-cyan-500/20 text-cyan-300 px-2 py-1 rounded text-xs flex items-center gap-1 border border-cyan-500/30">
                                     {lang}
@@ -117,12 +131,29 @@ export default function AddGuideModal({
                 </div>
 
                 <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
-                    <button onClick={closeAddGuideModal} className="px-4 py-2 text-slate-400 hover:text-white transition-colors">Cancel</button>
                     <button
-                        onClick={handleSubmitNewGuide}
-                        className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white font-medium rounded-xl shadow-lg shadow-cyan-500/25 transition-all"
+                        onClick={closeAddGuideModal}
+                        disabled={isCreating}
+                        className="px-4 py-2 text-slate-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Create Profile
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleCreateProfile}
+                        disabled={isCreating}
+                        className={`px-6 py-2 font-medium rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 ${isCreating
+                                ? 'bg-cyan-500/50 text-white/70 cursor-not-allowed shadow-none'
+                                : 'bg-cyan-500 hover:bg-cyan-600 text-white shadow-cyan-500/25'
+                            }`}
+                    >
+                        {isCreating ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                Creating...
+                            </>
+                        ) : (
+                            'Create Profile'
+                        )}
                     </button>
                 </div>
             </div>
