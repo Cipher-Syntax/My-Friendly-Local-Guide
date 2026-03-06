@@ -71,7 +71,6 @@ const Agencysignin = () => {
             const pendingData = localStorage.getItem('pending_agency_data');
 
             if (pendingData) {
-
                 navigate('/agency/complete-profile');
             } else {
                 navigate('/agency');
@@ -105,26 +104,26 @@ const Agencysignin = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-cyan-500/30">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-cyan-500/30 transition-colors duration-300">
 
             <div className="absolute inset-0 overflow-hidden">
                 <div
-                    className="absolute top-[-10%] right-[-5%] w-[60%] h-[60%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse"
+                    className="absolute top-[-10%] right-[-5%] w-[60%] h-[60%] bg-indigo-500/20 dark:bg-indigo-600/20 rounded-full blur-[120px] animate-pulse"
                     style={{ transform: `translate(${mousePosition.x}px, ${mousePosition.y * -1}px)` }}
                 />
                 <div
-                    className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-600/10 rounded-full blur-[100px] animate-pulse"
+                    className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-500/20 dark:bg-cyan-600/10 rounded-full blur-[100px] animate-pulse"
                     style={{ animationDelay: '2s', transform: `translate(${mousePosition.x * -1}px, ${mousePosition.y}px)` }}
                 />
 
                 {floatingIcons.map(({ Icon, top, left, delay, size, opacity }, idx) => (
                     <div
                         key={idx}
-                        className="absolute text-indigo-200"
+                        className="absolute text-indigo-600/30 dark:text-indigo-200"
                         style={{
                             top,
                             left,
-                            opacity,
+                            opacity: opacity * 2,
                             animation: `float 8s ease-in-out infinite`,
                             animationDelay: delay,
                             filter: 'drop-shadow(0 0 10px rgba(99, 102, 241, 0.3))'
@@ -135,39 +134,39 @@ const Agencysignin = () => {
                 ))}
             </div>
 
-            <div className="w-full max-w-5xl bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10 hover:shadow-indigo-900/20 transition-all duration-500">
+            <div className="w-full max-w-5xl bg-white/80 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10 hover:shadow-indigo-500/10 dark:hover:shadow-indigo-900/20 transition-all duration-500">
 
-                <div className="w-full md:w-5/12 bg-gradient-to-br from-indigo-900/80 to-slate-900/80 p-12 text-white relative flex flex-col justify-between border-r border-white/5">
+                <div className="w-full md:w-5/12 bg-gradient-to-br from-indigo-50/90 to-slate-100/90 dark:from-indigo-900/80 dark:to-slate-900/80 p-12 text-slate-900 dark:text-white relative flex flex-col justify-between border-r border-slate-200 dark:border-white/5 transition-colors duration-300">
 
                     <div className="relative z-10">
-                        <div className="w-16 h-16 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-8 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
+                        <div className="w-16 h-16 bg-gradient-to-tr from-cyan-500 to-indigo-600 dark:from-cyan-400 dark:to-indigo-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-8 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
                             <Building2 size={32} className="text-white" strokeWidth={2} />
                         </div>
 
                         <div className="space-y-2">
-                            <h3 className="text-cyan-400 font-medium tracking-widest text-sm uppercase flex items-center gap-2">
+                            <h3 className="text-cyan-600 dark:text-cyan-400 font-bold tracking-widest text-sm uppercase flex items-center gap-2">
                                 <Globe size={14} /> Partner Portal
                             </h3>
-                            <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-white">
-                                Local<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">Ynk</span>
+                            <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
+                                Local<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-indigo-600 dark:from-cyan-400 dark:to-indigo-400">Ynk</span>
                             </h1>
                         </div>
                     </div>
 
                     <div className="my-12 relative z-10">
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500 to-indigo-600 rounded-full"></div>
-                        <p className="pl-6 text-slate-300 leading-relaxed text-lg font-light">
+                        <p className="pl-6 text-slate-600 dark:text-slate-300 leading-relaxed text-lg font-medium dark:font-light">
                             Grow your agency. Manage packages, track bookings, and deliver world-class experiences to your clients.
                         </p>
                     </div>
 
-                    <div className="relative z-10 flex gap-4 text-xs font-medium tracking-wide text-slate-500">
+                    <div className="relative z-10 flex gap-4 text-xs font-bold tracking-wide text-slate-500 dark:text-slate-500">
                         <span>AGENCY PARTNER PROGRAM</span>
                         <span>•</span>
                         <span>SECURE LOGIN</span>
                     </div>
 
-                    <div className="absolute inset-0 opacity-10 pointer-events-none">
+                    <div className="absolute inset-0 opacity-5 dark:opacity-10 pointer-events-none">
                         <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                             <path d="M0,100 L100,0 L100,100 Z" fill="url(#grad1)" />
                             <defs>
@@ -180,45 +179,45 @@ const Agencysignin = () => {
                     </div>
                 </div>
 
-                <div className="w-full md:w-7/12 p-8 md:p-16 bg-white/5 flex flex-col justify-center">
+                <div className="w-full md:w-7/12 p-8 md:p-16 bg-white/50 dark:bg-white/5 flex flex-col justify-center transition-colors duration-300">
 
                     <div className="max-w-md mx-auto w-full">
                         <div className="mb-10">
-                            <h2 className="text-3xl font-bold text-white mb-2">Agency Sign In</h2>
-                            <p className="text-slate-400">Enter your partner credentials to access your dashboard.</p>
+                            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Agency Sign In</h2>
+                            <p className="text-slate-500 dark:text-slate-400 font-medium">Enter your partner credentials to access your dashboard.</p>
                         </div>
 
                         {error && (
-                            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 animate-in fade-in slide-in-from-top-2">
-                                <div className="p-1 bg-red-500/20 rounded-full"><EyeOff size={14} /></div>
-                                <p className="text-sm font-medium">{error}</p>
+                            <div className="mb-6 p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl flex items-center gap-3 text-red-600 dark:text-red-400 animate-in fade-in slide-in-from-top-2">
+                                <div className="p-1 bg-red-100 dark:bg-red-500/20 rounded-full"><EyeOff size={14} /></div>
+                                <p className="text-sm font-bold">{error}</p>
                             </div>
                         )}
 
                         <form className="space-y-6">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300 ml-1">Username</label>
+                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Username</label>
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <User className="h-5 w-5 text-slate-500 group-focus-within:text-teal-400 transition-colors" />
+                                        <User className="h-5 w-5 text-slate-400 dark:text-slate-500 group-focus-within:text-cyan-500 dark:group-focus-within:text-cyan-400 transition-colors" />
                                     </div>
                                     <input
-                                        type="username"
+                                        type="text"
                                         name="username"
                                         value={formData.username}
                                         onChange={handleChange}
                                         onKeyPress={handleKeyPress}
-                                        className="w-full pl-12 pr-4 py-4 bg-slate-950/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300"
+                                        className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700/50 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300 font-medium"
                                         placeholder="agency_name"
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300 ml-1">Password</label>
+                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Password</label>
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <Lock className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
+                                        <Lock className="h-5 w-5 text-slate-400 dark:text-slate-500 group-focus-within:text-cyan-500 dark:group-focus-within:text-cyan-400 transition-colors" />
                                     </div>
                                     <input
                                         type={showPassword ? "text" : "password"}
@@ -226,13 +225,13 @@ const Agencysignin = () => {
                                         value={formData.password}
                                         onChange={handleChange}
                                         onKeyPress={handleKeyPress}
-                                        className="w-full pl-12 pr-12 py-4 bg-slate-950/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300"
+                                        className="w-full pl-12 pr-12 py-4 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700/50 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300 font-medium"
                                         placeholder="••••••••"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-white transition-colors cursor-pointer"
+                                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-white transition-colors cursor-pointer"
                                     >
                                         {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                     </button>
@@ -241,7 +240,7 @@ const Agencysignin = () => {
 
                             <div className="flex items-center justify-between pt-2">
                                 <label className="flex items-center space-x-3 cursor-pointer group">
-                                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${formData.rememberMe ? 'bg-cyan-500 border-cyan-500' : 'border-slate-600 bg-slate-800 group-hover:border-cyan-500/50'}`}>
+                                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${formData.rememberMe ? 'bg-cyan-500 border-cyan-500' : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800 group-hover:border-cyan-500/50'}`}>
                                         {formData.rememberMe && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                                     </div>
                                     <input
@@ -251,17 +250,17 @@ const Agencysignin = () => {
                                         onChange={handleChange}
                                         className="hidden"
                                     />
-                                    <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">Remember me</span>
+                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-300 transition-colors">Remember me</span>
                                 </label>
-                                <a href="#" className="text-sm text-cyan-400 hover:text-cyan-300 font-medium transition-colors">
+                                {/* <a href="#" className="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-bold transition-colors">
                                     Issue with login?
-                                </a>
+                                </a> */}
                             </div>
 
                             <button
                                 onClick={handleSubmit}
                                 disabled={isLoading}
-                                className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-cyan-500/40 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed group"
+                                className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-700 hover:to-indigo-700 dark:hover:from-cyan-500 dark:hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/30 dark:shadow-indigo-500/20 hover:shadow-cyan-500/50 dark:hover:shadow-cyan-500/40 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed group"
                             >
                                 {isLoading ? (
                                     <>
@@ -276,11 +275,11 @@ const Agencysignin = () => {
                                 )}
                             </button>
 
-                            <Link to="/agency-register" className="pt-4 text-center">
-                                <p className="text-slate-500 text-sm">
-                                    New partner? <button className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors">Register your agency</button>
+                            <div className="pt-4 text-center">
+                                <p className="text-slate-600 dark:text-slate-500 text-sm font-medium">
+                                    New partner? <Link to="/agency-register" className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-bold transition-colors">Register your agency</Link>
                                 </p>
-                            </Link>
+                            </div>
                         </form>
                     </div>
                 </div>

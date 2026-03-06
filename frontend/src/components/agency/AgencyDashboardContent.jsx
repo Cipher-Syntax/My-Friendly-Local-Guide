@@ -130,10 +130,10 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-slate-900 border border-slate-700 p-3 rounded-lg shadow-xl">
-                    <p className="text-slate-300 mb-1">{label}</p>
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-lg shadow-xl">
+                    <p className="text-slate-600 dark:text-slate-300 mb-1">{label}</p>
                     {payload.map((entry, index) => (
-                        <p key={index} className="text-white font-semibold">
+                        <p key={index} className="text-slate-900 dark:text-white font-bold">
                             {entry.name}: {entry.value}
                         </p>
                     ))}
@@ -144,24 +144,24 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 transition-colors duration-300">
             {/* Header Controls for Export & Filters */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-white">Dashboard Overview</h2>
-                    <p className="text-slate-400">Live agency performance and statistics</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard Overview</h2>
+                    <p className="text-slate-500 dark:text-slate-400">Live agency performance and statistics</p>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-1">
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1">
                         <Filter className="w-4 h-4 text-slate-400 ml-2 mr-1" />
                         {['Daily', 'Weekly', 'Monthly', 'Yearly'].map((f) => (
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
                                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${filter === f
-                                    ? 'bg-cyan-500/20 text-cyan-400'
-                                    : 'text-slate-400 hover:text-white'
+                                    ? 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 shadow-sm'
+                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                                     }`}
                             >
                                 {f}
@@ -171,7 +171,7 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
 
                     <button
                         onClick={handleExport}
-                        className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+                        className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm"
                     >
                         <Download className="w-4 h-4" />
                         Export Report
@@ -181,46 +181,46 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700 shadow-xl hover:shadow-2xl transition-shadow">
+                <div className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-slate-400 text-sm font-medium">Total Bookings</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">Total Bookings</span>
                         <Calendar className="w-5 h-5 text-cyan-500" />
                     </div>
-                    <div className="text-4xl font-bold text-white mb-1">{totalBookings}</div>
-                    <div className="text-xs text-slate-400">
+                    <div className="text-4xl font-black text-slate-900 dark:text-white mb-1">{totalBookings}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                         <span>All time history</span>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700 shadow-xl hover:shadow-2xl transition-shadow">
+                <div className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-slate-400 text-sm font-medium">Active Guides</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">Active Guides</span>
                         <Users className="w-5 h-5 text-blue-500" />
                     </div>
-                    <div className="text-4xl font-bold text-white mb-1">{activeGuidesCount}</div>
-                    <div className="text-xs text-slate-400">Total: {tourGuides.length} guides</div>
+                    <div className="text-4xl font-black text-slate-900 dark:text-white mb-1">{activeGuidesCount}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total: {tourGuides.length} guides</div>
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700 shadow-xl hover:shadow-2xl transition-shadow">
+                <div className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-slate-400 text-sm font-medium">Completed Tours</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">Completed Tours</span>
                         <MapPin className="w-5 h-5 text-purple-500" />
                     </div>
-                    <div className="text-4xl font-bold text-white mb-1">{completedToursCount}</div>
-                    <div className="text-xs text-slate-400">Successfully finished</div>
+                    <div className="text-4xl font-black text-slate-900 dark:text-white mb-1">{completedToursCount}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Successfully finished</div>
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-700 shadow-xl hover:shadow-2xl transition-shadow">
+                <div className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-slate-400 text-sm font-medium">Average Rating</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">Average Rating</span>
                         <Star className="w-5 h-5 text-yellow-500" />
                     </div>
-                    <div className="text-4xl font-bold text-white mb-1">{typeof avgRating === 'number' ? avgRating.toFixed(1) : '0.0'}</div>
+                    <div className="text-4xl font-black text-slate-900 dark:text-white mb-1">{typeof avgRating === 'number' ? avgRating.toFixed(1) : '0.0'}</div>
                     <div className="flex gap-1 mt-1">
                         {[1, 2, 3, 4, 5].map(i => (
                             <Star
                                 key={i}
-                                className={`w-4 h-4 ${i <= Math.round(avgRating) ? 'fill-yellow-500 text-yellow-500' : 'text-slate-600'}`}
+                                className={`w-4 h-4 ${i <= Math.round(avgRating) ? 'fill-yellow-400 text-yellow-500' : 'text-slate-300 dark:text-slate-600'}`}
                             />
                         ))}
                     </div>
@@ -228,24 +228,24 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
             </div>
 
             {/* Booking Trends - Recharts Graph */}
-            <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6">
+            <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h3 className="text-white text-lg font-semibold flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5 text-cyan-400" />
+                        <h3 className="text-slate-900 dark:text-white text-lg font-bold flex items-center gap-2">
+                            <TrendingUp className="w-5 h-5 text-cyan-500 dark:text-cyan-400" />
                             Booking Trends ({filter})
                         </h3>
-                        <p className="text-slate-400 text-sm mt-1">Volume overview based on backend data</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">Volume overview based on backend data</p>
                     </div>
                 </div>
 
                 <div className="h-72 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={processedData.trendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                            <XAxis dataKey="name" stroke="#94a3b8" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} allowDecimals={false} />
-                            <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: '#334155', opacity: 0.4 }} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" className="dark:stroke-slate-700" vertical={false} />
+                            <XAxis dataKey="name" stroke="#64748b" className="dark:stroke-slate-400" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#64748b" className="dark:stroke-slate-400" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                            <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: '#e2e8f0', className: 'dark:fill-slate-800', opacity: 0.4 }} />
                             <Bar dataKey="Bookings" fill="#06b6d4" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
@@ -256,10 +256,10 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 {/* Top Performing Guides */}
-                <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6">
+                <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-white text-lg font-semibold">Top Performing Guides</h3>
-                        <Award className="w-5 h-5 text-yellow-400" />
+                        <h3 className="text-slate-900 dark:text-white text-lg font-bold">Top Performing Guides</h3>
+                        <Award className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
                     </div>
                     <div className="space-y-3">
                         {tourGuides.length > 0 ? (
@@ -267,33 +267,33 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
                                 .sort((a, b) => ((b.rating || b.average_rating || 0) - (a.rating || a.average_rating || 0)))
                                 .slice(0, 4)
                                 .map((guide) => (
-                                    <div key={guide.id} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-slate-700/30 hover:border-slate-600 transition-colors">
+                                    <div key={guide.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/30 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                            <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm">
                                                 {guide.avatar || (guide.name || guide.first_name || 'U').charAt(0)}
                                             </div>
                                             <div>
-                                                <p className="text-white text-sm font-medium">{`${guide.first_name || ''} ${guide.last_name || ''}`.trim() || guide.username || 'Unnamed Guide'}</p>
-                                                <p className="text-slate-400 text-xs">{guide.tours || guide.tour_count || 0} tours</p>
+                                                <p className="text-slate-900 dark:text-white text-sm font-bold">{`${guide.first_name || ''} ${guide.last_name || ''}`.trim() || guide.username || 'Unnamed Guide'}</p>
+                                                <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">{guide.tours || guide.tour_count || 0} tours</p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-1 bg-yellow-500/10 px-2 py-1 rounded-lg">
-                                            <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                                            <span className="text-yellow-400 text-xs font-bold">{guide.rating || guide.average_rating || 'N/A'}</span>
+                                        <div className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-500/10 px-2.5 py-1 rounded-lg border border-yellow-100 dark:border-transparent">
+                                            <Star className="w-3 h-3 text-yellow-500 dark:text-yellow-400 fill-yellow-500 dark:fill-yellow-400" />
+                                            <span className="text-yellow-600 dark:text-yellow-400 text-xs font-bold">{guide.rating || guide.average_rating || 'N/A'}</span>
                                         </div>
                                     </div>
                                 ))
                         ) : (
-                            <div className="text-center py-8 text-slate-500 text-sm">No guides available.</div>
+                            <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm font-medium">No guides available.</div>
                         )}
                     </div>
                 </div>
 
                 {/* Upcoming Tours */}
-                <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6">
+                <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-white text-lg font-semibold">Upcoming Tours</h3>
-                        <Clock className="w-5 h-5 text-purple-400" />
+                        <h3 className="text-slate-900 dark:text-white text-lg font-bold">Upcoming Tours</h3>
+                        <Clock className="w-5 h-5 text-purple-500 dark:text-purple-400" />
                     </div>
                     <div className="space-y-3">
                         {bookings.length > 0 ? (
@@ -307,24 +307,24 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
                                     const tourName = booking.destination_detail?.name || booking.accommodation_detail?.title || `Booking #${booking.id}`;
 
                                     return (
-                                        <div key={booking.id} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-slate-700/30 hover:border-slate-600 transition-colors">
+                                        <div key={booking.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/30 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center border border-purple-500/20">
-                                                    <MapPin className="w-5 h-5 text-purple-400" />
+                                                <div className="w-10 h-10 bg-purple-50 dark:bg-purple-500/20 rounded-lg flex items-center justify-center border border-purple-100 dark:border-purple-500/20">
+                                                    <MapPin className="w-5 h-5 text-purple-500 dark:text-purple-400" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-white text-sm font-medium line-clamp-1">{tourName}</p>
-                                                    <p className="text-slate-400 text-xs">{booking.check_in ? new Date(booking.check_in).toLocaleDateString() : 'No date set'}</p>
+                                                    <p className="text-slate-900 dark:text-white text-sm font-bold line-clamp-1">{tourName}</p>
+                                                    <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">{booking.check_in ? new Date(booking.check_in).toLocaleDateString() : 'No date set'}</p>
                                                 </div>
                                             </div>
-                                            <span className={`px-2 py-1 rounded-full text-xs border ${getStatusBg ? getStatusBg(booking.status) : 'bg-slate-700 text-slate-300'}`}>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold border capitalize ${getStatusBg ? getStatusBg(booking.status) : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-transparent'}`}>
                                                 {booking.status ? booking.status.replace('_', ' ') : 'Pending'}
                                             </span>
                                         </div>
                                     )
                                 })
                         ) : (
-                            <div className="text-center py-8 text-slate-500 text-sm">No upcoming tours found.</div>
+                            <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm font-medium">No upcoming tours found.</div>
                         )}
                     </div>
                 </div>

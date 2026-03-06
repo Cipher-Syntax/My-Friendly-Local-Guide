@@ -4,9 +4,9 @@ import api from '../../api/api';
 
 const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
-        case 'approved': return 'bg-green-500/20 text-green-400 border-green-500/30';
-        case 'rejected': return 'bg-red-500/20 text-red-400 border-red-500/30';
-        default: return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+        case 'approved': return 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/30';
+        case 'rejected': return 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/30';
+        default: return 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/30';
     }
 };
 
@@ -123,23 +123,23 @@ export default function TourGuidesManagement() {
             const isSubmitted = credentials && credentials[doc.key];
 
             return (
-                <div key={doc.key} className="flex items-center justify-between p-4 bg-slate-900/30 border border-slate-700/50 rounded-xl hover:border-slate-600 transition-colors">
+                <div key={doc.key} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-700/50 rounded-xl hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
                     <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${isSubmitted ? 'bg-cyan-500/10 text-cyan-400' : 'bg-slate-800 text-slate-600'}`}>
+                        <div className={`p-2 rounded-lg ${isSubmitted ? 'bg-cyan-100 dark:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-600'}`}>
                             <ImageIcon className="w-5 h-5" />
                         </div>
-                        <span className="text-slate-200">{doc.label}</span>
+                        <span className="text-slate-700 dark:text-slate-200 font-medium">{doc.label}</span>
                     </div>
 
                     {isSubmitted ? (
                         <button
                             onClick={() => viewCredentialImage(doc.key, selectedGuide.name, selectedGuide.credentials)}
-                            className="px-4 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                            className="px-4 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
                         >
-                            <Eye className="w-3 h-3" /> View
+                            <Eye className="w-4 h-4" /> View
                         </button>
                     ) : (
-                        <span className="text-red-400 text-xs bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">
+                        <span className="text-red-600 dark:text-red-400 text-xs bg-red-50 dark:bg-red-500/10 px-3 py-1 rounded-full border border-red-200 dark:border-red-500/20 font-bold uppercase tracking-wider">
                             Missing
                         </span>
                     )}
@@ -148,25 +148,24 @@ export default function TourGuidesManagement() {
         });
     }
 
-
     return (
         <div className="space-y-4 relative">
             {/* Toast Notification */}
             {toast.show && (
                 <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
-                    ? 'bg-slate-800 border-green-500/50 text-green-400'
-                    : 'bg-slate-800 border-red-500/50 text-red-400'
+                    ? 'bg-white dark:bg-slate-800 border-green-200 dark:border-green-500/50 text-green-600 dark:text-green-400'
+                    : 'bg-white dark:bg-slate-800 border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-400'
                     }`}>
                     {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                    <span className="font-medium text-white">{toast.message}</span>
-                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
+                    <span className="font-medium text-slate-900 dark:text-white">{toast.message}</span>
+                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
                         <XCircle className="w-4 h-4" />
                     </button>
                 </div>
             )}
 
             {/* Search Bar */}
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
+            <div className="bg-white dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-4 shadow-sm">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
@@ -174,7 +173,7 @@ export default function TourGuidesManagement() {
                         placeholder="Search tour guides..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
                     />
                 </div>
             </div>
@@ -184,13 +183,13 @@ export default function TourGuidesManagement() {
                     <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
                 </div>
             ) : (
-                <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden">
+                <div className="bg-white dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl overflow-hidden shadow-sm">
                     {filteredGuides.length === 0 ? (
-                        <p className="text-slate-400 text-center py-10">No guide applications found.</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-center py-10 font-medium">No guide applications found.</p>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm text-slate-400">
-                                <thead className="text-xs uppercase bg-slate-900/50 text-slate-200 font-medium">
+                            <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+                                <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-200 font-bold">
                                     <tr>
                                         <th className="px-6 py-4">Applicant Name</th>
                                         <th className="px-6 py-4">Contact Email</th>
@@ -198,13 +197,13 @@ export default function TourGuidesManagement() {
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-700/50">
+                                <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
                                     {filteredGuides.map((guide) => (
                                         <tr
                                             key={guide.id}
-                                            className="hover:bg-slate-700/30 transition-colors duration-150"
+                                            className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors duration-150"
                                         >
-                                            <td className="px-6 py-4 font-medium text-white whitespace-nowrap">
+                                            <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
                                                 {guide.name}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -218,9 +217,9 @@ export default function TourGuidesManagement() {
                                             <td className="px-6 py-4 text-right whitespace-nowrap">
                                                 <button
                                                     onClick={() => openDetailsModal(guide)}
-                                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-lg transition-all text-xs font-medium"
+                                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-50 dark:bg-cyan-500/10 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/20 rounded-lg transition-all text-xs font-semibold"
                                                 >
-                                                    <FileText className="w-3.5 h-3.5" />
+                                                    <FileText className="w-4 h-4" />
                                                     View Details
                                                 </button>
                                             </td>
@@ -234,17 +233,17 @@ export default function TourGuidesManagement() {
             )}
 
             {isDetailsModalOpen && selectedGuide && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col">
+                <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95">
 
-                        <div className="px-6 py-5 border-b border-slate-700/50 flex justify-between items-start">
+                        <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-700/50 flex justify-between items-start bg-slate-50 dark:bg-transparent rounded-t-2xl">
                             <div>
-                                <h3 className="text-xl font-bold text-white">Application Details</h3>
-                                <p className="text-slate-400 text-sm mt-1">Review documents and manage status</p>
+                                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Application Details</h3>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Review documents and manage status</p>
                             </div>
                             <button
                                 onClick={() => setIsDetailsModalOpen(false)}
-                                className="text-slate-400 hover:text-white"
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
                                 disabled={!!processingAction} // Disable close during processing
                             >
                                 <X className="w-6 h-6" />
@@ -252,19 +251,19 @@ export default function TourGuidesManagement() {
                         </div>
 
                         <div className="p-6 overflow-y-auto custom-scrollbar">
-                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/30 mb-6 flex justify-between items-center">
+                            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700/30 mb-6 flex justify-between items-center">
                                 <div>
-                                    <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">Applicant</p>
-                                    <p className="text-white font-medium text-lg">{selectedGuide.name}</p>
-                                    <p className="text-cyan-400 text-sm">{selectedGuide.email}</p>
+                                    <p className="text-slate-500 dark:text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">Applicant</p>
+                                    <p className="text-slate-900 dark:text-white font-bold text-lg">{selectedGuide.name}</p>
+                                    <p className="text-cyan-600 dark:text-cyan-400 text-sm font-medium">{selectedGuide.email}</p>
                                 </div>
                                 <div className={`px-4 py-2 rounded-lg border ${getStatusColor(selectedGuide.status)}`}>
-                                    <span className="text-sm font-bold uppercase">{selectedGuide.status}</span>
+                                    <span className="text-sm font-black uppercase">{selectedGuide.status}</span>
                                 </div>
                             </div>
 
-                            <h4 className="text-white font-medium mb-3 flex items-center gap-2">
-                                <Shield className="w-4 h-4 text-purple-400" />
+                            <h4 className="text-slate-900 dark:text-white font-bold mb-3 flex items-center gap-2">
+                                <Shield className="w-5 h-5 text-purple-500 dark:text-purple-400" />
                                 Submitted Documents
                             </h4>
                             <div className="space-y-3">
@@ -272,11 +271,11 @@ export default function TourGuidesManagement() {
                             </div>
                         </div>
 
-                        <div className="px-6 py-5 border-t border-slate-700/50 flex justify-end gap-3 bg-slate-800/50 rounded-b-2xl">
+                        <div className="px-6 py-5 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
                             <button
                                 onClick={() => setIsDetailsModalOpen(false)}
                                 disabled={!!processingAction}
-                                className={`px-5 py-2.5 text-slate-400 rounded-lg transition-colors font-medium ${processingAction ? 'opacity-50 cursor-not-allowed' : 'hover:text-white hover:bg-slate-700/50'
+                                className={`px-5 py-2.5 text-slate-600 dark:text-slate-400 rounded-lg transition-colors font-bold ${processingAction ? 'opacity-50 cursor-not-allowed' : 'hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700/50'
                                     }`}
                             >
                                 Close
@@ -286,19 +285,19 @@ export default function TourGuidesManagement() {
                                     <button
                                         onClick={() => handleApprovalAction('Rejected')}
                                         disabled={!!processingAction}
-                                        className={`px-5 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg transition-colors font-medium flex items-center gap-2 ${processingAction
-                                                ? 'opacity-50 cursor-not-allowed text-red-400/50'
-                                                : 'hover:bg-red-500/20 text-red-400'
+                                        className={`px-5 py-2.5 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg transition-colors font-bold flex items-center gap-2 ${processingAction
+                                            ? 'opacity-50 cursor-not-allowed text-red-500/50 dark:text-red-400/50'
+                                            : 'hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400'
                                             }`}
                                     >
                                         {processingAction === 'Rejected' ? (
                                             <>
-                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                <Loader2 className="w-5 h-5 animate-spin" />
                                                 Rejecting...
                                             </>
                                         ) : (
                                             <>
-                                                <Ban className="w-4 h-4" />
+                                                <Ban className="w-5 h-5" />
                                                 Reject
                                             </>
                                         )}
@@ -307,19 +306,19 @@ export default function TourGuidesManagement() {
                                     <button
                                         onClick={() => handleApprovalAction('Approved')}
                                         disabled={!!processingAction}
-                                        className={`px-5 py-2.5 bg-green-500 shadow-lg shadow-green-500/20 rounded-lg transition-colors font-medium flex items-center gap-2 ${processingAction
-                                                ? 'opacity-70 cursor-not-allowed'
-                                                : 'hover:bg-green-600'
-                                            } text-white`}
+                                        className={`px-5 py-2.5 bg-green-500 shadow-lg shadow-green-500/20 rounded-lg transition-colors font-bold flex items-center gap-2 text-white ${processingAction
+                                            ? 'opacity-70 cursor-not-allowed'
+                                            : 'hover:bg-green-600'
+                                            }`}
                                     >
                                         {processingAction === 'Approved' ? (
                                             <>
-                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                <Loader2 className="w-5 h-5 animate-spin" />
                                                 Approving...
                                             </>
                                         ) : (
                                             <>
-                                                <Check className="w-4 h-4" />
+                                                <Check className="w-5 h-5" />
                                                 Approve Guide
                                             </>
                                         )}
@@ -332,7 +331,7 @@ export default function TourGuidesManagement() {
             )}
 
             {isViewCredentialImageModalOpen && viewingCredentialImage && (
-                <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[60] p-4">
+                <div className="fixed inset-0 bg-slate-900/80 dark:bg-black/90 backdrop-blur-md flex items-center justify-center z-[60] p-4 transition-opacity">
                     <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center">
                         <div className="absolute top-4 right-4 z-10 flex gap-2">
                             {viewingCredentialImage.url && (
@@ -340,7 +339,7 @@ export default function TourGuidesManagement() {
                                     href={viewingCredentialImage.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="p-2 bg-black/50 text-white hover:bg-white hover:text-black rounded-full backdrop-blur-sm transition-all"
+                                    className="p-2 bg-black/50 text-white hover:bg-white hover:text-black rounded-full backdrop-blur-sm transition-all shadow-lg"
                                     title="Open original"
                                 >
                                     <ExternalLink className="w-6 h-6" />
@@ -348,18 +347,18 @@ export default function TourGuidesManagement() {
                             )}
                             <button
                                 onClick={() => setIsViewCredentialImageModalOpen(false)}
-                                className="p-2 bg-black/50 text-white hover:bg-white hover:text-black rounded-full backdrop-blur-sm transition-all"
+                                className="p-2 bg-black/50 text-white hover:bg-white hover:text-black rounded-full backdrop-blur-sm transition-all shadow-lg"
                             >
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
 
-                        <div className="w-full rounded-xl overflow-hidden shadow-2xl border border-slate-700/50 bg-slate-900 flex items-center justify-center">
+                        <div className="w-full rounded-xl overflow-hidden shadow-2xl border border-slate-700/50 bg-slate-900 flex items-center justify-center relative">
                             {viewingCredentialImage.url ? (
                                 <img
                                     src={viewingCredentialImage.url}
                                     alt="Credential Document"
-                                    className="w-full h-auto max-h-[80vh] object-contain"
+                                    className="w-full h-auto max-h-[80vh] object-contain bg-slate-100 dark:bg-transparent"
                                     onError={(e) => {
                                         console.error("Image failed to load:", viewingCredentialImage.url);
                                         e.target.style.display = 'none';
@@ -368,16 +367,16 @@ export default function TourGuidesManagement() {
                             ) : (
                                 <div className="h-96 flex flex-col items-center justify-center text-slate-500">
                                     <ImageIcon className="w-16 h-16 mb-4 opacity-50" />
-                                    <p>Image file could not be loaded.</p>
+                                    <p className="font-medium">Image file could not be loaded.</p>
                                 </div>
                             )}
                         </div>
 
-                        <div className="mt-4 text-center">
-                            <h4 className="text-white font-medium text-lg capitalize">
+                        <div className="mt-4 text-center bg-slate-800/80 backdrop-blur-md px-6 py-2 rounded-full border border-slate-700/50 shadow-lg">
+                            <h4 className="text-white font-bold text-lg capitalize">
                                 {viewingCredentialImage.type.replace(/([A-Z])/g, ' $1').trim()}
                             </h4>
-                            <p className="text-slate-400 text-sm">Submitted by {viewingCredentialImage.guideName}</p>
+                            <p className="text-slate-300 text-sm font-medium">Submitted by {viewingCredentialImage.guideName}</p>
                         </div>
                     </div>
                 </div>

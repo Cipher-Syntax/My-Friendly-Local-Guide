@@ -187,54 +187,54 @@ export default function PaymentsManagement() {
     const StatsCard = ({ title, value, icon: Icon, color, subValue, clickable, onClick }) => (
         <div
             onClick={onClick}
-            className={`bg-slate-800/50 backdrop-blur-sm p-6 rounded-xl border border-slate-700/50 ${clickable ? 'cursor-pointer hover:bg-slate-700/50 hover:border-cyan-500/50 transition-all shadow-md hover:shadow-cyan-500/10' : ''
+            className={`bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm p-6 rounded-xl border border-slate-200 dark:border-slate-700/50 ${clickable ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:border-cyan-300 dark:hover:border-cyan-500/50 transition-all shadow-sm hover:shadow-cyan-500/10' : 'shadow-sm'
                 }`}
         >
             <div className="flex justify-between items-start">
                 <div>
-                    <p className="text-slate-400 text-sm font-medium">{title}</p>
-                    <h3 className="text-2xl font-bold text-white mt-2">{value}</h3>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">{title}</p>
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-2">{value}</h3>
                     {subValue && <p className="text-sm text-slate-500 mt-1">{subValue}</p>}
                 </div>
-                <div className={`p-3 rounded-lg bg-${color}-500/10 text-${color}-400`}>
+                <div className={`p-3 rounded-lg bg-${color}-100 dark:bg-${color}-500/10 text-${color}-600 dark:text-${color}-400`}>
                     <Icon className="w-6 h-6" />
                 </div>
             </div>
         </div>
     );
 
-    if (loading) return <div className="text-white p-10">Loading financial data...</div>;
+    if (loading) return <div className="text-slate-900 dark:text-white p-10">Loading financial data...</div>;
 
     return (
-        <div className="space-y-6 relative">
+        <div className="space-y-6 relative transition-colors duration-300">
             {toast.show && (
                 <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
-                    ? 'bg-slate-800 border-green-500/50 text-green-400'
-                    : 'bg-slate-800 border-red-500/50 text-red-400'
+                    ? 'bg-white dark:bg-slate-800 border-green-200 dark:border-green-500/50 text-green-600 dark:text-green-400'
+                    : 'bg-white dark:bg-slate-800 border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-400'
                     }`}>
                     {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                    <span className="font-medium text-white">{toast.message}</span>
-                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
+                    <span className="font-medium text-slate-900 dark:text-white">{toast.message}</span>
+                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-slate-900 dark:hover:text-white">
                         <XCircle className="w-4 h-4" />
                     </button>
                 </div>
             )}
 
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl transform transition-all scale-100 animate-in fade-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm p-4 transition-colors duration-300">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-md shadow-2xl transform transition-all scale-100 animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-6">
                             <div className="flex items-center gap-4 mb-4">
-                                <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0">
-                                    <AlertTriangle className="w-6 h-6 text-orange-500" />
+                                <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                                    <AlertTriangle className="w-6 h-6 text-orange-600 dark:text-orange-500" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-white">Confirm Payout Settlement</h3>
-                                    <p className="text-slate-400 text-sm">Action cannot be undone.</p>
+                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Confirm Payout Settlement</h3>
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm">Action cannot be undone.</p>
                                 </div>
                             </div>
 
-                            <p className="text-slate-300 mb-6 leading-relaxed">
+                            <p className="text-slate-700 dark:text-slate-300 mb-6 leading-relaxed">
                                 Are you sure you have manually transferred the funds to this guide's account?
                                 Marking this as settled will update the guide's dashboard status to "Paid".
                             </p>
@@ -243,7 +243,7 @@ export default function PaymentsManagement() {
                                 <button
                                     onClick={closeModal}
                                     disabled={isProcessing}
-                                    className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors font-medium text-sm"
+                                    className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-colors font-medium text-sm"
                                 >
                                     Cancel
                                 </button>
@@ -262,8 +262,8 @@ export default function PaymentsManagement() {
 
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Payments & Payouts</h1>
-                    <p className="text-slate-400 mt-1">Manage platform commissions and guide transfers</p>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Payments & Payouts</h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">Manage platform commissions and guide transfers</p>
                 </div>
                 <button
                     onClick={handleExport}
@@ -296,7 +296,6 @@ export default function PaymentsManagement() {
                     icon={CheckCircle}
                     color="blue"
                 />
-                {/* Clicking this navigates to your bookings view. Adjust the path if your routes differ! */}
                 <StatsCard
                     title="Total Collected"
                     value={`₱${stats.totalCollected.toLocaleString()}`}
@@ -308,11 +307,11 @@ export default function PaymentsManagement() {
                 />
             </div>
 
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 overflow-hidden">
-                <div className="p-6 border-b border-slate-700/50 flex flex-col sm:flex-row gap-4 justify-between">
+            <div className="bg-white dark:bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden shadow-sm">
+                <div className="p-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col sm:flex-row gap-4 justify-between">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-semibold text-white">Payout Requests</h2>
-                        <span className="px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 text-xs">
+                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Payout Requests</h2>
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs">
                             {filteredBookings.length}
                         </span>
                     </div>
@@ -321,7 +320,7 @@ export default function PaymentsManagement() {
                         <select
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
-                            className="px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                            className="px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
                         >
                             <option value="all">All Status</option>
                             <option value="pending">Pending Transfer</option>
@@ -333,7 +332,7 @@ export default function PaymentsManagement() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider">
+                            <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
                                 <th className="p-4">Booking ID</th>
                                 <th className="p-4">Provider / Guide</th>
                                 <th className="p-4">Provider GCash</th>
@@ -344,13 +343,13 @@ export default function PaymentsManagement() {
                                 <th className="p-4 text-right">Action</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-700/50">
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
                             {filteredBookings.map((booking) => (
-                                <tr key={booking.id} className="text-sm hover:bg-slate-700/20 transition-colors">
-                                    <td className="p-4 text-white font-medium">#{booking.id}</td>
+                                <tr key={booking.id} className="text-sm hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
+                                    <td className="p-4 text-slate-900 dark:text-white font-medium">#{booking.id}</td>
 
                                     <td className="p-4">
-                                        <div className="text-white font-medium">
+                                        <div className="text-slate-900 dark:text-white font-medium">
                                             {getProviderName(booking)}
                                         </div>
                                         <div className="text-xs text-slate-500">
@@ -358,24 +357,24 @@ export default function PaymentsManagement() {
                                         </div>
                                     </td>
 
-                                    <td className="p-4 text-slate-300">
+                                    <td className="p-4 text-slate-600 dark:text-slate-300">
                                         {getProviderPhone(booking)}
                                     </td>
 
-                                    <td className="p-4 text-right text-slate-300">
+                                    <td className="p-4 text-right text-slate-600 dark:text-slate-300">
                                         ₱{parseFloat(booking.down_payment || 0).toLocaleString()}
                                     </td>
-                                    <td className="p-4 text-right text-emerald-400">
+                                    <td className="p-4 text-right text-emerald-600 dark:text-emerald-400">
                                         +₱{parseFloat(booking.platform_fee || 0).toLocaleString()}
                                     </td>
-                                    <td className="p-4 text-right font-bold text-white">
+                                    <td className="p-4 text-right font-bold text-slate-900 dark:text-white">
                                         ₱{parseFloat(booking.guide_payout_amount || 0).toLocaleString()}
                                     </td>
 
                                     <td className="p-4 text-center">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${booking.is_payout_settled
-                                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                                            : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
+                                            ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20'
+                                            : 'bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20'
                                             }`}>
                                             {booking.is_payout_settled ? 'Settled' : 'Pending'}
                                         </span>
@@ -402,7 +401,7 @@ export default function PaymentsManagement() {
                     </table>
 
                     {filteredBookings.length === 0 && (
-                        <div className="p-8 text-center text-slate-400">
+                        <div className="p-8 text-center text-slate-500 dark:text-slate-400">
                             No bookings found matching your filter.
                         </div>
                     )}

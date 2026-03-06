@@ -19,44 +19,50 @@ import AllBookings from './components/admin/AllBookings'; // Import the new comp
 
 import AgencyProfileCompletion from './pages/AgencyProfileCompletion';
 
+// Import Theme Provider
+import { ThemeProvider } from './context/ThemeContext';
+
 const App = () => {
     const Logout = () => {
         return <Navigate to="/login"></Navigate>
     }
+
     return (
-        <BrowserRouter>
-            <Routes>
-                <Route path='*' element={<NotFound></NotFound>}></Route>
+        <ThemeProvider>
+            <BrowserRouter>
+                <Routes>
+                    <Route path='*' element={<NotFound></NotFound>}></Route>
 
-                <Route path='/agency' element={<AgencyLayout />} />
-                <Route path='/agency/complete-profile' element={<ProtectedRoute><AgencyProfileCompletion /></ProtectedRoute>} />
+                    <Route path='/agency' element={<AgencyLayout />} />
+                    <Route path='/agency/complete-profile' element={<ProtectedRoute><AgencyProfileCompletion /></ProtectedRoute>} />
 
-                <Route path='/' element={<LandingPage />} />
+                    <Route path='/' element={<LandingPage />} />
 
-                {/* Admin Routes */}
-                <Route path='/admin' element={
-                    <ProtectedRoute>
-                        <AdminLayout />
-                    </ProtectedRoute>
-                }>
-                    <Route index element={<Dashboard />} />
-                    <Route path="dashboard" element={<Dashboard />} />
-                    <Route path="bookings" element={<AllBookings />} /> {/* Added Route */}
-                    <Route path="agency" element={<AgencyManagement />} />
-                    <Route path="guides" element={<TourGuidesManagement />} />
-                    <Route path="payments" element={<PaymentsManagement />} />
-                    <Route path="content" element={<ContentManagement />} />
-                    <Route path="settings" element={<Settings />} />
+                    {/* Admin Routes */}
+                    <Route path='/admin' element={
+                        <ProtectedRoute>
+                            <AdminLayout />
+                        </ProtectedRoute>
+                    }>
+                        <Route index element={<Dashboard />} />
+                        <Route path="dashboard" element={<Dashboard />} />
+                        <Route path="bookings" element={<AllBookings />} /> {/* Added Route */}
+                        <Route path="agency" element={<AgencyManagement />} />
+                        <Route path="guides" element={<TourGuidesManagement />} />
+                        <Route path="payments" element={<PaymentsManagement />} />
+                        <Route path="content" element={<ContentManagement />} />
+                        <Route path="settings" element={<Settings />} />
 
-                    <Route path="analytics" element={<ReportsAndAnalysis />} />
-                    <Route path="feedback" element={<Feedback />} />
-                </Route>
+                        <Route path="analytics" element={<ReportsAndAnalysis />} />
+                        <Route path="feedback" element={<Feedback />} />
+                    </Route>
 
-                <Route path='/admin-signin' element={<Adminsignin />} />
-                <Route path='/agency-signin' element={<AgencySignin />} />
-                <Route path='/agency-register' element={<AgencyRegister />} />
-            </Routes>
-        </BrowserRouter>
+                    <Route path='/admin-signin' element={<Adminsignin />} />
+                    <Route path='/agency-signin' element={<AgencySignin />} />
+                    <Route path='/agency-register' element={<AgencyRegister />} />
+                </Routes>
+            </BrowserRouter>
+        </ThemeProvider>
     )
 }
 

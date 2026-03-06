@@ -1,4 +1,3 @@
-// Rename this file to: src/components/admin/Feedback.jsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, AlertTriangle, User, Shield, Ban, CheckCircle, Calendar, Flag, Trash2, AlertCircle, XCircle } from 'lucide-react';
 import api from '../../api/api';
@@ -145,35 +144,35 @@ export default function Feedback() { // Renamed Component
 
     const getTypeColor = (type) => {
         switch (type) {
-            case 'Guide': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
-            case 'Agency': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-            default: return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
+            case 'Guide': return 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-500/30';
+            case 'Agency': return 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/30';
+            default: return 'bg-slate-100 dark:bg-slate-500/20 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-500/30';
         }
     };
 
     return (
-        <div className="space-y-6 relative">
+        <div className="space-y-6 relative transition-colors duration-300">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold text-white">Feedback & Reports</h2>
-                    <p className="text-slate-400">Manage user reports and community safety.</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Feedback & Reports</h2>
+                    <p className="text-slate-500 dark:text-slate-400">Manage user reports and community safety.</p>
                 </div>
             </div>
 
             {toast.show && (
                 <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
-                        ? 'bg-slate-800 border-green-500/50 text-green-400'
-                        : 'bg-slate-800 border-red-500/50 text-red-400'
+                    ? 'bg-white dark:bg-slate-800 border-green-200 dark:border-green-500/50 text-green-600 dark:text-green-400'
+                    : 'bg-white dark:bg-slate-800 border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-400'
                     }`}>
                     {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                    <span className="font-medium text-white">{toast.message}</span>
-                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-white">
+                    <span className="font-medium text-slate-900 dark:text-white">{toast.message}</span>
+                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="ml-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
                         <XCircle className="w-4 h-4" />
                     </button>
                 </div>
             )}
 
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
+            <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-4 shadow-sm">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
@@ -181,36 +180,36 @@ export default function Feedback() { // Renamed Component
                         placeholder="Search feedback by username or reason..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-red-500/50"
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
                     />
                 </div>
             </div>
 
             <div className="space-y-4">
                 {filteredReports.length === 0 && !loading && (
-                    <div className="text-center py-10 text-slate-500 bg-slate-800/30 rounded-xl border border-slate-700/30">
+                    <div className="text-center py-10 text-slate-500 dark:text-slate-500 bg-white dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700/30 shadow-sm">
                         <Shield className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>No active reports. The community is safe!</p>
+                        <p className="font-medium">No active reports. The community is safe!</p>
                     </div>
                 )}
 
                 {filteredReports.map(report => (
-                    <div key={report.id} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 transition-all hover:border-red-500/30">
+                    <div key={report.id} className="bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-6 transition-all hover:border-red-300 dark:hover:border-red-500/30 shadow-sm">
                         <div className="flex flex-col md:flex-row gap-6">
                             <div className="flex-1 space-y-4">
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-red-500/10 rounded-lg text-red-400">
+                                        <div className="p-2 bg-red-100 dark:bg-red-500/10 rounded-lg text-red-600 dark:text-red-400">
                                             <Flag className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                                            <h3 className="text-slate-900 dark:text-white font-bold text-lg flex items-center gap-2">
                                                 {report.reported_username}
                                                 <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border ${getTypeColor(report.reported_user_type)}`}>
                                                     {report.reported_user_type}
                                                 </span>
                                             </h3>
-                                            <div className="flex items-center gap-4 text-sm text-slate-400 mt-1">
+                                            <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
                                                 <span className="flex items-center gap-1">
                                                     <User className="w-3 h-3" />
                                                     Reported by: {report.reporter_username}
@@ -223,9 +222,9 @@ export default function Feedback() { // Renamed Component
                                         </div>
                                     </div>
 
-                                    <div className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5 ${report.reported_user_is_active
-                                            ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                                            : 'bg-red-500/10 text-red-400 border-red-500/20'
+                                    <div className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${report.reported_user_is_active
+                                        ? 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/20'
+                                        : 'bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/20'
                                         }`}>
                                         {report.reported_user_is_active
                                             ? <><CheckCircle className="w-3 h-3" /> Active</>
@@ -234,25 +233,25 @@ export default function Feedback() { // Renamed Component
                                     </div>
                                 </div>
 
-                                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
+                                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700/50">
                                     <p className="text-xs text-slate-500 uppercase font-bold mb-1">Reason for Report</p>
-                                    <p className="text-slate-200 leading-relaxed">{report.reason}</p>
+                                    <p className="text-slate-700 dark:text-slate-200 leading-relaxed font-medium">{report.reason}</p>
                                 </div>
                             </div>
 
-                            <div className="flex md:flex-col justify-center gap-3 border-t md:border-t-0 md:border-l border-slate-700/50 pt-4 md:pt-0 md:pl-6 min-w-[180px]">
+                            <div className="flex md:flex-col justify-center gap-3 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-700/50 pt-4 md:pt-0 md:pl-6 min-w-[180px]">
                                 <button
                                     onClick={() => openWarningModal(report)}
-                                    className="flex-1 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                                    className="flex-1 px-4 py-2.5 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-bold"
                                 >
                                     <AlertCircle className="w-4 h-4" />
                                     Warn User
                                 </button>
                                 <button
                                     onClick={() => initiateToggleUserStatus(report)}
-                                    className={`flex-1 px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border ${report.reported_user_is_active
-                                            ? 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30'
-                                            : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30'
+                                    className={`flex-1 px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-bold border ${report.reported_user_is_active
+                                        ? 'bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100 dark:hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-500/30'
+                                        : 'bg-green-50 dark:bg-green-500/10 hover:bg-green-100 dark:hover:bg-green-500/20 text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/30'
                                         }`}
                                 >
                                     {report.reported_user_is_active ? (
@@ -269,7 +268,7 @@ export default function Feedback() { // Renamed Component
                                 </button>
                                 <button
                                     onClick={() => initiateDeleteUser(report)}
-                                    className="flex-1 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                                    className="flex-1 px-4 py-2.5 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-bold"
                                 >
                                     <Trash2 className="w-4 h-4" />
                                     Delete
@@ -282,33 +281,33 @@ export default function Feedback() { // Renamed Component
 
             {/* Warning Modal */}
             {isWarningModalOpen && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full shadow-2xl">
-                        <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <AlertTriangle className="w-5 h-5 text-amber-400" />
+                <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-colors duration-300">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95">
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <AlertTriangle className="w-5 h-5 text-amber-500 dark:text-amber-400" />
                                 Send Warning
                             </h3>
-                            <button onClick={() => setIsWarningModalOpen(false)} className="text-slate-400 hover:text-white">
+                            <button onClick={() => setIsWarningModalOpen(false)} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
                                 <XCircle className="w-6 h-6" />
                             </button>
                         </div>
                         <div className="p-6">
-                            <p className="text-slate-400 mb-2 text-sm">
-                                Sending warning to <strong>{selectedReport?.reported_username}</strong>
+                            <p className="text-slate-500 dark:text-slate-400 mb-2 text-sm font-medium">
+                                Sending warning to <strong className="text-slate-900 dark:text-white">{selectedReport?.reported_username}</strong>
                             </p>
                             <textarea
                                 rows="4"
-                                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-lg p-3 text-white focus:outline-none focus:border-amber-500/50"
+                                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg p-3 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors font-medium"
                                 value={warningMessage}
                                 onChange={(e) => setWarningMessage(e.target.value)}
                             />
                         </div>
-                        <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
-                            <button onClick={() => setIsWarningModalOpen(false)} className="px-4 py-2 text-slate-400 hover:text-white">Cancel</button>
+                        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
+                            <button onClick={() => setIsWarningModalOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium transition-colors">Cancel</button>
                             <button
                                 onClick={handleSendWarning}
-                                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-black font-medium rounded-lg"
+                                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow-lg shadow-amber-500/20 transition-all"
                             >
                                 Send Warning
                             </button>
@@ -319,32 +318,32 @@ export default function Feedback() { // Renamed Component
 
             {/* Confirmation Modal */}
             {confirmModal.isOpen && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full shadow-2xl">
-                        <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <AlertTriangle className={`w-5 h-5 ${confirmModal.isDanger ? 'text-red-400' : 'text-amber-400'}`} />
+                <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-colors duration-300">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95">
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <AlertTriangle className={`w-5 h-5 ${confirmModal.isDanger ? 'text-red-500 dark:text-red-400' : 'text-amber-500 dark:text-amber-400'}`} />
                                 {confirmModal.title}
                             </h3>
-                            <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="text-slate-400 hover:text-white">
+                            <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
                                 <XCircle className="w-6 h-6" />
                             </button>
                         </div>
                         <div className="p-6">
-                            <p className="text-slate-300">{confirmModal.message}</p>
+                            <p className="text-slate-600 dark:text-slate-300 font-medium">{confirmModal.message}</p>
                         </div>
-                        <div className="px-6 py-4 border-t border-slate-700/50 flex justify-end gap-3">
+                        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
                             <button
                                 onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                                className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                                className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors font-medium"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={confirmModal.onConfirm}
-                                className={`px-4 py-2 font-medium rounded-lg transition-colors ${confirmModal.isDanger
-                                        ? 'bg-red-500 hover:bg-red-600 text-white'
-                                        : 'bg-cyan-500 hover:bg-cyan-600 text-white'
+                                className={`px-4 py-2 font-bold rounded-lg transition-all shadow-lg ${confirmModal.isDanger
+                                    ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/20'
+                                    : 'bg-cyan-500 hover:bg-cyan-600 text-white shadow-cyan-500/20'
                                     }`}
                             >
                                 {confirmModal.actionLabel}

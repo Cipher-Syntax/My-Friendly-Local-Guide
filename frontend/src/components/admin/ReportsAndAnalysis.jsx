@@ -7,19 +7,19 @@ import { Loader2 } from 'lucide-react';
 
 // Reusable Stat Card Component
 const StatCard = ({ title, value, subtext, icon: Icon, color, trend }) => (
-    <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 relative overflow-hidden">
+    <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-6 relative overflow-hidden shadow-sm">
         <div className="flex items-start justify-between">
             <div>
-                <p className="text-slate-400 text-sm font-medium">{title}</p>
-                <h3 className="text-4xl font-bold text-white mt-2">{value}</h3>
-                <p className="text-slate-500 text-sm mt-1">{subtext}</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">{title}</p>
+                <h3 className="text-4xl font-bold text-slate-900 dark:text-white mt-2">{value}</h3>
+                <p className="text-slate-500 dark:text-slate-500 text-sm mt-1">{subtext}</p>
             </div>
-            <div className={`p-4 rounded-xl bg-${color}-500/10`}>
-                <Icon className={`w-8 h-8 text-${color}-400`} />
+            <div className={`p-4 rounded-xl bg-${color}-100 dark:bg-${color}-500/10`}>
+                <Icon className={`w-8 h-8 text-${color}-600 dark:text-${color}-400`} />
             </div>
         </div>
         {trend && (
-            <div className={`flex items-center gap-1 mt-6 text-sm font-medium ${trend >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            <div className={`flex items-center gap-1 mt-6 text-sm font-medium ${trend >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 <ArrowUpRight className={`w-4 h-4 ${trend < 0 ? 'rotate-180' : ''}`} />
                 <span>{Math.abs(trend)}% vs previous period</span>
             </div>
@@ -88,7 +88,7 @@ export default function ReportsAndAnalysis() {
             trendData = [currentYear - 4, currentYear - 3, currentYear - 2, currentYear - 1, currentYear].map(y => ({ name: y.toString(), Volume: 0 }));
         }
 
-        // Map bookings to trend buckets (Simulation for dates missing robust parsing, adapted for accuracy where possible)
+        // Map bookings to trend buckets
         validBookings.forEach(b => {
             const date = new Date(b.created_at || Date.now());
             if (filter === 'Monthly') {
@@ -167,10 +167,10 @@ export default function ReportsAndAnalysis() {
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-slate-900 border border-slate-700 p-3 rounded-lg shadow-xl">
-                    <p className="text-slate-300 mb-1">{label}</p>
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-lg shadow-xl">
+                    <p className="text-slate-600 dark:text-slate-300 mb-1">{label}</p>
                     {payload.map((entry, index) => (
-                        <p key={index} className="text-white font-semibold">
+                        <p key={index} className="text-slate-900 dark:text-white font-semibold">
                             {entry.name}: {entry.name === 'Volume' ? '₱' : ''}{entry.value.toLocaleString()}
                         </p>
                     ))}
@@ -181,25 +181,25 @@ export default function ReportsAndAnalysis() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 transition-colors duration-300">
             {/* Header & Controls */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-white">Reports & Analytics</h2>
-                    <p className="text-slate-400">Live system performance from backend data</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Reports & Analytics</h2>
+                    <p className="text-slate-500 dark:text-slate-400">Live system performance from backend data</p>
                 </div>
 
                 <div className="flex items-center gap-3">
                     {/* Filter Toggle */}
-                    <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-1">
-                        <Filter className="w-4 h-4 text-slate-400 ml-2 mr-1" />
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1">
+                        <Filter className="w-4 h-4 text-slate-400 dark:text-slate-500 ml-2 mr-1" />
                         {['Daily', 'Weekly', 'Monthly', 'Yearly'].map((f) => (
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
                                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${filter === f
-                                        ? 'bg-cyan-500/20 text-cyan-400'
-                                        : 'text-slate-400 hover:text-white'
+                                    ? 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 shadow-sm'
+                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                                     }`}
                             >
                                 {f}
@@ -210,7 +210,7 @@ export default function ReportsAndAnalysis() {
                     {/* Export Button */}
                     <button
                         onClick={handleExport}
-                        className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+                        className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm"
                     >
                         <Download className="w-4 h-4" />
                         Export Report
@@ -234,17 +234,17 @@ export default function ReportsAndAnalysis() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 {/* Volume Trends - Line Chart */}
-                <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
-                    <h3 className="text-white font-semibold flex items-center gap-2 mb-6">
-                        <TrendingUp className="w-5 h-5 text-cyan-400" />
+                <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-6 shadow-sm">
+                    <h3 className="text-slate-900 dark:text-white font-semibold flex items-center gap-2 mb-6">
+                        <TrendingUp className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                         Volume Trends ({filter})
                     </h3>
                     <div className="h-72 w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={processedData.trendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                                <XAxis dataKey="name" stroke="#94a3b8" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(val) => `₱${val / 1000}k`} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" className="dark:stroke-slate-700" vertical={false} />
+                                <XAxis dataKey="name" stroke="#64748b" className="dark:stroke-slate-400" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#64748b" className="dark:stroke-slate-400" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(val) => `₱${val / 1000}k`} />
                                 <RechartsTooltip content={<CustomTooltip />} />
                                 <Line type="monotone" dataKey="Volume" stroke="#06b6d4" strokeWidth={3} dot={{ fill: '#06b6d4', r: 4 }} activeDot={{ r: 6, strokeWidth: 0 }} />
                             </LineChart>
@@ -253,18 +253,18 @@ export default function ReportsAndAnalysis() {
                 </div>
 
                 {/* Top Routes/Locations - Bar Chart */}
-                <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
-                    <h3 className="text-white font-semibold flex items-center gap-2 mb-6">
-                        <Activity className="w-5 h-5 text-purple-400" />
+                <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-6 shadow-sm">
+                    <h3 className="text-slate-900 dark:text-white font-semibold flex items-center gap-2 mb-6">
+                        <Activity className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                         Top Destinations & Routes
                     </h3>
                     <div className="h-72 w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={processedData.topRoutes} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                                <XAxis dataKey="name" stroke="#94a3b8" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} allowDecimals={false} />
-                                <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: '#334155', opacity: 0.4 }} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" className="dark:stroke-slate-700" vertical={false} />
+                                <XAxis dataKey="name" stroke="#64748b" className="dark:stroke-slate-400" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#64748b" className="dark:stroke-slate-400" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                                <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: '#e2e8f0', className: 'dark:fill-slate-800', opacity: 0.4 }} />
                                 <Bar dataKey="Spots" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
@@ -272,9 +272,9 @@ export default function ReportsAndAnalysis() {
                 </div>
 
                 {/* User Distribution - Pie Chart */}
-                <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
-                    <h3 className="text-white font-semibold flex items-center gap-2 mb-6">
-                        <Filter className="w-5 h-5 text-emerald-400" />
+                <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-6 shadow-sm">
+                    <h3 className="text-slate-900 dark:text-white font-semibold flex items-center gap-2 mb-6">
+                        <Filter className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                         Platform User Distribution
                     </h3>
                     <div className="h-72 w-full flex items-center justify-center">
@@ -294,40 +294,40 @@ export default function ReportsAndAnalysis() {
                                     ))}
                                 </Pie>
                                 <RechartsTooltip content={<CustomTooltip />} />
-                                <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ color: 'currentColor' }} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
                 {/* Recent Activity Table (System Logs) */}
-                <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden flex flex-col">
-                    <div className="p-6 border-b border-slate-700/50">
-                        <h3 className="text-white font-semibold flex items-center gap-2">
-                            <Activity className="w-5 h-5 text-slate-400" />
+                <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl overflow-hidden flex flex-col shadow-sm">
+                    <div className="p-6 border-b border-slate-200 dark:border-slate-700/50">
+                        <h3 className="text-slate-900 dark:text-white font-semibold flex items-center gap-2">
+                            <Activity className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                             System Logs & Alerts
                         </h3>
                     </div>
                     <div className="overflow-x-auto flex-1">
-                        <table className="w-full text-left text-sm text-slate-400 h-full">
-                            <thead className="bg-slate-900/50 text-slate-200 uppercase text-xs">
+                        <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400 h-full">
+                            <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-200 uppercase text-xs">
                                 <tr>
                                     <th className="px-6 py-4">Title</th>
                                     <th className="px-6 py-4">Type</th>
                                     <th className="px-6 py-4">Date</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-700/50">
+                            <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
                                 {processedData.systemLogs.length > 0 ? (
                                     processedData.systemLogs.map((log) => (
-                                        <tr key={log.id} className="hover:bg-slate-800/30 transition-colors">
-                                            <td className="px-6 py-4 font-medium text-white max-w-[200px] truncate" title={log.message}>
+                                        <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                            <td className="px-6 py-4 font-medium text-slate-900 dark:text-white max-w-[200px] truncate" title={log.message}>
                                                 {log.title || log.message}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2 py-1 rounded text-[10px] uppercase tracking-wider font-semibold border ${log.target_type === 'Admin'
-                                                        ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                                                        : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                    ? 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/20'
+                                                    : 'bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20'
                                                     }`}>
                                                     {log.target_type || 'System'}
                                                 </span>
@@ -339,7 +339,7 @@ export default function ReportsAndAnalysis() {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="3" className="px-6 py-8 text-center text-slate-500">
+                                        <td colSpan="3" className="px-6 py-8 text-center text-slate-500 dark:text-slate-400">
                                             No recent system logs found.
                                         </td>
                                     </tr>

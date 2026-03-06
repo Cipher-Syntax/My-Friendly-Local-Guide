@@ -16,7 +16,6 @@ export default function AdminLayout() {
                 subtitle: 'Platform Overview & Statistics'
             };
         }
-        // Added Bookings Header
         if (path.includes('/admin/bookings')) {
             return {
                 title: 'Global Booking Registry',
@@ -70,10 +69,10 @@ export default function AdminLayout() {
     const { title, icon: Icon, subtitle } = getPageHeader();
 
     return (
-        <div className="flex h-screen bg-slate-900">
+        <div className="flex h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-300">
             <Sidebar />
             <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-10">
+                <header className="bg-white/80 dark:bg-slate-800/30 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700/50 sticky top-0 z-10 transition-colors duration-300">
                     <div className="relative h-48 bg-gradient-to-r from-cyan-600 to-blue-600 overflow-hidden">
                         <div className="absolute inset-0 opacity-20">
                             <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-400 rounded-full blur-3xl"></div>

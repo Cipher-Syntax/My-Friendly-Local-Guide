@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {Eye, EyeOff, Globe, ArrowRight, Loader2, Upload, CheckCircle, ShieldCheck, Mail, User, Lock, Building2, Phone, Briefcase } from 'lucide-react';
+import { Eye, EyeOff, Globe, ArrowRight, Loader2, Upload, CheckCircle, ShieldCheck, Mail, User, Lock, Building2, Phone, Briefcase } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/api';
 
@@ -7,7 +7,7 @@ const AgencyRegister = () => {
     const navigate = useNavigate();
     const [isRegistered, setIsRegistered] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false); 
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -82,7 +82,7 @@ const AgencyRegister = () => {
 
         } catch (err) {
             console.error("Registration Error:", err);
-            
+
             let msg = "Registration failed. Please check your details.";
             if (err.response && err.response.data) {
                 if (err.response.data.username) msg = `Username: ${err.response.data.username[0]}`;
@@ -90,63 +90,63 @@ const AgencyRegister = () => {
                 else if (err.response.data.detail) msg = err.response.data.detail;
             }
             setError(msg);
-            
+
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-cyan-500/30">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-cyan-500/30 transition-colors duration-300">
             {/* Background Animation */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute top-[-10%] right-[-5%] w-[60%] h-[60%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse" style={{ transform: `translate(${mousePosition.x}px, ${mousePosition.y * -1}px)` }} />
-                <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-600/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s', transform: `translate(${mousePosition.x * -1}px, ${mousePosition.y}px)` }} />
+                <div className="absolute top-[-10%] right-[-5%] w-[60%] h-[60%] bg-indigo-500/20 dark:bg-indigo-600/20 rounded-full blur-[120px] animate-pulse" style={{ transform: `translate(${mousePosition.x}px, ${mousePosition.y * -1}px)` }} />
+                <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-500/20 dark:bg-cyan-600/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s', transform: `translate(${mousePosition.x * -1}px, ${mousePosition.y}px)` }} />
             </div>
 
-            <div className="w-full max-w-6xl bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10">
-                
-                <div className="w-full md:w-4/12 bg-gradient-to-br from-indigo-900/80 to-slate-900/80 p-12 text-white relative flex flex-col justify-between border-r border-white/5">
+            <div className="w-full max-w-6xl bg-white/80 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10 transition-colors duration-300 hover:shadow-indigo-500/10 dark:hover:shadow-indigo-900/20">
+
+                <div className="w-full md:w-4/12 bg-gradient-to-br from-indigo-50/90 to-slate-100/90 dark:from-indigo-900/80 dark:to-slate-900/80 p-12 text-slate-900 dark:text-white relative flex flex-col justify-between border-r border-slate-200 dark:border-white/5 transition-colors duration-300">
                     <div>
-                        <div className="w-12 h-12 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg mb-6">
+                        <div className="w-12 h-12 bg-gradient-to-tr from-cyan-500 to-indigo-600 dark:from-cyan-400 dark:to-indigo-500 rounded-xl flex items-center justify-center shadow-lg mb-6">
                             <Globe size={24} className="text-white" />
                         </div>
-                        <h1 className="text-3xl font-bold mb-2">Partner with <br/> <span className="text-cyan-400">LocalYnk</span></h1>
-                        <p className="text-indigo-200 text-sm leading-relaxed">
+                        <h1 className="text-3xl font-bold mb-2 text-slate-900 dark:text-white">Partner with <br /> <span className="text-cyan-600 dark:text-cyan-400">LocalYnk</span></h1>
+                        <p className="text-slate-600 dark:text-indigo-200 text-sm leading-relaxed font-medium">
                             Join our network of elite travel agencies. Manage guides, track bookings, and grow your business.
                         </p>
                     </div>
                     <div className="space-y-4 my-8">
-                        <div className="flex items-center gap-3 text-sm text-slate-300">
-                            <CheckCircle className="w-5 h-5 text-cyan-400" /> <span>Verified Badge</span>
+                        <div className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300 font-medium">
+                            <CheckCircle className="w-5 h-5 text-cyan-600 dark:text-cyan-400" /> <span>Verified Badge</span>
                         </div>
-                        <div className="flex items-center gap-3 text-sm text-slate-300">
-                            <CheckCircle className="w-5 h-5 text-cyan-400" /> <span>Manage Unlimited Guides</span>
+                        <div className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300 font-medium">
+                            <CheckCircle className="w-5 h-5 text-cyan-600 dark:text-cyan-400" /> <span>Manage Unlimited Guides</span>
                         </div>
                     </div>
-                    <p className="text-xs text-slate-500">© 2025 LocalLynk Partners</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-500 font-bold">© {new Date().getFullYear()} LocalLynk Partners</p>
                 </div>
 
-                <div className="w-full md:w-8/12 p-8 md:p-12 bg-white/5 flex flex-col justify-center">
-                    
+                <div className="w-full md:w-8/12 p-8 md:p-12 bg-white/50 dark:bg-white/5 flex flex-col justify-center transition-colors duration-300">
+
                     {isRegistered ? (
                         <div className="flex flex-col items-center text-center animate-in fade-in slide-in-from-right-8 duration-500">
-                            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mb-6">
-                                <Mail className="w-10 h-10 text-green-400" />
+                            <div className="w-20 h-20 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center mb-6">
+                                <Mail className="w-10 h-10 text-green-600 dark:text-green-400" />
                             </div>
-                            <h2 className="text-3xl font-bold text-white mb-4">Verify Your Email</h2>
-                            <p className="text-slate-300 text-lg mb-8 max-w-md">
-                                Registration successful! We've sent a verification link to <strong>{formData.email}</strong>. 
-                                <br/><br/>
-                                <span className="text-cyan-400 text-sm">Step 1: Check your inbox and click the link.</span>
-                                <br/>
-                                <span className="text-cyan-400 text-sm">Step 2: Log in to complete your agency profile.</span>
+                            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">Verify Your Email</h2>
+                            <p className="text-slate-600 dark:text-slate-300 text-lg mb-8 max-w-md font-medium">
+                                Registration successful! We've sent a verification link to <strong className="text-slate-900 dark:text-white">{formData.email}</strong>.
+                                <br /><br />
+                                <span className="text-cyan-600 dark:text-cyan-400 text-sm font-bold">Step 1: Check your inbox and click the link.</span>
+                                <br />
+                                <span className="text-cyan-600 dark:text-cyan-400 text-sm font-bold">Step 2: Log in to complete your agency profile.</span>
                             </p>
-                            
+
                             <div className="space-y-4 w-full max-w-sm">
-                                <Link 
-                                    to="/agency-signin" 
-                                    className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
+                                <Link
+                                    to="/agency-signin"
+                                    className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-500/20"
                                 >
                                     Go to Login <ArrowRight size={20} />
                                 </Link>
@@ -155,57 +155,57 @@ const AgencyRegister = () => {
                     ) : (
                         <div className="animate-in fade-in slide-in-from-right-4 duration-500">
                             <div className="mb-8">
-                                <h2 className="text-2xl font-bold text-white mb-2">Agency Registration</h2>
-                                <p className="text-slate-400 text-sm">Create your account and profile to get started.</p>
+                                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Agency Registration</h2>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Create your account and profile to get started.</p>
                             </div>
 
                             {error && (
-                                <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center gap-2">
+                                <div className="mb-6 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg text-red-600 dark:text-red-400 text-sm flex items-center gap-2 font-bold">
                                     <ShieldCheck size={16} /> {error}
                                 </div>
                             )}
 
                             <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                
-                                <div className="md:col-span-2 text-xs font-bold text-cyan-400 uppercase tracking-wider mt-2 mb-1">Account Credentials</div>
-                                
+
+                                <div className="md:col-span-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider mt-2 mb-1">Account Credentials</div>
+
                                 <div className="space-y-1">
-                                    <input type="text" name="username" required placeholder="Username" value={formData.username} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
-                                </div>
-                                
-                                <div className="space-y-1">
-                                    <input type="email" name="email" required placeholder="Business Email" value={formData.email} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
-                                </div>
-                                
-                                <div className="relative">
-                                    <input type={showPassword ? "text" : "password"} name="password" required placeholder="Password" value={formData.password} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
-                                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-slate-500 hover:text-white"><Eye size={18}/></button>
-                                </div>
-                                
-                                <div className="relative">
-                                    <input type={showConfirmPassword ? "text" : "password"} name="confirmPassword" required placeholder="Confirm Password" value={formData.confirmPassword} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
-                                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-3.5 text-slate-500 hover:text-white"><Eye size={18}/></button>
+                                    <input type="text" name="username" required placeholder="Username" value={formData.username} onChange={handleChange} className="w-full px-4 py-3 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none font-medium transition-colors" />
                                 </div>
 
-                                <div className="md:col-span-2 text-xs font-bold text-cyan-400 uppercase tracking-wider mt-4 mb-1">Business Profile</div>
-                                
                                 <div className="space-y-1">
-                                    <input type="text" name="business_name" required placeholder="Registered Business Name" value={formData.business_name} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
+                                    <input type="email" name="email" required placeholder="Business Email" value={formData.email} onChange={handleChange} className="w-full px-4 py-3 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none font-medium transition-colors" />
                                 </div>
-                                
+
+                                <div className="relative">
+                                    <input type={showPassword ? "text" : "password"} name="password" required placeholder="Password" value={formData.password} onChange={handleChange} className="w-full px-4 py-3 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none font-medium transition-colors" />
+                                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-white transition-colors"><Eye size={18} /></button>
+                                </div>
+
+                                <div className="relative">
+                                    <input type={showConfirmPassword ? "text" : "password"} name="confirmPassword" required placeholder="Confirm Password" value={formData.confirmPassword} onChange={handleChange} className="w-full px-4 py-3 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none font-medium transition-colors" />
+                                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-white transition-colors"><Eye size={18} /></button>
+                                </div>
+
+                                <div className="md:col-span-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider mt-4 mb-1">Business Profile</div>
+
                                 <div className="space-y-1">
-                                    <input type="text" name="owner_name" required placeholder="Owner Full Name" value={formData.owner_name} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
+                                    <input type="text" name="business_name" required placeholder="Registered Business Name" value={formData.business_name} onChange={handleChange} className="w-full px-4 py-3 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none font-medium transition-colors" />
                                 </div>
-                                
-                                <div className="md:col-span-2">
-                                    <input type="tel" name="phone" required placeholder="Business Phone Number" value={formData.phone} onChange={handleChange} className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
+
+                                <div className="space-y-1">
+                                    <input type="text" name="owner_name" required placeholder="Owner Full Name" value={formData.owner_name} onChange={handleChange} className="w-full px-4 py-3 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none font-medium transition-colors" />
                                 </div>
 
                                 <div className="md:col-span-2">
-                                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900/30 hover:bg-slate-800 transition-colors group">
+                                    <input type="tel" name="phone" required placeholder="Business Phone Number" value={formData.phone} onChange={handleChange} className="w-full px-4 py-3 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none font-medium transition-colors" />
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-300 dark:border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-50 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group">
                                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                            <Upload className="w-6 h-6 text-slate-500 group-hover:text-cyan-400 mb-2" />
-                                            <p className="text-sm text-slate-500 group-hover:text-slate-300">
+                                            <Upload className="w-6 h-6 text-slate-400 dark:text-slate-500 group-hover:text-cyan-500 dark:group-hover:text-cyan-400 mb-2 transition-colors" />
+                                            <p className="text-sm font-medium text-slate-600 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">
                                                 {licenseFile ? licenseFile.name : "Upload Business License / Permit (PDF/IMG)"}
                                             </p>
                                         </div>
@@ -214,17 +214,17 @@ const AgencyRegister = () => {
                                 </div>
 
                                 <div className="md:col-span-2 mt-4">
-                                    <button 
-                                        type="submit" 
+                                    <button
+                                        type="submit"
                                         disabled={isLoading}
-                                        className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20"
+                                        className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-700 hover:to-indigo-700 dark:hover:from-cyan-500 dark:hover:to-indigo-500 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20"
                                     >
-                                        {isLoading ? <Loader2 className="animate-spin" /> : <>Complete Registration <ArrowRight size={20}/></>}
+                                        {isLoading ? <Loader2 className="animate-spin" /> : <>Complete Registration <ArrowRight size={20} /></>}
                                     </button>
                                 </div>
                             </form>
-                            <p className="text-center text-slate-500 text-sm mt-4">
-                                Already a partner? <Link to="/agency-signin" className="text-cyan-400 hover:underline">Sign in here</Link>
+                            <p className="text-center text-slate-600 dark:text-slate-500 text-sm mt-4 font-medium">
+                                Already a partner? <Link to="/agency-signin" className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:underline transition-colors">Sign in here</Link>
                             </p>
                         </div>
                     )}
