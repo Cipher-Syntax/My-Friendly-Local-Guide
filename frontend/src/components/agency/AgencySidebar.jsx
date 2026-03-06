@@ -30,7 +30,7 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
         { id: 'bookings', icon: BookOpen, label: 'Bookings Management' },
         { id: 'guides', icon: UsersRound, label: 'Tour Guide Management' },
         { id: 'reviews', icon: Star, label: 'Reviews & Ratings' },
-        { id: 'earnings', icon: Wallet, label: 'Earnings & Payments' }, // <-- NEW TAB ADDED HERE
+        // { id: 'earnings', icon: Wallet, label: 'Earnings & Payments' },
     ];
 
     return (
