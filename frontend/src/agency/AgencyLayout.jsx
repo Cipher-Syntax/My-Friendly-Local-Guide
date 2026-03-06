@@ -8,7 +8,6 @@ import AgencyDashboardContent from '../components/agency/AgencyDashboardContent'
 import AgencyBookingsTable from '../components/agency/AgencyBookingsTable';
 import AgencyTourGuideManagement from '../components/agency/AgencyTourGuideManagement';
 import AgencyReviews from '../components/agency/AgencyReviews';
-import AgencyEarnings from '../components/agency/AgencyEarnings';
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
 
@@ -499,7 +498,6 @@ export default function AgencyLayout() {
                                 />
                             )}
                             {activeTab === 'reviews' && <AgencyReviews />}
-                            {activeTab === 'earnings' && <AgencyEarnings bookings={bookings} />}
                         </>
                     )}
                 </main>
