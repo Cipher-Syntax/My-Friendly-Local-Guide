@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, Wallet } from 'lucide-react';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
-import { useTheme } from '../../context/ThemeContext'; // Ensure this path is correct
+import { useTheme } from '../../context/ThemeContext';
 
 export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }) {
     const navigate = useNavigate();
@@ -30,6 +30,7 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
         { id: 'bookings', icon: BookOpen, label: 'Bookings Management' },
         { id: 'guides', icon: UsersRound, label: 'Tour Guide Management' },
         { id: 'reviews', icon: Star, label: 'Reviews & Ratings' },
+        { id: 'earnings', icon: Wallet, label: 'Earnings & Payments' }, // <-- NEW TAB ADDED HERE
     ];
 
     return (
@@ -56,7 +57,6 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
             </nav>
 
             <div className="p-4 border-t border-slate-200 dark:border-slate-700/50">
-                {/* Theme Toggle Button */}
                 <button
                     onClick={toggleTheme}
                     className="w-full flex items-center gap-3 px-4 py-3 mb-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/30 hover:text-slate-900 dark:hover:text-white rounded-lg transition-all border border-transparent"
