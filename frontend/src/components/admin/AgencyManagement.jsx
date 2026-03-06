@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Eye, Check, X, Loader2, Building, Shield, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import { Search, Eye, Check, X, Loader2, Building, Shield, CheckCircle, AlertCircle, XCircle, Filter } from 'lucide-react';
 import api from '../../api/api';
 
 const getStatusColor = (isApproved) => {
@@ -12,6 +12,7 @@ export default function AgencyManagement() {
     const [agencies, setAgencies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('All');
 
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [reviewingItem, setReviewingItem] = useState(null);
@@ -46,14 +47,24 @@ export default function AgencyManagement() {
         fetchAgencies();
     }, []);
 
-    const filteredAgencies = useMemo(() =>
-        agencies.filter(a =>
-            a.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            a.owner_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            a.email?.toLowerCase().includes(searchTerm.toLowerCase())
-        ),
-        [agencies, searchTerm]
-    );
+    const filteredAgencies = useMemo(() => {
+        return agencies.filter(a => {
+            const matchesSearch = a.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                a.owner_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                a.email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+            let matchesStatus = true;
+            if (statusFilter === 'Approved') matchesStatus = a.is_approved === true;
+            if (statusFilter === 'Pending') matchesStatus = a.is_approved === false;
+
+            return matchesSearch && matchesStatus;
+        });
+    }, [agencies, searchTerm, statusFilter]);
+
+    // Reset to first page when search or filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter]);
 
     const openReviewModal = (agency) => {
         setReviewingItem(agency);
@@ -103,15 +114,31 @@ export default function AgencyManagement() {
             )}
 
             <div className="bg-white dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-4 shadow-sm">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Search agencies by name or owner..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
-                    />
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Search agencies by name or owner..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
+                        />
+                    </div>
+                    <div className="relative min-w-[200px]">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Filter className="h-5 w-5 text-slate-400" />
+                        </div>
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="w-full pl-10 pr-8 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors appearance-none"
+                        >
+                            <option value="All">All Statuses</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Approved">Approved</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -125,69 +152,71 @@ export default function AgencyManagement() {
                         <div className="text-center py-10 text-slate-500 bg-white dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700/50 rounded-xl shadow-sm">
                             <Building className="w-12 h-12 mx-auto mb-3 opacity-50" />
                             <p>No agencies found.</p>
-                            <p className="text-xs mt-1">Make sure you have seeded the database or registered an agency.</p>
+                            <p className="text-xs mt-1">Try adjusting your search or filters.</p>
                         </div>
                     )}
 
-                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
-                        <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
-                            <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 uppercase text-xs">
-                                <tr>
-                                    <th className="px-4 py-3 font-semibold">Business Name</th>
-                                    <th className="px-4 py-3 font-semibold">Owner</th>
-                                    <th className="px-4 py-3 font-semibold">Email</th>
-                                    <th className="px-4 py-3 font-semibold">Status</th>
-                                    <th className="px-4 py-3 font-semibold">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {paginatedPages.map((agency) => (
-                                    <tr key={agency.id} className="border-t border-slate-200 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{agency.business_name}</td>
-                                        <td className="px-4 py-3">{agency.owner_name}</td>
-                                        <td className="px-4 py-3">{agency.email}</td>
-                                        <td className="px-4 py-3">
-                                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(agency.is_approved)}`}>
-                                                {agency.is_approved ? "Approved" : "Pending"}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <button
-                                                onClick={() => openReviewModal(agency)}
-                                                className="px-3 py-1.5 bg-cyan-50 dark:bg-cyan-500/20 hover:bg-cyan-100 dark:hover:bg-cyan-500/30 text-cyan-600 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/20 rounded-lg text-xs font-medium transition-colors"
-                                            >
-                                                Review
-                                            </button>
-                                        </td>
+                    {filteredAgencies.length > 0 && (
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
+                            <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+                                <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 uppercase text-xs">
+                                    <tr>
+                                        <th className="px-4 py-3 font-semibold">Business Name</th>
+                                        <th className="px-4 py-3 font-semibold">Owner</th>
+                                        <th className="px-4 py-3 font-semibold">Email</th>
+                                        <th className="px-4 py-3 font-semibold">Status</th>
+                                        <th className="px-4 py-3 font-semibold">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {paginatedPages.map((agency) => (
+                                        <tr key={agency.id} className="border-t border-slate-200 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{agency.business_name}</td>
+                                            <td className="px-4 py-3">{agency.owner_name}</td>
+                                            <td className="px-4 py-3">{agency.email}</td>
+                                            <td className="px-4 py-3">
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(agency.is_approved)}`}>
+                                                    {agency.is_approved ? "Approved" : "Pending"}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <button
+                                                    onClick={() => openReviewModal(agency)}
+                                                    className="px-3 py-1.5 bg-cyan-50 dark:bg-cyan-500/20 hover:bg-cyan-100 dark:hover:bg-cyan-500/30 text-cyan-600 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/20 rounded-lg text-xs font-medium transition-colors"
+                                                >
+                                                    Review
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
 
-                        {totalPages > 0 && (
-                            <div className="flex justify-center items-center gap-3 border-t border-slate-200 dark:border-slate-700/50 py-4 bg-slate-50 dark:bg-slate-900/30">
-                                <button
-                                    disabled={currentPage === 1}
-                                    onClick={() => setCurrentPage(prev => prev - 1)}
-                                    className="px-4 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors shadow-sm"
-                                >
-                                    Previous
-                                </button>
+                            {totalPages > 0 && (
+                                <div className="flex justify-center items-center gap-3 border-t border-slate-200 dark:border-slate-700/50 py-4 bg-slate-50 dark:bg-slate-900/30">
+                                    <button
+                                        disabled={currentPage === 1}
+                                        onClick={() => setCurrentPage(prev => prev - 1)}
+                                        className="px-4 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors shadow-sm"
+                                    >
+                                        Previous
+                                    </button>
 
-                                <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">
-                                    Page {currentPage} of {totalPages}
-                                </span>
+                                    <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                                        Page {currentPage} of {totalPages}
+                                    </span>
 
-                                <button
-                                    disabled={currentPage === totalPages}
-                                    onClick={() => setCurrentPage(prev => prev + 1)}
-                                    className="px-4 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors shadow-sm"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                                    <button
+                                        disabled={currentPage === totalPages}
+                                        onClick={() => setCurrentPage(prev => prev + 1)}
+                                        className="px-4 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors shadow-sm"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 

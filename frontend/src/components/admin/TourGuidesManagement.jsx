@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Eye, Check, X, Image as ImageIcon, Loader2, FileText, Shield, Ban, ExternalLink, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import { Search, Eye, Check, X, Image as ImageIcon, Loader2, FileText, Shield, Ban, ExternalLink, CheckCircle, AlertCircle, XCircle, Filter } from 'lucide-react';
 import api from '../../api/api';
 
 const getStatusColor = (status) => {
@@ -14,11 +14,16 @@ export default function TourGuidesManagement() {
     const [tourGuides, setTourGuides] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('All');
 
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [selectedGuide, setSelectedGuide] = useState(null);
     const [viewingCredentialImage, setViewingCredentialImage] = useState(null);
     const [isViewCredentialImageModalOpen, setIsViewCredentialImageModalOpen] = useState(false);
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 5;
 
     // Track which action is currently processing ('Approved', 'Rejected', or null)
     const [processingAction, setProcessingAction] = useState(null);
@@ -57,10 +62,24 @@ export default function TourGuidesManagement() {
         fetchGuides();
     }, []);
 
-    const filteredGuides = useMemo(() =>
-        tourGuides.filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase())),
-        [tourGuides, searchTerm]
-    );
+    const filteredGuides = useMemo(() => {
+        return tourGuides.filter(g => {
+            const matchesSearch = g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                g.email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+            let matchesStatus = true;
+            if (statusFilter !== 'All') {
+                matchesStatus = g.status?.toLowerCase() === statusFilter.toLowerCase();
+            }
+
+            return matchesSearch && matchesStatus;
+        });
+    }, [tourGuides, searchTerm, statusFilter]);
+
+    // Reset to first page when search or filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter]);
 
     const openDetailsModal = (guide) => {
         setSelectedGuide(guide);
@@ -148,6 +167,10 @@ export default function TourGuidesManagement() {
         });
     }
 
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedPages = filteredGuides.slice(startIndex, startIndex + itemsPerPage);
+    const totalPages = Math.ceil(filteredGuides.length / itemsPerPage);
+
     return (
         <div className="space-y-4 relative">
             {/* Toast Notification */}
@@ -164,17 +187,34 @@ export default function TourGuidesManagement() {
                 </div>
             )}
 
-            {/* Search Bar */}
+            {/* Search and Filter Bar */}
             <div className="bg-white dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-4 shadow-sm">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Search tour guides..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
-                    />
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Search tour guides by name or email..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
+                        />
+                    </div>
+                    <div className="relative min-w-[200px]">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Filter className="h-5 w-5 text-slate-400" />
+                        </div>
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="w-full pl-10 pr-8 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors appearance-none"
+                        >
+                            <option value="All">All Statuses</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Rejected">Rejected</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -187,51 +227,79 @@ export default function TourGuidesManagement() {
                     {filteredGuides.length === 0 ? (
                         <p className="text-slate-500 dark:text-slate-400 text-center py-10 font-medium">No guide applications found.</p>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
-                                <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-200 font-bold">
-                                    <tr>
-                                        <th className="px-6 py-4">Applicant Name</th>
-                                        <th className="px-6 py-4">Contact Email</th>
-                                        <th className="px-6 py-4">Status</th>
-                                        <th className="px-6 py-4 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                                    {filteredGuides.map((guide) => (
-                                        <tr
-                                            key={guide.id}
-                                            className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors duration-150"
-                                        >
-                                            <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
-                                                {guide.name}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                {guide.email}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider inline-block ${getStatusColor(guide.status)}`}>
-                                                    {guide.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right whitespace-nowrap">
-                                                <button
-                                                    onClick={() => openDetailsModal(guide)}
-                                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-50 dark:bg-cyan-500/10 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/20 rounded-lg transition-all text-xs font-semibold"
-                                                >
-                                                    <FileText className="w-4 h-4" />
-                                                    View Details
-                                                </button>
-                                            </td>
+                        <>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+                                    <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-200 font-bold">
+                                        <tr>
+                                            <th className="px-6 py-4">Applicant Name</th>
+                                            <th className="px-6 py-4">Contact Email</th>
+                                            <th className="px-6 py-4">Status</th>
+                                            <th className="px-6 py-4 text-right">Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
+                                        {paginatedPages.map((guide) => (
+                                            <tr
+                                                key={guide.id}
+                                                className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors duration-150"
+                                            >
+                                                <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                                                    {guide.name}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    {guide.email}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider inline-block ${getStatusColor(guide.status)}`}>
+                                                        {guide.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right whitespace-nowrap">
+                                                    <button
+                                                        onClick={() => openDetailsModal(guide)}
+                                                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-50 dark:bg-cyan-500/10 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/20 rounded-lg transition-all text-xs font-semibold"
+                                                    >
+                                                        <FileText className="w-4 h-4" />
+                                                        View Details
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Pagination Controls */}
+                            {totalPages > 0 && (
+                                <div className="flex justify-center items-center gap-3 border-t border-slate-200 dark:border-slate-700/50 py-4 bg-slate-50 dark:bg-slate-900/30">
+                                    <button
+                                        disabled={currentPage === 1}
+                                        onClick={() => setCurrentPage(prev => prev - 1)}
+                                        className="px-4 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors shadow-sm"
+                                    >
+                                        Previous
+                                    </button>
+
+                                    <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                                        Page {currentPage} of {totalPages}
+                                    </span>
+
+                                    <button
+                                        disabled={currentPage === totalPages}
+                                        onClick={() => setCurrentPage(prev => prev + 1)}
+                                        className="px-4 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors shadow-sm"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             )}
 
+            {/* Application Details Modal */}
             {isDetailsModalOpen && selectedGuide && (
                 <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity">
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95">
