@@ -12,14 +12,13 @@ import TourGuidesManagement from './components/admin/TourGuidesManagement';
 import ContentManagement from './components/admin/ContentManagement';
 import Settings from './components/admin/Settings';
 import PaymentsManagement from './components/admin/PaymentsManagement';
+import ArchivedAccounts from './components/admin/ArchivedAccounts'; // Import the new component
 
 import ReportsAndAnalysis from './components/admin/ReportsAndAnalysis';
 import Feedback from './components/admin/Feedback';
-import AllBookings from './components/admin/AllBookings'; // Import the new component
+import AllBookings from './components/admin/AllBookings';
 
 import AgencyProfileCompletion from './pages/AgencyProfileCompletion';
-
-// Import Theme Provider
 import { ThemeProvider } from './context/ThemeContext';
 
 const App = () => {
@@ -46,12 +45,13 @@ const App = () => {
                     }>
                         <Route index element={<Dashboard />} />
                         <Route path="dashboard" element={<Dashboard />} />
-                        <Route path="bookings" element={<AllBookings />} /> {/* Added Route */}
+                        <Route path="bookings" element={<AllBookings />} />
                         <Route path="agency" element={<AgencyManagement />} />
                         <Route path="guides" element={<TourGuidesManagement />} />
                         <Route path="payments" element={<PaymentsManagement />} />
                         <Route path="content" element={<ContentManagement />} />
                         <Route path="settings" element={<Settings />} />
+                        <Route path="archived" element={<ArchivedAccounts />} /> {/* Added Route */}
 
                         <Route path="analytics" element={<ReportsAndAnalysis />} />
                         <Route path="feedback" element={<Feedback />} />

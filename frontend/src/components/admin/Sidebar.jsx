@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { BarChart3, Map, Users, User, Home, MessageSquare, Settings, LogOut, CircleDollarSign, PieChart, Calendar, Sun, Moon } from 'lucide-react';
+import { BarChart3, Map, Users, User, Home, MessageSquare, Settings, LogOut, CircleDollarSign, PieChart, Calendar, Sun, Moon, Archive } from 'lucide-react';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
-import { useTheme } from '../../context/ThemeContext'; // Ensure this path is correct
+import { useTheme } from '../../context/ThemeContext';
 
 const menuItems = [
     { id: 'dashboard', icon: BarChart3, label: 'Dashboard', path: '/admin/dashboard' },
@@ -13,6 +13,7 @@ const menuItems = [
     { id: 'content', icon: Home, label: 'Content Management', path: '/admin/content' },
     { id: 'feedback', icon: MessageSquare, label: 'Feedback', path: '/admin/feedback' },
     { id: 'analytics', icon: PieChart, label: 'Reports & Analytics', path: '/admin/analytics' },
+    { id: 'archived', icon: Archive, label: 'Archived Accounts', path: '/admin/archived' },
 ];
 
 export default function Sidebar() {
@@ -71,7 +72,6 @@ export default function Sidebar() {
             </nav>
 
             <div className="p-4 border-t border-slate-200 dark:border-slate-700/50">
-                {/* Theme Toggle Button */}
                 <button
                     onClick={toggleTheme}
                     className="w-full flex items-center gap-3 px-4 py-3 mb-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/30 hover:text-slate-900 dark:hover:text-white rounded-lg transition-all border border-transparent"

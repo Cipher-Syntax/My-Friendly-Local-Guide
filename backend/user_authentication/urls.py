@@ -25,23 +25,27 @@ from .views import (
     FavoriteGuideListView,
     CustomTokenObtainPairView,
     GoogleLoginAPIView,
-    DeactivateAccountView, # NEW IMPORT
-    ReactivateAccountView  # NEW IMPORT
+    DeactivateAccountView,
+    ReactivateAccountView,
+    ArchivedAccountsListView,       # ADDED FOR ADMIN ARCHIVE LIST
+    DeleteExpiredAccountsView       # ADDED FOR CRON-JOB.ORG
 )
 
 urlpatterns = [
-    # Changed from TokenObtainPairView to CustomTokenObtainPairView
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'), 
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'), 
     path('auth/admin/login/', AdminTokenObtainPairView.as_view(), name='admin_login'),
     path('auth/agency/login/', AgencyTokenObtainPairView.as_view(), name='agency_login'),
     
-    # NEW GOOGLE LOGIN ENDPOINT
     path('auth/google/', GoogleLoginAPIView.as_view(), name='google_login'),
 
-    # --- NEW ACCOUNT DEACTIVATION ENDPOINTS ---
+    # --- ACCOUNT DEACTIVATION & ARCHIVING ENDPOINTS ---
     path('auth/deactivate/', DeactivateAccountView.as_view(), name='deactivate_account'),
     path('auth/reactivate/', ReactivateAccountView.as_view(), name='reactivate_account'),
+    path('admin/archived-accounts/', ArchivedAccountsListView.as_view(), name='archived_accounts'),
+
+    # --- CRON JOB ENDPOINT ---
+    path('cron/delete-expired-accounts/', DeleteExpiredAccountsView.as_view(), name='cron_delete_expired'),
 
     path('register/', CreateUserView.as_view(), name='register'),
     path('profile/', UpdateUserView.as_view(), name='profile-update'),
@@ -58,7 +62,6 @@ urlpatterns = [
     path('guide/apply/documents/', GuideApplicationSubmissionView.as_view(), name='apply-as-guide-documents'), 
     path('guides/', ApprovedLocalGuideListView.as_view(), name='approved-guide-list'),
     path('guides/<int:pk>/', GuideDetailView.as_view(), name='guide-detail'),
-    # path('agencies/', AgencyListView.as_view(), name='agency-list'),
 
     path('guide/update-info/', UpdateGuideInfoView.as_view(), name='update-guide-info'),
     

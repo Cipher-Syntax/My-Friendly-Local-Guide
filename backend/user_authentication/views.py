@@ -1,3 +1,4 @@
+import os
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -484,11 +485,13 @@ class DeactivateAccountView(APIView):
 
     def post(self, request):
         user = request.user
-        user.scheduled_deletion_date = timezone.now() + timedelta(days=30)
+        user.is_active = False 
+        user.deactivated_at = timezone.now()
+        user.scheduled_deletion_date = timezone.now() + timedelta(days=60)
         user.save()
         
         return Response({
-            "detail": "Account deactivated. It will be permanently deleted in 30 days.",
+            "detail": "Account deactivated. You have 30 days to reactivate before it enters the archive, and 60 days before permanent deletion.",
             "deletion_date": user.scheduled_deletion_date
         }, status=status.HTTP_200_OK)
 
@@ -510,9 +513,12 @@ class ReactivateAccountView(APIView):
         if not user.check_password(password):
             return Response({"detail": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        if user.scheduled_deletion_date is None:
+        if user.scheduled_deletion_date is None and user.deactivated_at is None:
             return Response({"detail": "Account is not deactivated."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Clear flags and reactive account
+        user.is_active = True
+        user.deactivated_at = None
         user.scheduled_deletion_date = None
         user.save()
 
@@ -523,3 +529,48 @@ class ReactivateAccountView(APIView):
             "refresh": str(refresh),
             "user": user.username
         }, status=status.HTTP_200_OK)
+
+
+class ArchivedAccountsListView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_queryset(self):
+        archive_threshold = timezone.now() - timedelta(days=30)
+        return User.objects.filter(
+            deactivated_at__lte=archive_threshold,
+            scheduled_deletion_date__isnull=False
+        ).order_by('scheduled_deletion_date')
+
+class DeleteExpiredAccountsView(APIView):
+    """
+    This view is specifically designed to be hit by a cron job service like cron-job.org
+    It uses a simple URL query parameter secret instead of requiring a full JWT login.
+    """
+    permission_classes = [permissions.AllowAny] 
+
+    def get(self, request):
+        # We require a secret key so strangers can't easily trigger your server logic
+        secret = request.GET.get('secret')
+        
+        # In production, set CRON_SECRET_KEY in your .env file
+        # For now, it falls back to 'my_secure_cron_key_123' if not set in .env
+        expected_secret = os.environ.get('CRON_SECRET_KEY')
+
+        if secret != expected_secret:
+            return Response({"detail": "Unauthorized. Invalid secret key."}, status=status.HTTP_403_FORBIDDEN)
+
+        now = timezone.now()
+        
+        # Find users who have passed their 60-day scheduled deletion date
+        expired_users = User.objects.filter(
+            scheduled_deletion_date__lte=now,
+            deactivated_at__isnull=False
+        )
+        
+        count = expired_users.count()
+        if count > 0:
+            expired_users.delete()
+            return Response({"detail": f"Successfully permanently deleted {count} expired account(s)."}, status=status.HTTP_200_OK)
+
+        return Response({"detail": "No expired accounts to delete today."}, status=status.HTTP_200_OK)

@@ -12,7 +12,12 @@ class User(AbstractUser):
     booking_count = models.IntegerField(default=0)
     subscription_end_date = models.DateField(null=True, blank=True)
 
-    # NEW FIELD FOR DEACTIVATION
+    # UPDATED FIELDS FOR DEACTIVATION & ARCHIVING
+    deactivated_at = models.DateTimeField(
+        null=True, 
+        blank=True, 
+        help_text="When the user requested deactivation. Triggers 30-day archive and 60-day deletion."
+    )
     scheduled_deletion_date = models.DateTimeField(
         null=True, 
         blank=True, 
