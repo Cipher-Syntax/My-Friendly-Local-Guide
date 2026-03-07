@@ -58,25 +58,139 @@ class CreateUserView(generics.CreateAPIView):
             fail_silently=False,
         )
 
+# class VerifyEmailView(APIView):
+#     permission_classes = [permissions.AllowAny]
+
+#     def get(self, request, uid, token):
+#         APP_SCHEME = "localynk://auth/login" 
+
+#         try:
+#             uid_decoded = force_str(urlsafe_base64_decode(uid))
+#             user = User.objects.get(pk=uid_decoded)
+#         except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+#             return CustomSchemeRedirect(f"{APP_SCHEME}?status=error&message=Invalid link")
+
+#         if not default_token_generator.check_token(user, token):
+#             return CustomSchemeRedirect(f"{APP_SCHEME}?status=error&message=Expired token")
+
+#         user.is_active = True
+#         user.save()
+#         return CustomSchemeRedirect(f"{APP_SCHEME}?status=success&message=Email verified successfully")
+
 class VerifyEmailView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, uid, token):
         APP_SCHEME = "localynk://auth/login" 
+        
+        # Define the web URL for agencies (fallback to localhost for development)
+        FRONTEND_URL = getattr(settings, 'FRONTEND_URL')
+        WEB_AGENCY_LOGIN = f"{FRONTEND_URL}/agency-signin"
 
         try:
             uid_decoded = force_str(urlsafe_base64_decode(uid))
             user = User.objects.get(pk=uid_decoded)
         except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            return CustomSchemeRedirect(f"{APP_SCHEME}?status=error&message=Invalid link")
+            return HttpResponse(
+                "<h3>Invalid verification link.</h3><p>The link may be malformed or the user does not exist.</p>", 
+                status=400
+            )
+
+        # Check if they are already flagged as an agency (fallback)
+        is_explicit_agency = hasattr(user, 'agency_profile') or user.is_staff
 
         if not default_token_generator.check_token(user, token):
+            if is_explicit_agency:
+                return HttpResponseRedirect(f"{WEB_AGENCY_LOGIN}?status=error&message=Expired+token")
             return CustomSchemeRedirect(f"{APP_SCHEME}?status=error&message=Expired token")
 
         user.is_active = True
         user.save()
-        return CustomSchemeRedirect(f"{APP_SCHEME}?status=success&message=Email verified successfully")
 
+        if is_explicit_agency:
+            return HttpResponseRedirect(f"{WEB_AGENCY_LOGIN}?status=success&message=Email+verified+successfully.")
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Email Verified - LocaLynk</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                    text-align: center;
+                    padding: 40px 20px;
+                    background-color: #f8f9fa;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                    margin: 0;
+                    color: #333;
+                }}
+                .container {{
+                    background: white;
+                    padding: 40px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+                    max-width: 400px;
+                    width: 100%;
+                }}
+                .icon {{
+                    font-size: 48px;
+                    margin-bottom: 20px;
+                }}
+                h2 {{ margin-top: 0; color: #10b981; }}
+                p {{ color: #666; margin-bottom: 30px; line-height: 1.5; }}
+                .btn {{
+                    display: block;
+                    width: 100%;
+                    box-sizing: border-box;
+                    padding: 14px 20px;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    font-weight: bold;
+                    font-size: 16px;
+                    margin-bottom: 12px;
+                    transition: all 0.2s;
+                }}
+                .btn-app {{
+                    background-color: #0ea5e9;
+                    color: white;
+                }}
+                .btn-app:hover {{ background-color: #0284c7; }}
+                
+                .btn-web {{
+                    background-color: #f1f5f9;
+                    color: #475569;
+                    border: 1px solid #cbd5e1;
+                }}
+                .btn-web:hover {{ background-color: #e2e8f0; color: #1e293b; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="icon">✅</div>
+                <h2>Email Verified!</h2>
+                <p>Your LocaLynk account has been successfully verified.</p>
+                
+                <a href="{APP_SCHEME}?status=success" class="btn btn-app">Open Mobile App</a>
+                <a href="{WEB_AGENCY_LOGIN}?status=success&message=Email+verified+successfully" class="btn btn-web">Agency Partner Login</a>
+            </div>
+
+            <script>
+                // Automatically attempt to open the mobile app deep link. 
+                // On PC, this silently fails but leaves the UI visible. On mobile, it pops the app open!
+                setTimeout(function() {{
+                    window.location.href = "{APP_SCHEME}?status=success";
+                }}, 800);
+            </script>
+        </body>
+        </html>
+        """
+        return HttpResponse(html_content)
 
 class ResendVerificationEmailView(APIView):
     permission_classes = [permissions.AllowAny]

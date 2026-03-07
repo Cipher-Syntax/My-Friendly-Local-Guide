@@ -1,10 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Smartphone, Map, Star, Shield, ArrowRight, Download, Globe2 } from 'lucide-react';
+import { Smartphone, Map, Star, Shield, ArrowRight, Download, Globe2, Moon, Sun } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 import AppPreview from '../assets/app_preview.jpg';
 
 const LandingPage = () => {
+    const { theme, toggleTheme } = useTheme();
+
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 font-sans text-slate-900 dark:text-slate-50 overflow-x-hidden transition-colors duration-300">
             <nav className="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
@@ -30,6 +33,19 @@ const LandingPage = () => {
                                 <Download size={16} />
                                 Get the App
                             </a>
+
+                            {/* Theme Toggle Button */}
+                            <button
+                                onClick={toggleTheme}
+                                className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors focus:outline-none"
+                                aria-label="Toggle Dark Mode"
+                            >
+                                {theme === 'dark' ? (
+                                    <Sun size={20} className="text-amber-400" />
+                                ) : (
+                                    <Moon size={20} className="text-slate-600" />
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -146,21 +162,6 @@ const LandingPage = () => {
                                 <div className="text-xl leading-tight">Google Play</div>
                             </div>
                         </a>
-
-                        {/* <a
-                            href="YOUR_IOS_LINK_HERE"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-8 py-4 bg-transparent border-2 border-slate-700 dark:border-slate-600 text-white rounded-xl font-bold text-lg hover:bg-slate-800 dark:hover:bg-slate-900 transition-all flex items-center justify-center gap-3"
-                        >
-                            <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.04 2.26-.79 3.59-.76 1.63.1 2.8.84 3.56 2.05-1.49.88-1.81 2.65-.58 3.59-.28.84-.71 1.77-1.28 2.61-1.03 1.52-2.3 3.65-4.37 3.68zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-                            </svg>
-                            <div className="text-left">
-                                <div className="text-xs font-normal leading-tight">Download on the</div>
-                                <div className="text-xl leading-tight">App Store</div>
-                            </div>
-                        </a> */}
                     </div>
                 </div>
             </section>
