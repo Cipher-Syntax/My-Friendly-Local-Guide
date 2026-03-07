@@ -113,9 +113,8 @@ export default function AllBookings() {
         const exportData = filteredBookings.map(b => ({
             "Booking ID": b.id,
             "Tourist Name": b.tourist_username || "Unknown",
-            "Target Provider": b.accommodation ? `Accom: ${b.accommodation_detail?.title || 'Unknown'}` :
-                b.guide ? `Guide: ${b.guide_detail?.username || 'Unknown'}` :
-                    b.agency ? `Agency: ${b.agency_detail?.username || 'Unknown'}` : 'N/A',
+            "Tour Guide": b.guide ? b.guide_detail?.username || 'Unknown' :
+                b.agency ? `Agency: ${b.agency_detail?.username || 'Unknown'}` : 'N/A',
             "Check-In Date": b.check_in,
             "Check-Out Date": b.check_out,
             "Total Amount": parseFloat(b.total_price || 0),
@@ -193,9 +192,11 @@ export default function AllBookings() {
             )}
 
             <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Global Booking Registry</h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">Superuser Access • View & Override All Bookings</p>
+                <div className="flex items-center gap-4 mb-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Global Booking Registry</h1>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm">Superuser Access • View & Override All Bookings</p>
+                    </div>
                 </div>
 
                 {/* Updated Header Buttons */}
@@ -246,7 +247,7 @@ export default function AllBookings() {
                         <tr>
                             <th className="px-6 py-4">ID</th>
                             <th className="px-6 py-4">Tourist</th>
-                            <th className="px-6 py-4">Target</th>
+                            <th className="px-6 py-4">Tour Guide</th>
                             <th className="px-6 py-4">Dates</th>
                             <th className="px-6 py-4">Status</th>
                             <th className="px-6 py-4 text-right">Admin Actions</th>
@@ -258,9 +259,8 @@ export default function AllBookings() {
                                 <td className="px-6 py-4 text-slate-600 dark:text-slate-300 font-mono">#{booking.id}</td>
                                 <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{booking.tourist_username}</td>
                                 <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                                    {booking.accommodation ? `Accom: ${booking.accommodation_detail?.title || 'Unknown'}` :
-                                        booking.guide ? `Guide: ${booking.guide_detail?.username || 'Unknown'}` :
-                                            booking.agency ? `Agency: ${booking.agency_detail?.username || 'Unknown'}` : 'N/A'}
+                                    {booking.guide ? booking.guide_detail?.username || 'Unknown' :
+                                        booking.agency ? `Agency: ${booking.agency_detail?.username || 'Unknown'}` : 'N/A'}
                                 </td>
                                 <td className="px-6 py-4 text-slate-600 dark:text-slate-300 text-sm">
                                     {booking.check_in} <span className="text-slate-400 dark:text-slate-500">to</span> {booking.check_out}
