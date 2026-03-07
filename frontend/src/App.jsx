@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ForgotPassword, Home, LandingPage, Login, NotFound, Register } from './pages';
+import Portal from './pages/Portal'; // Imported the new Portal component
 import { ProtectedRoute } from './components';
 import { AgencyLayout, AgencyDashboard, AgencySignin, AgencyRegister } from './agency';
 import { Adminsignin } from './admin';
@@ -12,7 +13,7 @@ import TourGuidesManagement from './components/admin/TourGuidesManagement';
 import ContentManagement from './components/admin/ContentManagement';
 import Settings from './components/admin/Settings';
 import PaymentsManagement from './components/admin/PaymentsManagement';
-import ArchivedAccounts from './components/admin/ArchivedAccounts'; // Import the new component
+import ArchivedAccounts from './components/admin/ArchivedAccounts';
 
 import ReportsAndAnalysis from './components/admin/ReportsAndAnalysis';
 import Feedback from './components/admin/Feedback';
@@ -35,7 +36,11 @@ const App = () => {
                     <Route path='/agency' element={<AgencyLayout />} />
                     <Route path='/agency/complete-profile' element={<ProtectedRoute><AgencyProfileCompletion /></ProtectedRoute>} />
 
+                    {/* New Promotional Landing Page is now the root */}
                     <Route path='/' element={<LandingPage />} />
+
+                    {/* The old landing page is now moved to the /portal route */}
+                    <Route path='/portal' element={<Portal />} />
 
                     {/* Admin Routes */}
                     <Route path='/admin' element={
@@ -51,7 +56,7 @@ const App = () => {
                         <Route path="payments" element={<PaymentsManagement />} />
                         <Route path="content" element={<ContentManagement />} />
                         <Route path="settings" element={<Settings />} />
-                        <Route path="archived" element={<ArchivedAccounts />} /> {/* Added Route */}
+                        <Route path="archived" element={<ArchivedAccounts />} />
 
                         <Route path="analytics" element={<ReportsAndAnalysis />} />
                         <Route path="feedback" element={<Feedback />} />
