@@ -27,8 +27,9 @@ from .views import (
     GoogleLoginAPIView,
     DeactivateAccountView,
     ReactivateAccountView,
-    ArchivedAccountsListView,       # ADDED FOR ADMIN ARCHIVE LIST
-    DeleteExpiredAccountsView       # ADDED FOR CRON-JOB.ORG
+    ArchivedAccountsListView,       
+    DeleteExpiredAccountsView,
+    AdminUserListView              # Added the new User List view
 )
 
 urlpatterns = [
@@ -39,12 +40,10 @@ urlpatterns = [
     
     path('auth/google/', GoogleLoginAPIView.as_view(), name='google_login'),
 
-    # --- ACCOUNT DEACTIVATION & ARCHIVING ENDPOINTS ---
     path('auth/deactivate/', DeactivateAccountView.as_view(), name='deactivate_account'),
     path('auth/reactivate/', ReactivateAccountView.as_view(), name='reactivate_account'),
     path('admin/archived-accounts/', ArchivedAccountsListView.as_view(), name='archived_accounts'),
 
-    # --- CRON JOB ENDPOINT ---
     path('cron/delete-expired-accounts/', DeleteExpiredAccountsView.as_view(), name='cron_delete_expired'),
 
     path('register/', CreateUserView.as_view(), name='register'),
@@ -53,6 +52,10 @@ urlpatterns = [
     path('verify-email/<uid>/<token>/', VerifyEmailView.as_view(), name='verify-email'),
     path('resend-verify-email/', ResendVerificationEmailView.as_view(), name='resend-verify-email'),
     path('admin/users/<int:pk>/', AdminUpdateUserView.as_view(), name='admin-user-update'),
+    
+    # NEW ENDPOINT: Fetch all users for Admin
+    path('admin/all-users/', AdminUserListView.as_view(), name='admin-all-users'),
+    
     path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password-reset/redirect/<str:uid>/<str:token>/', PasswordResetAppRedirectView.as_view(), name='password-reset-redirect'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm-api'),
@@ -65,7 +68,6 @@ urlpatterns = [
 
     path('guide/update-info/', UpdateGuideInfoView.as_view(), name='update-guide-info'),
     
-    # Favorites
     path('favorites/', FavoriteGuideListView.as_view(), name='favorite-guides-list'),
     path('favorites/toggle/', ToggleFavoriteGuideView.as_view(), name='toggle-favorite-guide'),
 ]

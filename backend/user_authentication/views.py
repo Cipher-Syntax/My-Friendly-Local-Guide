@@ -33,7 +33,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
 
-# --- FIXED: CUSTOM REDIRECT CLASS ---
 class CustomSchemeRedirect(HttpResponseRedirect):
     allowed_schemes = ['http', 'https', 'ftp', 'localynk']
 
@@ -58,32 +57,12 @@ class CreateUserView(generics.CreateAPIView):
             fail_silently=False,
         )
 
-# class VerifyEmailView(APIView):
-#     permission_classes = [permissions.AllowAny]
-
-#     def get(self, request, uid, token):
-#         APP_SCHEME = "localynk://auth/login" 
-
-#         try:
-#             uid_decoded = force_str(urlsafe_base64_decode(uid))
-#             user = User.objects.get(pk=uid_decoded)
-#         except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-#             return CustomSchemeRedirect(f"{APP_SCHEME}?status=error&message=Invalid link")
-
-#         if not default_token_generator.check_token(user, token):
-#             return CustomSchemeRedirect(f"{APP_SCHEME}?status=error&message=Expired token")
-
-#         user.is_active = True
-#         user.save()
-#         return CustomSchemeRedirect(f"{APP_SCHEME}?status=success&message=Email verified successfully")
-
 class VerifyEmailView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, uid, token):
         APP_SCHEME = "localynk://auth/login" 
         
-        # Define the web URL for agencies (fallback to localhost for development)
         FRONTEND_URL = getattr(settings, 'FRONTEND_URL')
         WEB_AGENCY_LOGIN = f"{FRONTEND_URL}/agency-signin"
 
@@ -96,7 +75,6 @@ class VerifyEmailView(APIView):
                 status=400
             )
 
-        # Check if they are already flagged as an agency (fallback)
         is_explicit_agency = hasattr(user, 'agency_profile') or user.is_staff
 
         if not default_token_generator.check_token(user, token):
@@ -181,8 +159,6 @@ class VerifyEmailView(APIView):
             </div>
 
             <script>
-                // Automatically attempt to open the mobile app deep link. 
-                // On PC, this silently fails but leaves the UI visible. On mobile, it pops the app open!
                 setTimeout(function() {{
                     window.location.href = "{APP_SCHEME}?status=success";
                 }}, 800);
@@ -222,7 +198,6 @@ class ResendVerificationEmailView(APIView):
         )
         return Response({"detail": "Verification email resent successfully. Please check your inbox."}, status=status.HTTP_200_OK)
 
-
 class UpdateUserView(generics.RetrieveUpdateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -255,6 +230,16 @@ class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
                     )
                 except Exception as e:
                     print(f"Could not send alert: {e}")
+
+class AdminUserListView(generics.ListAPIView):
+    """
+    Returns all non-superuser accounts for the unified Admin User Management view.
+    """
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_queryset(self):
+        return User.objects.filter(is_superuser=False).order_by('-date_joined')
 
 class PasswordResetAppRedirectView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -630,7 +615,6 @@ class ReactivateAccountView(APIView):
         if user.scheduled_deletion_date is None and user.deactivated_at is None:
             return Response({"detail": "Account is not deactivated."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Clear flags and reactive account
         user.is_active = True
         user.deactivated_at = None
         user.scheduled_deletion_date = None
@@ -657,18 +641,10 @@ class ArchivedAccountsListView(generics.ListAPIView):
         ).order_by('scheduled_deletion_date')
 
 class DeleteExpiredAccountsView(APIView):
-    """
-    This view is specifically designed to be hit by a cron job service like cron-job.org
-    It uses a simple URL query parameter secret instead of requiring a full JWT login.
-    """
     permission_classes = [permissions.AllowAny] 
 
     def get(self, request):
-        # We require a secret key so strangers can't easily trigger your server logic
         secret = request.GET.get('secret')
-        
-        # In production, set CRON_SECRET_KEY in your .env file
-        # For now, it falls back to 'my_secure_cron_key_123' if not set in .env
         expected_secret = os.environ.get('CRON_SECRET_KEY')
 
         if secret != expected_secret:
@@ -676,7 +652,6 @@ class DeleteExpiredAccountsView(APIView):
 
         now = timezone.now()
         
-        # Find users who have passed their 60-day scheduled deletion date
         expired_users = User.objects.filter(
             scheduled_deletion_date__lte=now,
             deactivated_at__isnull=False

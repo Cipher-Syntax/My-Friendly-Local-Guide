@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import { BarChart3, Map, Users, Home, AlertCircle, Settings, Calendar } from 'lucide-react';
+import { BarChart3, Map, Users, Home, AlertCircle, Settings, Calendar, FileText } from 'lucide-react';
 
 export default function AdminLayout() {
     const location = useLocation();
@@ -16,6 +16,13 @@ export default function AdminLayout() {
                 subtitle: 'Platform Overview & Statistics'
             };
         }
+        if (path.includes('/admin/users')) {
+            return {
+                title: 'User Management',
+                icon: Users,
+                subtitle: 'Manage Tourists, Guides, and Agencies'
+            };
+        }
         if (path.includes('/admin/bookings')) {
             return {
                 title: 'Global Booking Registry',
@@ -25,16 +32,16 @@ export default function AdminLayout() {
         }
         if (path.includes('/admin/agency')) {
             return {
-                title: 'Agency Management',
+                title: 'Agency Approvals',
                 icon: Map,
-                subtitle: 'Manage Partner Agencies & Approvals'
+                subtitle: 'Manage Partner Agencies Applications'
             };
         }
         if (path.includes('/admin/guides')) {
             return {
-                title: 'Tour Guides',
-                icon: Users,
-                subtitle: 'Verify & Manage Guide Applications'
+                title: 'Guide Applications',
+                icon: FileText,
+                subtitle: 'Verify & Manage Pending Applications'
             };
         }
         if (path.includes('/admin/content')) {

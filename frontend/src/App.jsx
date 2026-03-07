@@ -10,6 +10,7 @@ import AdminLayout from './components/admin/AdminLayout';
 import Dashboard from './components/admin/Dashboard';
 import AgencyManagement from './components/admin/AgencyManagement';
 import TourGuidesManagement from './components/admin/TourGuidesManagement';
+import UsersManagement from './components/admin/UsersManagement'; // Added missing import
 import ContentManagement from './components/admin/ContentManagement';
 import Settings from './components/admin/Settings';
 import PaymentsManagement from './components/admin/PaymentsManagement';
@@ -50,6 +51,7 @@ const App = () => {
                     }>
                         <Route index element={<Dashboard />} />
                         <Route path="dashboard" element={<Dashboard />} />
+                        <Route path="users" element={<UsersManagement />} /> {/* Added the users route */}
                         <Route path="bookings" element={<AllBookings />} />
                         <Route path="agency" element={<AgencyManagement />} />
                         <Route path="guides" element={<TourGuidesManagement />} />
