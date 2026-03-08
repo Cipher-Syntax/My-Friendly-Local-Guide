@@ -158,8 +158,8 @@ const LandingPage = () => {
                                 <path d="M3.609 1.814L13.792 12 3.61 22.186a1.981 1.981 0 0 1-.585-1.42V3.234c0-.533.208-1.036.584-1.42zM15.207 13.414l3.415-3.414-3.415-3.414L4.316 2.52l10.891 10.894zM16.621 14.828l4.414-4.414a2 2 0 0 0 0-2.828l-4.414-4.414L5.73 1.815l10.891 10.893z" />
                             </svg>
                             <div className="text-left">
-                                <div className="text-xs font-normal leading-tight">GET IT ON</div>
-                                <div className="text-xl leading-tight">Google Play</div>
+                                <div className="text-xs font-normal leading-tight">Get The App</div> {/* GEIT IT ON */}
+                                <div className="text-xl leading-tight">Download Here</div> {/* Google Play */}
                             </div>
                         </a>
                     </div>
