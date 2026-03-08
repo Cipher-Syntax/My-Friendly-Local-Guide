@@ -149,7 +149,7 @@ const LandingPage = () => {
 
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
                         <a
-                            href="https://expo.dev/accounts/cipher081505/projects/localynk/builds/d6f7caf9-6c40-45ac-a05b-63e3a1fc71fa"
+                            href="https://expo.dev/accounts/cipher081505/projects/localynk/builds/4ffdd7c7-8772-4b30-a94d-4fda64c1d83c"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-8 py-4 bg-white text-slate-900 rounded-xl font-bold text-lg hover:bg-slate-100 transition-all flex items-center justify-center gap-3"
