@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ForgotPassword, Home, LandingPage, Login, NotFound, Register } from './pages';
+import { ForgotPassword, ResetPassword, Home, LandingPage, Login, NotFound, Register } from './pages';
 import Portal from './pages/Portal'; // Imported the new Portal component
 import { ProtectedRoute } from './components';
 import { AgencyLayout, AgencyDashboard, AgencySignin, AgencyRegister } from './agency';
@@ -42,6 +42,10 @@ const App = () => {
 
                     {/* The old landing page is now moved to the /portal route */}
                     <Route path='/portal' element={<Portal />} />
+
+                    {/* Password Reset Routes */}
+                    <Route path='/forgot-password' element={<ForgotPassword />} />
+                    <Route path='/reset-password' element={<ResetPassword />} />
 
                     {/* Admin Routes */}
                     <Route path='/admin' element={

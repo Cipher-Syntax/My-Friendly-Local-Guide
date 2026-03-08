@@ -12,7 +12,7 @@ const Agencysignin = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [successMsg, setSuccessMsg] = useState(null); // Added success state
+    const [successMsg, setSuccessMsg] = useState(null);
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
     const [formData, setFormData] = useState({
@@ -21,15 +21,12 @@ const Agencysignin = () => {
         rememberMe: false
     });
 
-    // Capture the URL query parameters sent from the Django backend redirect
     useEffect(() => {
         const status = searchParams.get('status');
         const message = searchParams.get('message');
 
         if (status === 'success' && message) {
-            // Replace '+' with spaces in case the URL encoded it that way
             setSuccessMsg(message.replace(/\+/g, ' '));
-            // Clean the URL so the message doesn't persist on page refresh
             setSearchParams(new URLSearchParams());
         } else if (status === 'error' && message) {
             setError(message.replace(/\+/g, ' '));
@@ -60,7 +57,7 @@ const Agencysignin = () => {
 
         setIsLoading(true);
         setError(null);
-        setSuccessMsg(null); // Clear success message on new login attempt
+        setSuccessMsg(null);
 
         try {
             const res = await api.post('api/auth/agency/login/', {
@@ -207,7 +204,6 @@ const Agencysignin = () => {
                             <p className="text-slate-500 dark:text-slate-400 font-medium">Enter your partner credentials to access your dashboard.</p>
                         </div>
 
-                        {/* NEW SUCCESS MESSAGE BANNER */}
                         {successMsg && (
                             <div className="mb-6 p-4 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 rounded-xl flex items-center gap-3 text-green-600 dark:text-green-400 animate-in fade-in slide-in-from-top-2">
                                 <div className="p-1 bg-green-100 dark:bg-green-500/20 rounded-full"><CheckCircle size={14} /></div>
@@ -215,7 +211,6 @@ const Agencysignin = () => {
                             </div>
                         )}
 
-                        {/* EXISTING ERROR MESSAGE BANNER */}
                         {error && (
                             <div className="mb-6 p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl flex items-center gap-3 text-red-600 dark:text-red-400 animate-in fade-in slide-in-from-top-2">
                                 <div className="p-1 bg-red-100 dark:bg-red-500/20 rounded-full"><EyeOff size={14} /></div>
@@ -281,9 +276,11 @@ const Agencysignin = () => {
                                     />
                                     <span className="text-sm font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-300 transition-colors">Remember me</span>
                                 </label>
-                                {/* <a href="#" className="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-bold transition-colors">
-                                    Issue with login?
-                                </a> */}
+
+                                {/* Updated to be a real link pointing to the new page */}
+                                <Link to="/forgot-password" className="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-bold transition-colors">
+                                    Forgot Password?
+                                </Link>
                             </div>
 
                             <button

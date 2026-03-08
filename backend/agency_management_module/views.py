@@ -28,7 +28,13 @@ class AgencyRegisterView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated] 
 
     def perform_create(self, serializer):
-        agency = serializer.save(user=self.request.user)
+        user = self.request.user
+        
+        # Prevent duplicate agencies for the same user to avoid IntegrityError
+        if Agency.objects.filter(user=user).exists():
+            raise ValidationError({"detail": "An agency is already registered for this user account."})
+
+        agency = serializer.save(user=user)
 
         admin_emails = User.objects.filter(is_superuser=True).values_list('email', flat=True)
         

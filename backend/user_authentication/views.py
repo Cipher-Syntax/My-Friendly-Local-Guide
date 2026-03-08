@@ -232,9 +232,6 @@ class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
                     print(f"Could not send alert: {e}")
 
 class AdminUserListView(generics.ListAPIView):
-    """
-    Returns all non-superuser accounts for the unified Admin User Management view.
-    """
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]
 
@@ -327,49 +324,79 @@ class PasswordResetRequestView(generics.GenericAPIView):
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         
-        redirect_link = f"{settings.BACKEND_BASE_URL}/api/password-reset/redirect/{uid}/{token}/"
+        # Determine if request is from the web frontend
+        is_web = request.data.get('is_web', False)
 
-        plain_message = (
-            f"Hi {user.username},\n\n"
-            f"We received a request to reset your password. Click the link below to open the app:\n"
-            f"{redirect_link}\n\n"
-            f"--- OR MANUALLY ENTER CODES ---\n"
-            f"If the link doesn't work, enter these details in the app:\n\n"
-            f"UID: {uid}\n"
-            f"Token: {token}\n\n"
-            f"If you didn't request this, ignore this email."
-        )
+        if is_web:
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+            reset_link = f"{frontend_url}/reset-password?uid={uid}&token={token}"
+            
+            plain_message = (
+                f"Hi {user.username},\n\n"
+                f"We received a request to reset your password for your web account. Click the link below to reset it:\n"
+                f"{reset_link}\n\n"
+                f"If you didn't request this, ignore this email."
+            )
 
-        html_message = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; color: #333;">
-                <p>Hi {user.username},</p>
-                <p>We received a request to reset your password.</p>
-                
-                <p>
-                    <a href="{redirect_link}" style="background-color: #0072FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                        Reset Password (Open App)
-                    </a>
-                </p>
-                
-                <br>
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                
-                <p><strong>If the button doesn't work, please manually enter these codes in the app:</strong></p>
-                
-                <div style="background-color: #f4f6f8; padding: 15px; border-radius: 8px; border: 1px solid #e1e4e8; display: inline-block; min-width: 250px;">
-                    <p style="margin: 5px 0; font-size: 14px;"><strong>UID:</strong></p>
-                    <p style="margin: 0 0 10px 0; font-family: monospace; font-size: 18px; color: #0072FF; background: #fff; padding: 5px; border: 1px solid #ddd; border-radius: 4px;">{uid}</p>
+            html_message = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; color: #333;">
+                    <p>Hi {user.username},</p>
+                    <p>We received a request to reset your password for your web account.</p>
+                    <p>
+                        <a href="{reset_link}" style="background-color: #0072FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                            Reset Password
+                        </a>
+                    </p>
+                    <br><br>
+                    <p><small style="color: #888;">If you didn't request this, please ignore this email.</small></p>
+                </body>
+            </html>
+            """
+        else:
+            redirect_link = f"{settings.BACKEND_BASE_URL}/api/password-reset/redirect/{uid}/{token}/"
+
+            plain_message = (
+                f"Hi {user.username},\n\n"
+                f"We received a request to reset your password. Click the link below to open the app:\n"
+                f"{redirect_link}\n\n"
+                f"--- OR MANUALLY ENTER CODES ---\n"
+                f"If the link doesn't work, enter these details in the app:\n\n"
+                f"UID: {uid}\n"
+                f"Token: {token}\n\n"
+                f"If you didn't request this, ignore this email."
+            )
+
+            html_message = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; color: #333;">
+                    <p>Hi {user.username},</p>
+                    <p>We received a request to reset your password.</p>
                     
-                    <p style="margin: 5px 0; font-size: 14px;"><strong>Token:</strong></p>
-                    <p style="margin: 0; font-family: monospace; font-size: 18px; color: #0072FF; background: #fff; padding: 5px; border: 1px solid #ddd; border-radius: 4px; word-break: break-all;">{token}</p>
-                </div>
+                    <p>
+                        <a href="{redirect_link}" style="background-color: #0072FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                            Reset Password (Open App)
+                        </a>
+                    </p>
+                    
+                    <br>
+                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                    
+                    <p><strong>If the button doesn't work, please manually enter these codes in the app:</strong></p>
+                    
+                    <div style="background-color: #f4f6f8; padding: 15px; border-radius: 8px; border: 1px solid #e1e4e8; display: inline-block; min-width: 250px;">
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>UID:</strong></p>
+                        <p style="margin: 0 0 10px 0; font-family: monospace; font-size: 18px; color: #0072FF; background: #fff; padding: 5px; border: 1px solid #ddd; border-radius: 4px;">{uid}</p>
+                        
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>Token:</strong></p>
+                        <p style="margin: 0; font-family: monospace; font-size: 18px; color: #0072FF; background: #fff; padding: 5px; border: 1px solid #ddd; border-radius: 4px; word-break: break-all;">{token}</p>
+                    </div>
 
-                <br><br>
-                <p><small style="color: #888;">If you didn't request this, please ignore this email.</small></p>
-            </body>
-        </html>
-        """
+                    <br><br>
+                    <p><small style="color: #888;">If you didn't request this, please ignore this email.</small></p>
+                </body>
+            </html>
+            """
 
         send_mail(
             subject="Reset Your Password",

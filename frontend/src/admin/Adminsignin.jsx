@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Shield, User, Lock, ArrowRight, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { jwtDecode } from "jwt-decode";
 import api from '../api/api';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
@@ -114,7 +114,7 @@ const Adminsignin = () => {
                         style={{
                             top,
                             left,
-                            opacity: opacity * 2, // slightly more visible in light mode
+                            opacity: opacity * 2,
                             animation: `float 8s ease-in-out infinite`,
                             animationDelay: delay,
                             filter: 'drop-shadow(0 0 10px rgba(45, 212, 191, 0.3))'
@@ -227,9 +227,11 @@ const Adminsignin = () => {
                                     />
                                     <span className="text-sm font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-300 transition-colors">Keep me signed in</span>
                                 </label>
-                                {/* <a href="#" className="text-sm text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 font-bold transition-colors">
+
+                                {/* Updated to be a real link pointing to the new page */}
+                                <Link to="/forgot-password" className="text-sm text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 font-bold transition-colors">
                                     Forgot Password?
-                                </a> */}
+                                </Link>
                             </div>
 
                             <button
