@@ -48,7 +48,7 @@ export default function AgencyLayout() {
     const [isAddGuideModalOpen, setIsAddGuideModalOpen] = useState(false);
     const [isManageGuidesModalOpen, setIsManageGuidesModalOpen] = useState(false);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
-    const [editingGuideId, setEditingGuideId] = useState(null); // Track if we're editing an existing guide
+    const [editingGuideId, setEditingGuideId] = useState(null);
 
     const [newGuideForm, setNewGuideForm] = useState({
         fullName: '', specialty: '', languages: [], phone: '', email: '',
@@ -96,7 +96,7 @@ export default function AgencyLayout() {
                     tours: 0,
                     available: g.is_active,
                     phone: g.contact_number,
-                    email: g.email || "contact@agency.com", // Fallback to a default if email isn't set yet
+                    email: g.email || "contact@agency.com",
                     avatar: g.first_name.charAt(0)
                 }));
 
@@ -182,7 +182,6 @@ export default function AgencyLayout() {
         }, 300000);
     };
 
-    // Unified function to handle both Add and Edit
     const handleSaveGuide = async () => {
         try {
             const nameParts = newGuideForm.fullName.split(' ');
@@ -332,6 +331,18 @@ export default function AgencyLayout() {
     };
 
     const handleSignOut = () => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Confirm Sign Out",
+            message: "Are you sure you want to sign out of the agency portal?",
+            isDanger: true,
+            actionLabel: "Sign Out",
+            onConfirm: executeSignOut
+        });
+    };
+
+    const executeSignOut = () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
         localStorage.clear();
         navigate('/agency-signin');
     };
@@ -445,7 +456,6 @@ export default function AgencyLayout() {
                                             Tier: <span className="text-yellow-300">FREE (Limited)</span>
                                         </p>
 
-                                        {/* NEW: Explicitly list out FREE Tier limitations */}
                                         <div className="text-xs text-white/80 mb-3 flex flex-col items-end gap-1">
                                             <span className="flex items-center gap-1">
                                                 <AlertCircle className="w-3 h-3 text-yellow-300" /> Max {config.bookingLimit} Active Booking{config.bookingLimit !== 1 ? 's' : ''}
@@ -473,7 +483,6 @@ export default function AgencyLayout() {
                                             <CheckCircle className="w-5 h-5 text-green-300" />
                                         </div>
 
-                                        {/* NEW: Explicitly list out PREMIUM Tier benefits */}
                                         <div className="text-xs text-white/90 flex flex-col items-end gap-1">
                                             <span className="flex items-center gap-1">
                                                 <CheckCircle className="w-3 h-3 text-green-400" /> Unlimited Bookings Allowed
@@ -582,11 +591,12 @@ export default function AgencyLayout() {
                 handleRemoveLanguage={(lang) => setNewGuideForm(prev => ({ ...prev, languages: prev.languages.filter(l => l !== lang) }))}
                 handleSubmitNewGuide={handleSaveGuide}
                 availableSpecialties={availableSpecialties}
-                isEditMode={!!editingGuideId} // Let the modal know if it's editing
+                isEditMode={!!editingGuideId}
             />
 
+            {/* z-[10000] to ensure it shows over the pending application UI! */}
             {confirmModal.isOpen && (
-                <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4 transition-colors duration-300">
+                <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 transition-colors duration-300">
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full shadow-2xl transition-colors duration-300">
                         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
                             <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">

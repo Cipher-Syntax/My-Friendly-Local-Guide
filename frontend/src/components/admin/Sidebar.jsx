@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { BarChart3, Map, Users, User, Home, MessageSquare, Settings, LogOut, CircleDollarSign, PieChart, Calendar, Sun, Moon, Archive, FileText } from 'lucide-react';
+import { BarChart3, Map, Users, User, Home, MessageSquare, Settings, LogOut, CircleDollarSign, PieChart, Calendar, Sun, Moon, Archive, FileText, AlertTriangle, XCircle } from 'lucide-react';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -26,6 +26,9 @@ export default function Sidebar() {
         email: 'admin@system.com'
     });
 
+    // State for Logout Confirmation Modal
+    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
     useEffect(() => {
         const storedUsername = localStorage.getItem('admin_username');
         const storedEmail = localStorage.getItem('admin_email');
@@ -38,7 +41,7 @@ export default function Sidebar() {
         }
     }, []);
 
-    const handleSignOut = () => {
+    const executeSignOut = () => {
         localStorage.removeItem(ACCESS_TOKEN);
         localStorage.removeItem(REFRESH_TOKEN);
         localStorage.removeItem('admin_username');
@@ -48,61 +51,87 @@ export default function Sidebar() {
     };
 
     return (
-        <aside className="w-70 bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm border-r border-slate-200 dark:border-slate-700/50 flex flex-col overflow-y-auto h-screen transition-colors duration-300">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-700/50">
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white">Admin Portal</h1>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">System Management</p>
-            </div>
-
-            <nav className="flex-1 p-4 space-y-2">
-                {menuItems.map(item => (
-                    <NavLink
-                        key={item.id}
-                        to={item.path}
-                        className={({ isActive }) =>
-                            `w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
-                                ? 'bg-cyan-50 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/30'
-                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/30 hover:text-slate-900 dark:hover:text-white'
-                            }`
-                        }
-                    >
-                        <item.icon className="w-5 h-5" />
-                        <span className="font-medium">{item.label}</span>
-                    </NavLink>
-                ))}
-            </nav>
-
-            <div className="p-4 border-t border-slate-200 dark:border-slate-700/50">
-                <button
-                    onClick={toggleTheme}
-                    className="w-full flex items-center gap-3 px-4 py-3 mb-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/30 hover:text-slate-900 dark:hover:text-white rounded-lg transition-all border border-transparent"
-                >
-                    {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                    <span className="font-medium text-sm">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-                </button>
-
-                <div className="flex items-center gap-3 px-4 py-3 mb-3 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-200 dark:border-slate-700/30">
-                    <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
-                        <User className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="overflow-hidden">
-                        <p className="text-slate-900 dark:text-white text-sm font-medium truncate">
-                            {adminUser.username}
-                        </p>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs truncate" title={adminUser.email}>
-                            {adminUser.email}
-                        </p>
-                    </div>
+        <>
+            <aside className="w-70 bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm border-r border-slate-200 dark:border-slate-700/50 flex flex-col overflow-y-auto h-screen transition-colors duration-300">
+                <div className="p-6 border-b border-slate-200 dark:border-slate-700/50">
+                    <h1 className="text-xl font-bold text-slate-900 dark:text-white">Admin Portal</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">System Management</p>
                 </div>
 
-                <button
-                    onClick={handleSignOut}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all border border-transparent hover:border-red-200 dark:hover:border-red-500/30"
-                >
-                    <LogOut className="w-5 h-5" />
-                    <span className="font-medium text-sm">Sign Out</span>
-                </button>
-            </div>
-        </aside>
+                <nav className="flex-1 p-4 space-y-2">
+                    {menuItems.map(item => (
+                        <NavLink
+                            key={item.id}
+                            to={item.path}
+                            className={({ isActive }) =>
+                                `w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
+                                    ? 'bg-cyan-50 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/30'
+                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/30 hover:text-slate-900 dark:hover:text-white'
+                                }`
+                            }
+                        >
+                            <item.icon className="w-5 h-5" />
+                            <span className="font-medium">{item.label}</span>
+                        </NavLink>
+                    ))}
+                </nav>
+
+                <div className="p-4 border-t border-slate-200 dark:border-slate-700/50">
+                    <button
+                        onClick={toggleTheme}
+                        className="w-full flex items-center gap-3 px-4 py-3 mb-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/30 hover:text-slate-900 dark:hover:text-white rounded-lg transition-all border border-transparent"
+                    >
+                        {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                        <span className="font-medium text-sm">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                    </button>
+
+                    <div className="flex items-center gap-3 px-4 py-3 mb-3 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-200 dark:border-slate-700/30">
+                        <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
+                            <User className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="overflow-hidden">
+                            <p className="text-slate-900 dark:text-white text-sm font-medium truncate">
+                                {adminUser.username}
+                            </p>
+                            <p className="text-slate-500 dark:text-slate-400 text-xs truncate" title={adminUser.email}>
+                                {adminUser.email}
+                            </p>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={() => setIsLogoutModalOpen(true)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all border border-transparent hover:border-red-200 dark:hover:border-red-500/30"
+                    >
+                        <LogOut className="w-5 h-5" />
+                        <span className="font-medium text-sm">Sign Out</span>
+                    </button>
+                </div>
+            </aside>
+
+            {/* Logout Confirmation Modal */}
+            {isLogoutModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4 transition-colors duration-300">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full shadow-2xl transition-colors duration-300">
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <AlertTriangle className="w-5 h-5 text-red-500 dark:text-red-400" />
+                                Confirm Sign Out
+                            </h3>
+                            <button onClick={() => setIsLogoutModalOpen(false)} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                                <XCircle className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <p className="text-slate-600 dark:text-slate-300">Are you sure you want to sign out of the admin portal?</p>
+                        </div>
+                        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3">
+                            <button onClick={() => setIsLogoutModalOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">Cancel</button>
+                            <button onClick={executeSignOut} className="px-4 py-2 font-medium rounded-lg transition-colors bg-red-500 hover:bg-red-600 text-white">Sign Out</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
