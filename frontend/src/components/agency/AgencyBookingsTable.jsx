@@ -64,6 +64,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                         <option value="pending">Pending</option>
                         <option value="accepted">Accepted</option>
                         <option value="paid">Paid</option>
+                        <option value="confirmed">Confirmed</option>
                         <option value="completed">Completed</option>
                         <option value="declined">Declined</option>
                         <option value="cancelled">Cancelled</option>
@@ -88,8 +89,10 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-700/30">
                         {filteredBookings.length > 0 ? (
                             filteredBookings.map((booking) => {
-                                const isManageDisabled = ['accepted', 'paid', 'completed', 'declined', 'cancelled'].includes(booking.status?.toLowerCase());
-                                const isDecisionMade = ['accepted', 'paid', 'completed', 'declined', 'cancelled'].includes(booking.status?.toLowerCase());
+                                // ADDED 'confirmed' TO THESE CHECKS
+                                const isManageDisabled = ['accepted', 'paid', 'confirmed', 'completed', 'declined', 'cancelled'].includes(booking.status?.toLowerCase());
+                                const isDecisionMade = ['accepted', 'paid', 'confirmed', 'completed', 'declined', 'cancelled'].includes(booking.status?.toLowerCase());
+                                const isPositiveStatus = ['accepted', 'paid', 'confirmed', 'completed'].includes(booking.status?.toLowerCase());
 
                                 const guideArray = booking.guideIds || booking.assigned_agency_guides || booking.assigned_guides || [];
                                 const hasGuides = guideArray.length > 0;
@@ -170,9 +173,9 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                                         updateBookingStatus(booking.id, 'accepted');
                                                     }}
                                                     disabled={isDecisionMade || isLimitReached}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors w-[80px] ${['accepted', 'paid', 'completed'].includes(booking.status?.toLowerCase()) ? 'bg-green-500 text-white cursor-default' : isDecisionMade ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed' : 'bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-green-500 hover:text-white'}`}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors w-[80px] ${isPositiveStatus ? 'bg-green-500 text-white cursor-default' : isDecisionMade ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed' : 'bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-green-500 hover:text-white'}`}
                                                 >
-                                                    {['accepted', 'paid', 'completed'].includes(booking.status?.toLowerCase()) ? 'Accepted' : 'Accept'}
+                                                    {isPositiveStatus ? 'Accepted' : 'Accept'}
                                                 </button>
                                                 <button
                                                     onClick={() => updateBookingStatus(booking.id, 'declined')}
