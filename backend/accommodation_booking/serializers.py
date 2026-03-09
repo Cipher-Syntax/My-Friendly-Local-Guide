@@ -151,6 +151,8 @@ class BookingSerializer(serializers.ModelSerializer):
                 'id': guide.id,
                 'full_name': guide.full_name(), 
                 'contact_number': guide.contact_number,
+                'email': guide.email,          
+                'languages': guide.languages,  
                 'specialization': guide.specialization,
                 'profile_picture': pic_url
             })
