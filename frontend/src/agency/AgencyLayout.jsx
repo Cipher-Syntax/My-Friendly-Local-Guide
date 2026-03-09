@@ -496,6 +496,9 @@ export default function AgencyLayout() {
                                     openAddGuideModal={() => setIsAddGuideModalOpen(true)}
                                     handleRemoveGuide={initiateDeleteGuide}
                                     getStatusBg={getStatusBg}
+                                    isPremium={user?.guide_tier !== 'free'}
+                                    guideLimit={config.guideLimit}
+                                    totalGuidesCount={guides.length}
                                 />
                             )}
                             {activeTab === 'reviews' && <AgencyReviews />}

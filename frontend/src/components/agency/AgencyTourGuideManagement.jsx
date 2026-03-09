@@ -1,7 +1,21 @@
 import React from 'react';
 import { Search, Plus, Star, Phone, Mail, Trash2 } from 'lucide-react';
 
-export default function AgencyTourGuideManagement({ searchTerm, setSearchTerm, filteredGuides, openAddGuideModal, handleRemoveGuide, getStatusBg }) {
+export default function AgencyTourGuideManagement({
+    searchTerm,
+    setSearchTerm,
+    filteredGuides,
+    openAddGuideModal,
+    handleRemoveGuide,
+    getStatusBg,
+    isPremium, // Determines if they are on a paid tier
+    guideLimit, // The limit fetched from config
+    totalGuidesCount // The raw total number of guides, regardless of search filter
+}) {
+
+    // Check if the user is on the free tier and has reached the dynamic limit
+    const isAddGuideDisabled = !isPremium && totalGuidesCount >= guideLimit;
+
     return (
         <div className="space-y-4 transition-colors duration-300">
             <div className="flex items-center justify-between gap-4">
@@ -19,7 +33,12 @@ export default function AgencyTourGuideManagement({ searchTerm, setSearchTerm, f
                 </div>
                 <button
                     onClick={openAddGuideModal}
-                    className="flex items-center gap-2 px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl transition-colors font-bold shadow-lg shadow-cyan-500/20"
+                    disabled={isAddGuideDisabled}
+                    title={isAddGuideDisabled ? `Free tier limit reached (${guideLimit} guides max). Upgrade to Premium to add more.` : "Add Guide"}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all font-bold ${isAddGuideDisabled
+                            ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed shadow-none'
+                            : 'bg-cyan-500 hover:bg-cyan-600 text-white shadow-lg shadow-cyan-500/20'
+                        }`}
                 >
                     <Plus className="w-5 h-5" />
                     Add Guide
