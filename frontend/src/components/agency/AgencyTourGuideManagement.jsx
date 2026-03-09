@@ -1,7 +1,20 @@
 import React from 'react';
 import { Search, Plus, Star, Phone, Mail, Trash2 } from 'lucide-react';
 
-export default function AgencyTourGuideManagement({ searchTerm, setSearchTerm, filteredGuides, openAddGuideModal, handleRemoveGuide, getStatusBg }) {
+export default function AgencyTourGuideManagement({
+    searchTerm,
+    setSearchTerm,
+    filteredGuides,
+    openAddGuideModal,
+    handleRemoveGuide,
+    getStatusBg,
+    // --- NEW PROPS ---
+    agencyTier,
+    totalGuidesCount
+}) {
+    // Check if the limit is reached
+    const isLimitReached = agencyTier === 'free' && totalGuidesCount >= 2;
+
     return (
         <div className="space-y-4 transition-colors duration-300">
             <div className="flex items-center justify-between gap-4">
@@ -17,9 +30,22 @@ export default function AgencyTourGuideManagement({ searchTerm, setSearchTerm, f
                         />
                     </div>
                 </div>
+
+                {/* --- UPDATED BUTTON --- */}
                 <button
-                    onClick={openAddGuideModal}
-                    className="flex items-center gap-2 px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl transition-colors font-bold shadow-lg shadow-cyan-500/20"
+                    onClick={() => {
+                        if (isLimitReached) {
+                            alert("Free tier is limited to 2 guides. Please upgrade to add more.");
+                            return;
+                        }
+                        openAddGuideModal();
+                    }}
+                    disabled={isLimitReached}
+                    title={isLimitReached ? "Free tier limit reached (Max 2 guides)" : "Add new guide"}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-colors font-bold shadow-lg ${isLimitReached
+                            ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed shadow-none'
+                            : 'bg-cyan-500 hover:bg-cyan-600 text-white shadow-cyan-500/20'
+                        }`}
                 >
                     <Plus className="w-5 h-5" />
                     Add Guide
@@ -42,11 +68,11 @@ export default function AgencyTourGuideManagement({ searchTerm, setSearchTerm, f
                             <div className="flex items-center gap-3">
                                 <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold shadow-sm ${guide.available ? 'bg-gradient-to-br from-cyan-500 to-blue-500 text-white' : 'bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-white border border-slate-200 dark:border-transparent'
                                     }`}>
-                                    {guide.avatar}
+                                    {guide.avatar || (guide.name || guide.full_name || guide.first_name || 'G').charAt(0)}
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <h3 className="text-slate-900 dark:text-white font-bold">{guide.name}</h3>
+                                        <h3 className="text-slate-900 dark:text-white font-bold">{guide.name || guide.full_name || `${guide.first_name} ${guide.last_name}`}</h3>
                                         {guide.available && (
                                             <div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
                                         )}
@@ -63,7 +89,7 @@ export default function AgencyTourGuideManagement({ searchTerm, setSearchTerm, f
                                 <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">({guide.tours} tours)</span>
                             </div>
                             <div className="flex flex-wrap gap-1 mt-2">
-                                {guide.languages.map((lang, idx) => (
+                                {(guide.languages || []).map((lang, idx) => (
                                     <span key={idx} className="px-2.5 py-1 bg-slate-50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 text-xs font-medium rounded border border-slate-200 dark:border-transparent">
                                         {lang}
                                     </span>

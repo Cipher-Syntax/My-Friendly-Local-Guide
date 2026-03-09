@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, User, Phone, Book, Languages, Loader2 } from 'lucide-react';
+import { X, Plus, User, Phone, Book, Languages, Loader2, AlertCircle } from 'lucide-react';
 
 export default function AddGuideModal({
     isAddGuideModalOpen,
@@ -10,14 +10,36 @@ export default function AddGuideModal({
     handleAddLanguage,
     handleRemoveLanguage,
     handleSubmitNewGuide,
-    availableSpecialties = []
+    availableSpecialties = [],
+    // --- NEW PROPS ---
+    agencyTier,
+    totalGuidesCount
 }) {
     const [isCreating, setIsCreating] = useState(false);
+    const [errorMessage, setErrorMessage] = useState(''); // New State for explicit errors
 
     const handleCreateProfile = async () => {
+        // 1. Double check limit on frontend before even hitting the API
+        if (agencyTier === 'free' && totalGuidesCount >= 2) {
+            setErrorMessage("Free tier is limited to 2 guides. Please upgrade your plan to add more.");
+            return;
+        }
+
         setIsCreating(true);
+        setErrorMessage(''); // Reset previous errors
+
         try {
             await handleSubmitNewGuide();
+            // Assuming handleSubmitNewGuide automatically closes the modal on success
+        } catch (error) {
+            // 2. Catch the error from your API and display a specific message
+            if (error.response?.data?.detail) {
+                setErrorMessage(error.response.data.detail);
+            } else if (error.message) {
+                setErrorMessage(error.message);
+            } else {
+                setErrorMessage("Failed to add guide. Please try again.");
+            }
         } finally {
             setIsCreating(false);
         }
@@ -39,6 +61,14 @@ export default function AddGuideModal({
                 </div>
 
                 <div className="p-6 space-y-4">
+                    {/* --- ERROR MESSAGE UI --- */}
+                    {errorMessage && (
+                        <div className="p-3 mb-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/50 rounded-xl text-red-600 dark:text-red-400 text-sm font-medium flex items-start gap-2 animate-in fade-in slide-in-from-top-2">
+                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <span>{errorMessage}</span>
+                        </div>
+                    )}
+
                     <div className="space-y-1">
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                             <User className="w-4 h-4 text-slate-400 dark:text-slate-500" /> Full Name
@@ -149,7 +179,7 @@ export default function AddGuideModal({
                         {isCreating ? (
                             <>
                                 <Loader2 className="w-5 h-5 animate-spin" />
-                                Creating...
+                                Adding...
                             </>
                         ) : (
                             'Create Profile'
