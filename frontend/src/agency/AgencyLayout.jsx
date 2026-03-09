@@ -444,6 +444,17 @@ export default function AgencyLayout() {
                                         <p className="text-sm font-semibold text-white/90 mb-1">
                                             Tier: <span className="text-yellow-300">FREE (Limited)</span>
                                         </p>
+
+                                        {/* NEW: Explicitly list out FREE Tier limitations */}
+                                        <div className="text-xs text-white/80 mb-3 flex flex-col items-end gap-1">
+                                            <span className="flex items-center gap-1">
+                                                <AlertCircle className="w-3 h-3 text-yellow-300" /> Max {config.bookingLimit} Active Booking{config.bookingLimit !== 1 ? 's' : ''}
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <AlertCircle className="w-3 h-3 text-yellow-300" /> Max {config.guideLimit} Tour Guides Allowed
+                                            </span>
+                                        </div>
+
                                         <button
                                             onClick={initiateSubscription}
                                             className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded-lg transition-colors flex items-center gap-2 font-medium shadow-md"
@@ -457,9 +468,19 @@ export default function AgencyLayout() {
                                         <p className="text-sm font-semibold text-white/90 mb-1">
                                             Tier: <span className="text-green-300">PAID (Unlimited)</span>
                                         </p>
-                                        <div className="flex items-center gap-2 bg-green-500/20 px-3 py-1.5 rounded-lg border border-green-500/40">
+                                        <div className="flex items-center gap-2 bg-green-500/20 px-3 py-1.5 rounded-lg border border-green-500/40 mb-2">
                                             <span className="text-green-300 font-bold">PREMIUM</span>
                                             <CheckCircle className="w-5 h-5 text-green-300" />
+                                        </div>
+
+                                        {/* NEW: Explicitly list out PREMIUM Tier benefits */}
+                                        <div className="text-xs text-white/90 flex flex-col items-end gap-1">
+                                            <span className="flex items-center gap-1">
+                                                <CheckCircle className="w-3 h-3 text-green-400" /> Unlimited Bookings Allowed
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <CheckCircle className="w-3 h-3 text-green-400" /> Unlimited Tour Guides Access
+                                            </span>
                                         </div>
                                     </div>
                                 )}
