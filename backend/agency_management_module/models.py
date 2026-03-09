@@ -23,6 +23,7 @@ class TouristGuide(models.Model):
     
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
+    email = models.EmailField(blank=True, null=True)
     contact_number = models.CharField(max_length=20)
     profile_picture = models.ImageField(upload_to="agency/guides/profiles/", blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
