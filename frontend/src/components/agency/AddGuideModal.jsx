@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, User, Phone, Book, Languages, Loader2 } from 'lucide-react';
+import { X, Plus, User, Phone, Book, Languages, Loader2, Mail, Pencil } from 'lucide-react';
 
 export default function AddGuideModal({
     isAddGuideModalOpen,
@@ -10,7 +10,8 @@ export default function AddGuideModal({
     handleAddLanguage,
     handleRemoveLanguage,
     handleSubmitNewGuide,
-    availableSpecialties = []
+    availableSpecialties = [],
+    isEditMode = false // New prop to determine if we are editing
 }) {
     const [isCreating, setIsCreating] = useState(false);
 
@@ -30,8 +31,11 @@ export default function AddGuideModal({
             <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-lg w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                 <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
                     <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Plus className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-                        Add New Tour Guide
+                        {isEditMode ? (
+                            <><Pencil className="w-5 h-5 text-blue-600 dark:text-blue-400" /> Edit Tour Guide</>
+                        ) : (
+                            <><Plus className="w-5 h-5 text-cyan-600 dark:text-cyan-400" /> Add New Tour Guide</>
+                        )}
                     </h3>
                     <button onClick={closeAddGuideModal} disabled={isCreating} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         <X className="w-6 h-6" />
@@ -69,22 +73,36 @@ export default function AddGuideModal({
                         </div>
                         <div className="space-y-1">
                             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                                <Book className="w-4 h-4 text-slate-400 dark:text-slate-500" /> Specialty
+                                <Mail className="w-4 h-4 text-slate-400 dark:text-slate-500" /> Email
                             </label>
-                            <select
+                            <input
+                                type="email"
                                 disabled={isCreating}
-                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                value={newGuideForm.specialty}
-                                onChange={(e) => setNewGuideForm({ ...newGuideForm, specialty: e.target.value })}
-                            >
-                                <option value="" disabled>Select a specialty...</option>
-                                {availableSpecialties.map(spec => (
-                                    <option key={spec} value={spec}>
-                                        {spec}
-                                    </option>
-                                ))}
-                            </select>
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed placeholder-slate-400 dark:placeholder-slate-500"
+                                placeholder="guide@example.com"
+                                value={newGuideForm.email || ''}
+                                onChange={(e) => setNewGuideForm({ ...newGuideForm, email: e.target.value })}
+                            />
                         </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <Book className="w-4 h-4 text-slate-400 dark:text-slate-500" /> Specialty
+                        </label>
+                        <select
+                            disabled={isCreating}
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            value={newGuideForm.specialty}
+                            onChange={(e) => setNewGuideForm({ ...newGuideForm, specialty: e.target.value })}
+                        >
+                            <option value="" disabled>Select a specialty...</option>
+                            {availableSpecialties.map(spec => (
+                                <option key={spec} value={spec}>
+                                    {spec}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="space-y-1 relative">
@@ -143,16 +161,16 @@ export default function AddGuideModal({
                         disabled={isCreating}
                         className={`px-6 py-2 font-medium rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 ${isCreating
                             ? 'bg-cyan-500/50 text-white/70 cursor-not-allowed shadow-none'
-                            : 'bg-cyan-500 hover:bg-cyan-600 text-white shadow-cyan-500/25'
+                            : (isEditMode ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-blue-500/25' : 'bg-cyan-500 hover:bg-cyan-600 text-white shadow-cyan-500/25')
                             }`}
                     >
                         {isCreating ? (
                             <>
                                 <Loader2 className="w-5 h-5 animate-spin" />
-                                Creating...
+                                Saving...
                             </>
                         ) : (
-                            'Create Profile'
+                            isEditMode ? 'Save Changes' : 'Create Profile'
                         )}
                     </button>
                 </div>

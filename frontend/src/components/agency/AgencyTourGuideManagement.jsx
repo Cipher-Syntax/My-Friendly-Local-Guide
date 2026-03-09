@@ -1,19 +1,18 @@
 import React from 'react';
-import { Search, Plus, Star, Phone, Mail, Trash2 } from 'lucide-react';
+import { Search, Plus, Star, Phone, Mail, Trash2, Pencil } from 'lucide-react';
 
 export default function AgencyTourGuideManagement({
     searchTerm,
     setSearchTerm,
     filteredGuides,
     openAddGuideModal,
+    openEditGuideModal, // Added edit handler prop
     handleRemoveGuide,
     getStatusBg,
-    isPremium, // Determines if they are on a paid tier
-    guideLimit, // The limit fetched from config
-    totalGuidesCount // The raw total number of guides, regardless of search filter
+    isPremium,
+    guideLimit,
+    totalGuidesCount
 }) {
-
-    // Check if the user is on the free tier and has reached the dynamic limit
     const isAddGuideDisabled = !isPremium && totalGuidesCount >= guideLimit;
 
     return (
@@ -48,7 +47,14 @@ export default function AgencyTourGuideManagement({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredGuides.map((guide) => (
                     <div key={guide.id} className="bg-white dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-6 hover:border-cyan-400 dark:hover:border-cyan-500/50 transition-all relative group shadow-sm hover:shadow-md">
-                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                            <button
+                                onClick={() => openEditGuideModal(guide)}
+                                className="p-2 bg-blue-50 dark:bg-blue-500/20 hover:bg-blue-100 dark:hover:bg-blue-500/30 text-blue-500 dark:text-blue-400 rounded-lg transition-colors border border-transparent hover:border-blue-200 dark:hover:border-transparent"
+                                title="Edit guide"
+                            >
+                                <Pencil className="w-5 h-5" />
+                            </button>
                             <button
                                 onClick={() => handleRemoveGuide(guide.id)}
                                 className="p-2 bg-red-50 dark:bg-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/30 text-red-500 dark:text-red-400 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-transparent"

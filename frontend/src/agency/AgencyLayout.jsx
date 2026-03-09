@@ -48,6 +48,7 @@ export default function AgencyLayout() {
     const [isAddGuideModalOpen, setIsAddGuideModalOpen] = useState(false);
     const [isManageGuidesModalOpen, setIsManageGuidesModalOpen] = useState(false);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
+    const [editingGuideId, setEditingGuideId] = useState(null); // Track if we're editing an existing guide
 
     const [newGuideForm, setNewGuideForm] = useState({
         fullName: '', specialty: '', languages: [], phone: '', email: '',
@@ -95,7 +96,7 @@ export default function AgencyLayout() {
                     tours: 0,
                     available: g.is_active,
                     phone: g.contact_number,
-                    email: "contact@agency.com",
+                    email: g.email || "contact@agency.com", // Fallback to a default if email isn't set yet
                     avatar: g.first_name.charAt(0)
                 }));
 
@@ -181,25 +182,35 @@ export default function AgencyLayout() {
         }, 300000);
     };
 
-    const handleAddGuide = async () => {
+    // Unified function to handle both Add and Edit
+    const handleSaveGuide = async () => {
         try {
             const nameParts = newGuideForm.fullName.split(' ');
             const payload = {
                 first_name: nameParts[0],
                 last_name: nameParts.slice(1).join(' ') || '.',
                 contact_number: newGuideForm.phone,
+                email: newGuideForm.email,
                 specialization: newGuideForm.specialty,
                 languages: newGuideForm.languages,
                 is_active: true
             };
-            await api.post('api/agency/guides/create/', payload);
+
+            if (editingGuideId) {
+                await api.patch(`api/agency/guides/${editingGuideId}/`, payload);
+                showToast("Guide updated successfully!");
+            } else {
+                await api.post('api/agency/guides/create/', payload);
+                showToast("Guide added successfully!");
+            }
+
             setIsAddGuideModalOpen(false);
+            setEditingGuideId(null);
             setNewGuideForm({ fullName: '', specialty: '', languages: [], phone: '', email: '', languageSearchTerm: '', showLanguageDropdown: false });
             fetchData();
-            showToast("Guide added successfully!");
         } catch (error) {
-            console.error("Add Guide Error:", error);
-            showToast("Failed to add guide.", "error");
+            console.error("Save Guide Error:", error);
+            showToast(editingGuideId ? "Failed to update guide." : "Failed to add guide.", "error");
         }
     };
 
@@ -493,7 +504,24 @@ export default function AgencyLayout() {
                                     searchTerm={searchTerm}
                                     setSearchTerm={setSearchTerm}
                                     filteredGuides={filteredGuides}
-                                    openAddGuideModal={() => setIsAddGuideModalOpen(true)}
+                                    openAddGuideModal={() => {
+                                        setEditingGuideId(null);
+                                        setNewGuideForm({ fullName: '', specialty: '', languages: [], phone: '', email: '', languageSearchTerm: '', showLanguageDropdown: false });
+                                        setIsAddGuideModalOpen(true);
+                                    }}
+                                    openEditGuideModal={(guide) => {
+                                        setEditingGuideId(guide.id);
+                                        setNewGuideForm({
+                                            fullName: guide.name,
+                                            specialty: guide.specialty || '',
+                                            languages: guide.languages || [],
+                                            phone: guide.phone || '',
+                                            email: guide.email || '',
+                                            languageSearchTerm: '',
+                                            showLanguageDropdown: false
+                                        });
+                                        setIsAddGuideModalOpen(true);
+                                    }}
                                     handleRemoveGuide={initiateDeleteGuide}
                                     getStatusBg={getStatusBg}
                                     isPremium={user?.guide_tier !== 'free'}
@@ -522,14 +550,18 @@ export default function AgencyLayout() {
 
             <AddGuideModal
                 isAddGuideModalOpen={isAddGuideModalOpen}
-                closeAddGuideModal={() => setIsAddGuideModalOpen(false)}
+                closeAddGuideModal={() => {
+                    setIsAddGuideModalOpen(false);
+                    setEditingGuideId(null);
+                }}
                 newGuideForm={newGuideForm}
                 setNewGuideForm={setNewGuideForm}
                 filteredLanguages={filteredFormLanguages}
                 handleAddLanguage={(lang) => !newGuideForm.languages.includes(lang) && setNewGuideForm(prev => ({ ...prev, languages: [...prev.languages, lang] }))}
                 handleRemoveLanguage={(lang) => setNewGuideForm(prev => ({ ...prev, languages: prev.languages.filter(l => l !== lang) }))}
-                handleSubmitNewGuide={handleAddGuide}
+                handleSubmitNewGuide={handleSaveGuide}
                 availableSpecialties={availableSpecialties}
+                isEditMode={!!editingGuideId} // Let the modal know if it's editing
             />
 
             {confirmModal.isOpen && (
