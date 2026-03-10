@@ -63,7 +63,7 @@ export default function TourGuidesManagement() {
     }, []);
 
     const filteredGuides = useMemo(() => {
-        return tourGuides.filter(g => {
+        const filtered = tourGuides.filter(g => {
             const matchesSearch = g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 g.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -74,9 +74,17 @@ export default function TourGuidesManagement() {
 
             return matchesSearch && matchesStatus;
         });
+
+        return filtered.sort((a, b) => {
+            const statusA = a.status?.toLowerCase();
+            const statusB = b.status?.toLowerCase();
+
+            if (statusA === 'pending' && statusB !== 'pending') return -1;
+            if (statusA !== 'pending' && statusB === 'pending') return 1;
+            return 0;
+        });
     }, [tourGuides, searchTerm, statusFilter]);
 
-    // Reset to first page when search or filter changes
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, statusFilter]);
