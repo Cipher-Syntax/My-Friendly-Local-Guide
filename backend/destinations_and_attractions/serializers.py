@@ -108,7 +108,7 @@ class TourPackageSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'guide', 'guide_name', 'guide_avatar',
             'destination_id', 'main_destination', 'destination_name',
-            'name', 'description', 'duration', 'max_group_size', 'what_to_bring',
+            'name', 'description', 'duration', 'duration_days', 'max_group_size', 'what_to_bring', # ADDED duration_days HERE
             'price_per_day', 'solo_price', 'additional_fee_per_head',
             'itinerary_timeline',
             'stops', 'stops_images', 'stops_names',
