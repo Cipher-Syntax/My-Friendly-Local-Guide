@@ -1,11 +1,11 @@
-from django.core.management.base import BaseCommand
-from django.utils import timezone
+from django.core.management.base import BaseCommand #type: ignore
+from django.utils import timezone #type: ignore
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
 class Command(BaseCommand):
-    help = 'Deletes user accounts that have passed their scheduled deletion date (60 days after deactivation).'
+    help = 'Deletes user accounts that have passed their scheduled deletion date (365 days after deactivation).'
 
     def handle(self, *args, **kwargs):
         now = timezone.now()

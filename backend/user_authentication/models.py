@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models #type: ignore
 from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
@@ -16,7 +16,7 @@ class User(AbstractUser):
     deactivated_at = models.DateTimeField(
         null=True, 
         blank=True, 
-        help_text="When the user requested deactivation. Triggers 30-day archive and 60-day deletion."
+        help_text="When the user requested deactivation. Triggers 30-day archive and 365-day deletion."
     )
     scheduled_deletion_date = models.DateTimeField(
         null=True, 

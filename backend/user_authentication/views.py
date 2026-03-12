@@ -2,12 +2,12 @@ import os
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str 
-from django.core.mail import send_mail
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode #type: ignore
+from django.utils.encoding import force_bytes, force_str #type: ignore
+from django.core.mail import send_mail #type: ignore
 from django.conf import settings
-from django.http import HttpResponse, HttpResponseRedirect 
-from django.utils import timezone 
+from django.http import HttpResponse, HttpResponseRedirect #type: ignore
+from django.utils import timezone #type: ignore
 from datetime import timedelta 
 
 from rest_framework import viewsets, generics, permissions, status 
@@ -613,11 +613,12 @@ class DeactivateAccountView(APIView):
         user = request.user
         user.is_active = False 
         user.deactivated_at = timezone.now()
-        user.scheduled_deletion_date = timezone.now() + timedelta(days=60)
+        # --- CHANGED: Now gives them 365 days until deletion ---
+        user.scheduled_deletion_date = timezone.now() + timedelta(days=365)
         user.save()
         
         return Response({
-            "detail": "Account deactivated. You have 30 days to reactivate before it enters the archive, and 60 days before permanent deletion.",
+            "detail": "Account deactivated. You have 30 days to reactivate before it enters the archive, and 365 days before permanent deletion.",
             "deletion_date": user.scheduled_deletion_date
         }, status=status.HTTP_200_OK)
 
