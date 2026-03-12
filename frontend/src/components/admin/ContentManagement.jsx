@@ -4,7 +4,7 @@ import api from '../../api/api';
 
 export default function ContentManagement() {
     const [destinations, setDestinations] = useState([]);
-    const [categoryChoices, setCategoryChoices] = useState([]); // State for dynamic categories
+    const [categoryChoices, setCategoryChoices] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -42,13 +42,11 @@ export default function ContentManagement() {
         }, 3000);
     };
 
-    // Fetch categories from the new Django endpoint
     const fetchCategories = async () => {
         try {
             const response = await api.get('api/categories/');
             setCategoryChoices(response.data);
 
-            // Default the new spot category to the first fetched category
             if (response.data.length > 0) {
                 setNewSpot(prev => ({ ...prev, category: response.data[0] }));
             }
@@ -113,25 +111,12 @@ export default function ContentManagement() {
                 formData.append('uploaded_images', image);
             });
 
-            const response = await api.post('api/destinations/', formData, {
+            await api.post('api/destinations/', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            const createdItem = {
-                id: response.data.id,
-                name: response.data.name,
-                description: response.data.description,
-                category: response.data.category,
-                location: response.data.location,
-                rating: response.data.average_rating || 0,
-                featured: response.data.is_featured,
-                imageList: response.data.images ? response.data.images.map(img => img.image) : [],
-                imagesCount: response.data.images ? response.data.images.length : 0,
-                attractions: [],
-                attractionsCount: 0
-            };
+            await fetchDestinations(); // Refetch to ensure sync with newly generated backend URLs
 
-            setDestinations([createdItem, ...destinations]);
             setIsCreateModalOpen(false);
             setNewSpot({ name: '', description: '', category: categoryChoices[0] || '', location: '', rating: 0, is_featured: false, images: [] });
             showToast("Destination created successfully!", "success");
@@ -145,13 +130,53 @@ export default function ContentManagement() {
 
     const handleDestinationImageChange = (e) => {
         const files = Array.from(e.target.files);
-        setNewSpot(prev => ({ ...prev, images: [...prev.images, ...files] }));
+        setNewSpot(prev => {
+            const total = prev.images.length + files.length;
+            if (total > 5) {
+                showToast("Maximum of 5 images allowed.", "error");
+                const allowed = files.slice(0, Math.max(0, 5 - prev.images.length));
+                return { ...prev, images: [...prev.images, ...allowed] };
+            }
+            return { ...prev, images: [...prev.images, ...files] };
+        });
+        e.target.value = null; // Clear input to allow re-selecting the same file if needed
     };
 
     const removeDestinationImage = (indexToRemove) => {
         setNewSpot(prev => ({
             ...prev,
             images: prev.images.filter((_, index) => index !== indexToRemove)
+        }));
+    };
+
+    const handleEditImageChange = (e) => {
+        const files = Array.from(e.target.files);
+        setEditingSpot(prev => {
+            const existingCount = prev.imageList ? prev.imageList.length : 0;
+            const newCount = prev.newImages ? prev.newImages.length : 0;
+            const total = existingCount + newCount + files.length;
+
+            if (total > 5) {
+                showToast("Maximum of 5 images allowed.", "error");
+                const allowed = files.slice(0, Math.max(0, 5 - (existingCount + newCount)));
+                return { ...prev, newImages: [...(prev.newImages || []), ...allowed] };
+            }
+            return { ...prev, newImages: [...(prev.newImages || []), ...files] };
+        });
+        e.target.value = null; // Clear input to allow re-selecting the same file if needed
+    };
+
+    const removeEditExistingImage = (indexToRemove) => {
+        setEditingSpot(prev => ({
+            ...prev,
+            imageList: prev.imageList.filter((_, index) => index !== indexToRemove)
+        }));
+    };
+
+    const removeEditNewImage = (indexToRemove) => {
+        setEditingSpot(prev => ({
+            ...prev,
+            newImages: prev.newImages.filter((_, index) => index !== indexToRemove)
         }));
     };
 
@@ -202,49 +227,38 @@ export default function ContentManagement() {
 
     const handleUpdate = async () => {
         if (!editingSpot) return;
+        setIsCreating(true);
         try {
-            const payload = {
-                name: editingSpot.name,
-                description: editingSpot.description,
-                category: editingSpot.category,
-                location: editingSpot.location,
-                average_rating: editingSpot.rating,
-                is_featured: editingSpot.featured
-            };
-            await api.patch(`api/destinations/${editingSpot.id}/`, payload);
-            setDestinations(prev => prev.map(s => s.id === editingSpot.id ? { ...s, ...editingSpot } : s));
+            const formData = new FormData();
+            formData.append('name', editingSpot.name);
+            formData.append('description', editingSpot.description);
+            formData.append('category', editingSpot.category);
+            formData.append('location', editingSpot.location);
+            formData.append('average_rating', editingSpot.rating);
+            formData.append('is_featured', editingSpot.featured);
+
+            if (editingSpot.imageList) {
+                editingSpot.imageList.forEach(url => formData.append('existing_images', url));
+            }
+
+            if (editingSpot.newImages) {
+                editingSpot.newImages.forEach(file => formData.append('uploaded_images', file));
+            }
+
+            await api.patch(`api/destinations/${editingSpot.id}/`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            await fetchDestinations(); // Refetch perfectly syncs the newly processed backend images to frontend state
+
             setIsEditModalOpen(false);
             setEditingSpot(null);
             showToast("Destination updated successfully!", "success");
         } catch (error) {
             console.error("Failed to save changes:", error);
             showToast("Failed to update destination.", "error");
-        }
-    };
-
-    const handleDeleteAttraction = async (attractionId) => {
-        if (!window.confirm("Are you sure you want to delete this attraction?")) return;
-
-        try {
-            await api.delete(`api/attractions/${attractionId}/`);
-
-            const updatedAttractions = editingSpot.attractions.filter(a => a.id !== attractionId);
-
-            setEditingSpot(prev => ({
-                ...prev,
-                attractions: updatedAttractions
-            }));
-
-            setDestinations(prev => prev.map(s =>
-                s.id === editingSpot.id
-                    ? { ...s, attractions: updatedAttractions, attractionsCount: updatedAttractions.length }
-                    : s
-            ));
-            showToast("Attraction deleted successfully.", "success");
-
-        } catch (error) {
-            console.error("Failed to delete attraction:", error);
-            showToast("Failed to delete attraction.", "error");
+        } finally {
+            setIsCreating(false);
         }
     };
 
@@ -291,7 +305,6 @@ export default function ContentManagement() {
 
     return (
         <div className="space-y-6 relative transition-colors duration-300">
-            {/* Toast Notification */}
             {toast.show && (
                 <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
                     ? 'bg-white dark:bg-slate-800 border-green-200 dark:border-green-500/50 text-green-600 dark:text-green-400'
@@ -377,7 +390,6 @@ export default function ContentManagement() {
                         </div>
 
                         <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-slate-700/50">
-
                             <button
                                 onClick={() => viewSpotImages(spot)}
                                 className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border border-slate-200 dark:border-transparent"
@@ -399,7 +411,7 @@ export default function ContentManagement() {
 
                             <button
                                 onClick={() => {
-                                    setEditingSpot({ ...spot });
+                                    setEditingSpot({ ...spot, newImages: [] });
                                     setIsEditModalOpen(true);
                                 }}
                                 className="flex-1 px-4 py-2.5 bg-cyan-50 dark:bg-cyan-500/10 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
@@ -450,8 +462,8 @@ export default function ContentManagement() {
                             </div>
 
                             <div>
-                                <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Destination Images</label>
-                                <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-6 text-center hover:border-cyan-500 transition-colors bg-slate-50 dark:bg-transparent">
+                                <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Destination Images (Max 5)</label>
+                                <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${newSpot.images.length >= 5 ? 'border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 opacity-70' : 'border-slate-300 dark:border-slate-600 hover:border-cyan-500 bg-slate-50 dark:bg-transparent'}`}>
                                     <input
                                         type="file"
                                         accept="image/*"
@@ -459,14 +471,17 @@ export default function ContentManagement() {
                                         onChange={handleDestinationImageChange}
                                         className="hidden"
                                         id="destination-images-upload"
+                                        disabled={newSpot.images.length >= 5}
                                     />
-                                    <label htmlFor="destination-images-upload" className="cursor-pointer flex flex-col items-center">
+                                    <label htmlFor="destination-images-upload" className={`flex flex-col items-center ${newSpot.images.length >= 5 ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                                         <Upload className="w-8 h-8 text-slate-400 mb-2" />
-                                        <span className="text-sm text-slate-600 dark:text-slate-300 font-medium">Click to upload images</span>
+                                        <span className="text-sm text-slate-600 dark:text-slate-300 font-medium">
+                                            {newSpot.images.length >= 5 ? 'Maximum 5 images reached' : 'Click to upload images'}
+                                        </span>
                                     </label>
                                 </div>
                                 {newSpot.images.length > 0 && (
-                                    <div className="mt-4 grid grid-cols-4 gap-3">
+                                    <div className="mt-4 grid grid-cols-5 gap-3">
                                         {newSpot.images.map((img, index) => (
                                             <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
                                                 <img src={URL.createObjectURL(img)} alt={`Preview ${index}`} className="w-full h-full object-cover" />
@@ -595,50 +610,72 @@ export default function ContentManagement() {
 
                             <div className="mt-6 border-t border-slate-200 dark:border-slate-700/50 pt-4">
                                 <h4 className="text-slate-900 dark:text-white text-sm font-medium mb-3 flex items-center gap-2">
-                                    <Landmark className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                                    Existing Attractions
+                                    <ImageIcon className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                                    Destination Images (Max 5)
                                 </h4>
-                                <div className="space-y-3 max-h-48 overflow-y-auto custom-scrollbar">
-                                    {editingSpot.attractions && editingSpot.attractions.length > 0 ? (
-                                        editingSpot.attractions.map(attr => (
-                                            <div key={attr.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-700/50 rounded-lg hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
-                                                <div className="flex items-center gap-3">
-                                                    {attr.image ? (
-                                                        <img
-                                                            src={attr.image.startsWith('http') ? attr.image : `http://127.0.0.1:8000${attr.image}`}
-                                                            alt={attr.name}
-                                                            className="w-10 h-10 rounded object-cover border border-slate-200 dark:border-slate-700"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-10 h-10 rounded bg-slate-200 dark:bg-slate-800 flex items-center justify-center">
-                                                            <ImageIcon className="w-5 h-5 text-slate-400 dark:text-slate-600" />
-                                                        </div>
-                                                    )}
-                                                    <div>
-                                                        <p className="text-slate-900 dark:text-slate-200 text-sm font-medium">{attr.name}</p>
-                                                        <p className="text-slate-500 text-xs truncate w-32">{attr.description}</p>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={() => handleDeleteAttraction(attr.id)}
-                                                    className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                                                    title="Delete Attraction"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-slate-500 text-sm text-center py-4 bg-slate-50 dark:bg-slate-900/20 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
-                                            No attractions added yet.
-                                        </p>
-                                    )}
+
+                                <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors mb-4 ${((editingSpot.imageList?.length || 0) + (editingSpot.newImages?.length || 0)) >= 5 ? 'border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 opacity-70' : 'border-slate-300 dark:border-slate-600 hover:border-cyan-500 bg-slate-50 dark:bg-transparent'}`}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={handleEditImageChange}
+                                        className="hidden"
+                                        id="edit-destination-images-upload"
+                                        disabled={((editingSpot.imageList?.length || 0) + (editingSpot.newImages?.length || 0)) >= 5}
+                                    />
+                                    <label htmlFor="edit-destination-images-upload" className={`flex flex-col items-center ${((editingSpot.imageList?.length || 0) + (editingSpot.newImages?.length || 0)) >= 5 ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                                        <Upload className="w-8 h-8 text-slate-400 mb-2" />
+                                        <span className="text-sm text-slate-600 dark:text-slate-300 font-medium">
+                                            {((editingSpot.imageList?.length || 0) + (editingSpot.newImages?.length || 0)) >= 5 ? 'Maximum 5 images reached' : 'Click to upload new images'}
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <div className="grid grid-cols-5 gap-3">
+                                    {editingSpot.imageList && editingSpot.imageList.map((imgUrl, index) => (
+                                        <div key={`existing-${index}`} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                                            <img src={imgUrl.startsWith('http') ? imgUrl : `http://127.0.0.1:8000${imgUrl}`} alt={`Existing ${index}`} className="w-full h-full object-cover" />
+                                            <button
+                                                onClick={() => removeEditExistingImage(index)}
+                                                className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-500 text-white rounded-full transition-colors"
+                                            >
+                                                <XCircle className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+
+                                    {editingSpot.newImages && editingSpot.newImages.map((img, index) => (
+                                        <div key={`new-${index}`} className="relative aspect-square rounded-lg overflow-hidden border border-cyan-200 dark:border-cyan-700">
+                                            <img src={URL.createObjectURL(img)} alt={`New ${index}`} className="w-full h-full object-cover" />
+                                            <div className="absolute inset-0 bg-cyan-500/10 pointer-events-none"></div>
+                                            <button
+                                                onClick={() => removeEditNewImage(index)}
+                                                className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-500 text-white rounded-full transition-colors"
+                                            >
+                                                <XCircle className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
                         <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
                             <button onClick={() => setIsEditModalOpen(false)} className="px-6 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium transition-colors">Cancel</button>
-                            <button onClick={handleUpdate} className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium shadow-lg shadow-cyan-500/20 transition-all">Save Changes</button>
+                            <button
+                                onClick={handleUpdate}
+                                disabled={isCreating}
+                                className={`px-6 py-2 rounded-lg font-medium shadow-lg transition-all flex items-center gap-2 ${isCreating ? 'bg-cyan-500/50 text-white/70 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-600 text-white shadow-cyan-500/20'}`}
+                            >
+                                {isCreating ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    'Save Changes'
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>
