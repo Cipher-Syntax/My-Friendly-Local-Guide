@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Phone, Percent, Building, User, Mail, Info } from 'lucide-react';
+import { Save, Phone, Percent, Building, User, Mail, Info, CheckCircle, AlertCircle as AlertIcon } from 'lucide-react';
 import api from '../../api/api';
 
 export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
     const [isLoading, setIsLoading] = useState(false);
+
+    // --- NEW: Feedback State for Custom Notifications ---
+    const [feedback, setFeedback] = useState({ show: false, message: '', type: '' });
 
     // Editable Fields
     const [businessName, setBusinessName] = useState(profileData.business_name || '');
@@ -23,6 +26,12 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
         }
     }, [profileData]);
 
+    // Helper to trigger custom feedback
+    const showFeedback = (msg, type) => {
+        setFeedback({ show: true, message: msg, type: type });
+        setTimeout(() => setFeedback({ show: false, message: '', type: '' }), 4000);
+    };
+
     const handleSaveSettings = async () => {
         setIsLoading(true);
         try {
@@ -32,19 +41,33 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                 phone: phone,
                 down_payment_percentage: downPayment
             });
-            alert("Settings updated successfully!");
+
+            // --- UPDATED: Replaced alert with custom feedback ---
+            showFeedback("Settings updated successfully!", "success");
+
             if (onUpdateSuccess) onUpdateSuccess();
         } catch (error) {
             console.error("Failed to update settings:", error);
-            alert("Failed to save settings. Please try again.");
+            // --- UPDATED: Replaced alert with custom feedback ---
+            showFeedback("Failed to save settings. Please try again.", "error");
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        // Removed mx-auto to align to the left side of the dashboard pane
-        <div className="max-w-5xl space-y-6">
+        <div className="max-w-5xl space-y-6 relative">
+            {/* --- NEW: In-UI Toast Notification --- */}
+            {feedback.show && (
+                <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border animate-in slide-in-from-right duration-300 ${feedback.type === 'success'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-400'
+                        : 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-900/30 dark:border-rose-800 dark:text-rose-400'
+                    }`}>
+                    {feedback.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertIcon className="w-5 h-5" />}
+                    <p className="font-bold text-sm">{feedback.message}</p>
+                </div>
+            )}
+
             <div>
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Agency Settings</h2>
                 <p className="text-slate-500 dark:text-slate-400">Manage your business profile and financial configurations.</p>
