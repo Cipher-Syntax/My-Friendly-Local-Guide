@@ -1,9 +1,9 @@
-from django.db import models
+from django.db import models #type: ignore
 from user_authentication.models import User 
 from destinations_and_attractions.models import Destination
 from agency_management_module.models import TouristGuide 
-from django.core.exceptions import ValidationError
-from django.db.models import Q
+from django.core.exceptions import ValidationError #type: ignore
+from django.db.models import Q #type: ignore
 
 class Accommodation(models.Model):
     host = models.ForeignKey(User, on_delete=models.CASCADE, related_name="accommodations")
