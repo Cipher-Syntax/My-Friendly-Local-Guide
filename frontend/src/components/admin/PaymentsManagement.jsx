@@ -63,7 +63,7 @@ export default function PaymentsManagement() {
     const calculateStats = (data) => {
         const platformFees = data
             .filter(b => b.is_payout_settled)
-            .reduce((acc, curr) => acc + parseFloat(curr.platform_fee || 0), 0);
+            .reduce((acc, curr) => acc + parseFloat(curr.platform_fee || (parseFloat(curr.total_price || 0) * 0.02)), 0);
 
         const totalCollected = data.reduce((acc, curr) => acc + parseFloat(curr.down_payment || 0), 0);
 
@@ -152,7 +152,7 @@ export default function PaymentsManagement() {
             "Provider GCash/Contact": getProviderPhone(b),
             "Total Booking Price": parseFloat(b.total_price || 0),
             "Down Payment": parseFloat(b.down_payment || 0),
-            "Platform Fee (2%)": parseFloat(b.platform_fee || 0),
+            "Platform Fee (2%)": parseFloat(b.platform_fee || (parseFloat(b.total_price || 0) * 0.02)),
             "Net Guide Payout": parseFloat(b.guide_payout_amount || 0),
             "Payout Status": b.is_payout_settled ? 'Settled' : 'Pending',
             "Date Created": new Date(b.created_at).toLocaleDateString()
@@ -330,67 +330,80 @@ export default function PaymentsManagement() {
                                 <th className="p-4">Booking ID</th>
                                 <th className="p-4">Provider / Guide</th>
                                 <th className="p-4">Provider GCash</th>
+                                {/* REVISION 10: ADDED BASE TOTAL PRICE COLUMN TO SHOW FULL BREAKDOWN */}
+                                <th className="p-4 text-right border-l border-slate-200 dark:border-slate-700">Total Price</th>
                                 <th className="p-4 text-right">Down Payment</th>
                                 <th className="p-4 text-right">App Fee (2%)</th>
-                                <th className="p-4 text-right">Net Payout</th>
+                                <th className="p-4 text-right bg-slate-50 dark:bg-slate-800">Net Payout</th>
                                 <th className="p-4 text-center">Status</th>
                                 <th className="p-4 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                            {filteredBookings.map((booking) => (
-                                <tr key={booking.id} className="text-sm hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
-                                    <td className="p-4 text-slate-900 dark:text-white font-medium">#{booking.id}</td>
+                            {filteredBookings.map((booking) => {
+                                const totalPrice = parseFloat(booking.total_price || 0);
+                                const downPayment = parseFloat(booking.down_payment || 0);
+                                const appFee = parseFloat(booking.platform_fee || (totalPrice * 0.02));
+                                const netPayout = parseFloat(booking.guide_payout_amount || (downPayment - appFee));
 
-                                    <td className="p-4">
-                                        <div className="text-slate-900 dark:text-white font-medium">
-                                            {getProviderName(booking)}
-                                        </div>
-                                        <div className="text-xs text-slate-500">
-                                            {getProviderType(booking)}
-                                        </div>
-                                    </td>
+                                return (
+                                    <tr key={booking.id} className="text-sm hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
+                                        <td className="p-4 text-slate-900 dark:text-white font-medium">#{booking.id}</td>
 
-                                    <td className="p-4 text-slate-600 dark:text-slate-300">
-                                        {getProviderPhone(booking)}
-                                    </td>
+                                        <td className="p-4">
+                                            <div className="text-slate-900 dark:text-white font-medium">
+                                                {getProviderName(booking)}
+                                            </div>
+                                            <div className="text-xs text-slate-500">
+                                                {getProviderType(booking)}
+                                            </div>
+                                        </td>
 
-                                    <td className="p-4 text-right text-slate-600 dark:text-slate-300">
-                                        {parseFloat(booking.down_payment || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
-                                    </td>
-                                    <td className="p-4 text-right text-emerald-600 dark:text-emerald-400">
-                                        + {parseFloat(booking.platform_fee || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
-                                    </td>
-                                    <td className="p-4 text-right font-bold text-slate-900 dark:text-white">
-                                        {parseFloat(booking.guide_payout_amount || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
-                                    </td>
+                                        <td className="p-4 text-slate-600 dark:text-slate-300">
+                                            {getProviderPhone(booking)}
+                                        </td>
 
-                                    <td className="p-4 text-center">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${booking.is_payout_settled
-                                            ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20'
-                                            : 'bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20'
-                                            }`}>
-                                            {booking.is_payout_settled ? 'Settled' : 'Pending'}
-                                        </span>
-                                    </td>
+                                        {/* REVISION 10: RENDER BREAKDOWN COLUMNS */}
+                                        <td className="p-4 text-right text-slate-500 dark:text-slate-400 border-l border-slate-100 dark:border-slate-800">
+                                            {totalPrice.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                                        </td>
+                                        <td className="p-4 text-right text-slate-600 dark:text-slate-300">
+                                            {downPayment.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                                        </td>
+                                        <td className="p-4 text-right text-rose-500 dark:text-rose-400">
+                                            - {appFee.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                                        </td>
+                                        <td className="p-4 text-right font-bold text-slate-900 dark:text-white bg-slate-50/50 dark:bg-slate-800/30">
+                                            {netPayout.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                                        </td>
 
-                                    <td className="p-4 text-right">
-                                        {!booking.is_payout_settled && (
-                                            <button
-                                                onClick={() => initiateSettlement(booking.id)}
-                                                className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white text-xs rounded-lg transition-colors flex items-center gap-1 ml-auto shadow-md shadow-cyan-500/10"
-                                            >
-                                                Mark Settled
-                                            </button>
-                                        )}
-                                        {booking.is_payout_settled && (
-                                            <span className="text-xs text-slate-500 flex items-center justify-end gap-1">
-                                                <CheckCircle className="w-3 h-3" /> Paid
+                                        <td className="p-4 text-center">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${booking.is_payout_settled
+                                                ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20'
+                                                : 'bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20'
+                                                }`}>
+                                                {booking.is_payout_settled ? 'Settled' : 'Pending'}
                                             </span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+
+                                        <td className="p-4 text-right">
+                                            {!booking.is_payout_settled && (
+                                                <button
+                                                    onClick={() => initiateSettlement(booking.id)}
+                                                    className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white text-xs rounded-lg transition-colors flex items-center gap-1 ml-auto shadow-md shadow-cyan-500/10"
+                                                >
+                                                    Mark Settled
+                                                </button>
+                                            )}
+                                            {booking.is_payout_settled && (
+                                                <span className="text-xs text-slate-500 flex items-center justify-end gap-1">
+                                                    <CheckCircle className="w-3 h-3" /> Paid
+                                                </span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
 

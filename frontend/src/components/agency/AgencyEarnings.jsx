@@ -12,11 +12,11 @@ export default function AgencyEarnings({ bookings }) {
             if (['accepted', 'confirmed', 'completed'].includes(booking.status?.toLowerCase())) {
                 const downPayment = parseFloat(booking.down_payment || 0);
                 const totalBookingPrice = parseFloat(booking.total_price || 0);
+                const commission = parseFloat(booking.platform_fee || (totalBookingPrice * 0.02)); // Ensure platform fee is grabbed or calc'd
 
                 let payoutAmount = parseFloat(booking.agency_payout_amount || booking.guide_payout_amount || 0);
 
                 if (payoutAmount === 0 && downPayment > 0) {
-                    const commission = totalBookingPrice * 0.02; // Assuming 2% platform fee
                     payoutAmount = downPayment - commission;
                 }
 
@@ -27,7 +27,7 @@ export default function AgencyEarnings({ bookings }) {
                     } else {
                         pending += payoutAmount;
                     }
-                    validBookings.push({ ...booking, payoutAmount });
+                    validBookings.push({ ...booking, payoutAmount, totalBookingPrice, downPayment, commission });
                 }
             }
         });
@@ -92,26 +92,48 @@ export default function AgencyEarnings({ bookings }) {
                 <div className="divide-y divide-slate-200 dark:divide-slate-700">
                     {stats.validBookings.length > 0 ? (
                         stats.validBookings.map(booking => (
-                            <div key={booking.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                <div className="flex items-center gap-4">
-                                    <div className={`p-3 rounded-full flex-shrink-0 ${booking.is_payout_settled ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400'}`}>
-                                        {booking.is_payout_settled ? <CheckCircle className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+                            <div key={booking.id} className="p-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`p-3 rounded-full flex-shrink-0 ${booking.is_payout_settled ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400'}`}>
+                                            {booking.is_payout_settled ? <CheckCircle className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-slate-900 dark:text-white">{booking.location}</p>
+                                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                                                {booking.tourist_username || "Guest"} • {new Date(booking.created_at || booking.check_in).toLocaleDateString()}
+                                            </p>
+                                            <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-0.5">Booking ID: #{booking.id}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="font-bold text-slate-900 dark:text-white">{booking.location}</p>
-                                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                                            {booking.tourist_username || "Guest"} • {new Date(booking.created_at || booking.check_in).toLocaleDateString()}
+                                    <div className="text-left sm:text-right ml-16 sm:ml-0 flex flex-col items-start sm:items-end">
+                                        <p className="font-bold text-cyan-600 dark:text-cyan-400 text-lg">
+                                            + {booking.payoutAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                                         </p>
-                                        <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-0.5">Booking ID: #{booking.id}</p>
+                                        <span className={`inline-block mt-1.5 px-3 py-1 text-xs font-bold rounded-md uppercase tracking-wide ${booking.is_payout_settled ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400'}`}>
+                                            {booking.is_payout_settled ? "Settled" : "Processing"}
+                                        </span>
                                     </div>
                                 </div>
-                                <div className="text-left sm:text-right ml-16 sm:ml-0">
-                                    <p className="font-bold text-cyan-600 dark:text-cyan-400 text-lg">
-                                        + {booking.payoutAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
-                                    </p>
-                                    <span className={`inline-block mt-1.5 px-3 py-1 text-xs font-bold rounded-md uppercase tracking-wide ${booking.is_payout_settled ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400'}`}>
-                                        {booking.is_payout_settled ? "Settled" : "Processing"}
-                                    </span>
+
+                                {/* --- REVISION 10: PAYOUT BREAKDOWN --- */}
+                                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm ml-16 sm:ml-0">
+                                    <div>
+                                        <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Total Trip Price</p>
+                                        <p className="font-semibold text-slate-700 dark:text-slate-300 mt-0.5">{booking.totalBookingPrice.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Downpayment Paid</p>
+                                        <p className="font-semibold text-slate-700 dark:text-slate-300 mt-0.5">{booking.downPayment.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-rose-500 dark:text-rose-400 text-xs font-medium">Less: App Fee (2%)</p>
+                                        <p className="font-semibold text-rose-600 dark:text-rose-400 mt-0.5">- {booking.commission.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-emerald-600 dark:text-emerald-500 text-xs font-bold uppercase tracking-wider">Net Payout</p>
+                                        <p className="font-bold text-emerald-700 dark:text-emerald-400 mt-0.5">{booking.payoutAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</p>
+                                    </div>
                                 </div>
                             </div>
                         ))
