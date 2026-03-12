@@ -67,11 +67,14 @@ class Booking(models.Model):
     down_payment = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 
     balance_due = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 
 
+    # --- REVISION 12: TIMESTAMPS FOR PAYMENT LEDGER ---
+    downpayment_paid_at = models.DateTimeField(null=True, blank=True, help_text="When the down payment was successfully processed online")
+    balance_paid_at = models.DateTimeField(null=True, blank=True, help_text="When the face-to-face balance was confirmed received")
+
     platform_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="2% Commission for the App")
     guide_payout_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Amount Admin must send to Guide")
     is_payout_settled = models.BooleanField(default=False, help_text="Has Admin sent the money to the Guide?")
 
-    # --- NEW: MEETUP AND COORDINATION DETAILS (Revision 7) ---
     meetup_location = models.CharField(max_length=255, blank=True, null=True, help_text="Where the guide and tourist will meet")
     meetup_time = models.TimeField(blank=True, null=True)
     meetup_instructions = models.TextField(blank=True, null=True, help_text="e.g., Look for the guide holding a blue LocaLynk umbrella.")

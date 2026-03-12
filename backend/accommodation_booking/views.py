@@ -5,6 +5,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser 
 from django.db.models import Q #type: ignore
 from datetime import date, timedelta
+from django.utils import timezone #type: ignore
 from django.core.mail import send_mail #type: ignore
 from django.conf import settings
 from decimal import Decimal
@@ -105,24 +106,20 @@ class BookingViewSet(viewsets.ModelViewSet):
             user.valid_id_image = uploaded_id_image
             user.save() 
 
-        # --- FIX: Extract financial data passed explicitly from the frontend ---
         passed_total = self.request.data.get('total_price')
         passed_down_payment = self.request.data.get('down_payment')
         passed_balance = self.request.data.get('balance_due')
 
         instance = serializer.save(tourist=user, status='Pending_Payment')
         
-        # If the frontend provided explicit pricing (which handles inclusive day logic), use it!
         if passed_total and passed_down_payment and passed_balance:
             instance.total_price = Decimal(str(passed_total)).quantize(Decimal('0.01'))
             instance.down_payment = Decimal(str(passed_down_payment)).quantize(Decimal('0.01'))
             instance.balance_due = Decimal(str(passed_balance)).quantize(Decimal('0.01'))
         else:
-            # Fallback to backend calculation if frontend failed to provide it
             raw_total_price = self.calculate_booking_price(instance)
             total_price = Decimal(str(raw_total_price)).quantize(Decimal('0.01'))
             
-            # --- DYNAMIC DOWN PAYMENT ---
             dp_percentage = Decimal('30.00') # Default 30%
             if instance.agency and hasattr(instance.agency, 'agency_profile'):
                 dp_percentage = Decimal(str(instance.agency.agency_profile.down_payment_percentage))
@@ -205,6 +202,8 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         booking.balance_due = 0
         booking.status = 'Completed' 
+        # --- REVISION 12: Record exactly when face-to-face payment was settled ---
+        booking.balance_paid_at = timezone.now()
         booking.save()
 
         SystemAlert.objects.create(
@@ -332,7 +331,6 @@ class BookingViewSet(viewsets.ModelViewSet):
         if not instance.check_in or not instance.check_out:
             return 0
         
-        # Make backend calculation inclusive just in case it ever falls back
         days = max((instance.check_out - instance.check_in).days + 1, 1)
         total_price = 0
 
@@ -408,6 +406,10 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
                 return Response({"error": "Dates are no longer available."}, status=400)
 
             instance.status = 'Confirmed'
+            # --- REVISION 12: Record when downpayment was completed (Confirmed state) ---
+            if not instance.downpayment_paid_at:
+                instance.downpayment_paid_at = timezone.now()
+
             if instance.guide:
                 instance.guide.booking_count += 1
                 instance.guide.save()
@@ -425,7 +427,6 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
                 instance.guide.booking_count += 1
                 instance.guide.save()
              
-             # --- NEW: Save dynamic Meetup fields passed from the Agency/Guide ---
              meetup_loc = request.data.get('meetup_location')
              meetup_time = request.data.get('meetup_time')
              meetup_inst = request.data.get('meetup_instructions')

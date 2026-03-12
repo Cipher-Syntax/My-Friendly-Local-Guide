@@ -139,6 +139,7 @@ export default function PaymentsManagement() {
         return "N/A";
     };
 
+    // --- REVISION 12: Added detailed ledger dates to the Excel Export ---
     const handleExport = () => {
         if (filteredBookings.length === 0) {
             showToast("No data to export.", "error");
@@ -152,10 +153,12 @@ export default function PaymentsManagement() {
             "Provider GCash/Contact": getProviderPhone(b),
             "Total Booking Price": parseFloat(b.total_price || 0),
             "Down Payment": parseFloat(b.down_payment || 0),
+            "Down Payment Date": b.downpayment_paid_at ? new Date(b.downpayment_paid_at).toLocaleString() : 'N/A',
+            "Balance Settled Date (Face-to-Face)": b.balance_paid_at ? new Date(b.balance_paid_at).toLocaleString() : 'Pending',
             "Platform Fee (2%)": parseFloat(b.platform_fee || (parseFloat(b.total_price || 0) * 0.02)),
             "Net Guide Payout": parseFloat(b.guide_payout_amount || 0),
             "Payout Status": b.is_payout_settled ? 'Settled' : 'Pending',
-            "Date Created": new Date(b.created_at).toLocaleDateString()
+            "Booking Created At": new Date(b.created_at).toLocaleDateString()
         }));
 
         const wb = XLSX.utils.book_new();
@@ -163,8 +166,8 @@ export default function PaymentsManagement() {
 
         const colWidths = [
             { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 25 },
-            { wch: 20 }, { wch: 15 }, { wch: 18 }, { wch: 18 },
-            { wch: 15 }, { wch: 15 }
+            { wch: 20 }, { wch: 15 }, { wch: 22 }, { wch: 32 },
+            { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 20 }
         ];
         ws['!cols'] = colWidths;
 
@@ -176,6 +179,11 @@ export default function PaymentsManagement() {
             : `payouts-report-${filter}-${dateStr}.xlsx`;
 
         XLSX.writeFile(wb, fileName);
+    };
+
+    const formatDate = (dateString) => {
+        if (!dateString) return null;
+        return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
     const StatsCard = ({ title, value, icon: Icon, color, subValue, clickable, onClick }) => (
@@ -256,15 +264,15 @@ export default function PaymentsManagement() {
 
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Payments & Payouts</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Manage platform commissions and guide transfers</p>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Payments & Ledger</h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">Manage platform commissions, guide transfers, and review transaction ledgers.</p>
                 </div>
                 <button
                     onClick={handleExport}
                     className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-500/20"
                 >
                     <Download className="w-4 h-4" />
-                    Export Report
+                    Export Ledger
                 </button>
             </div>
 
@@ -330,9 +338,8 @@ export default function PaymentsManagement() {
                                 <th className="p-4">Booking ID</th>
                                 <th className="p-4">Provider / Guide</th>
                                 <th className="p-4">Provider GCash</th>
-                                {/* REVISION 10: ADDED BASE TOTAL PRICE COLUMN TO SHOW FULL BREAKDOWN */}
                                 <th className="p-4 text-right border-l border-slate-200 dark:border-slate-700">Total Price</th>
-                                <th className="p-4 text-right">Down Payment</th>
+                                <th className="p-4 text-right">Down Payment (Paid)</th>
                                 <th className="p-4 text-right">App Fee (2%)</th>
                                 <th className="p-4 text-right bg-slate-50 dark:bg-slate-800">Net Payout</th>
                                 <th className="p-4 text-center">Status</th>
@@ -345,6 +352,9 @@ export default function PaymentsManagement() {
                                 const downPayment = parseFloat(booking.down_payment || 0);
                                 const appFee = parseFloat(booking.platform_fee || (totalPrice * 0.02));
                                 const netPayout = parseFloat(booking.guide_payout_amount || (downPayment - appFee));
+
+                                const originalBalance = totalPrice - downPayment;
+                                const is100PercentPaid = originalBalance <= 0;
 
                                 return (
                                     <tr key={booking.id} className="text-sm hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
@@ -363,16 +373,33 @@ export default function PaymentsManagement() {
                                             {getProviderPhone(booking)}
                                         </td>
 
-                                        {/* REVISION 10: RENDER BREAKDOWN COLUMNS */}
-                                        <td className="p-4 text-right text-slate-500 dark:text-slate-400 border-l border-slate-100 dark:border-slate-800">
-                                            {totalPrice.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                                        {/* REVISION 12: Embed Timestamps into the Financial Columns */}
+                                        <td className="p-4 text-right border-l border-slate-100 dark:border-slate-800">
+                                            <div className="text-slate-500 dark:text-slate-400 font-medium">
+                                                {totalPrice.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                                            </div>
+                                            <div className={`text-[10px] mt-1 font-medium ${booking.balance_paid_at ? 'text-emerald-500' : 'text-orange-400'}`}>
+                                                {is100PercentPaid ? "100% Paid Online" : (
+                                                    booking.balance_paid_at
+                                                        ? `Bal Rec'd: ${formatDate(booking.balance_paid_at)}`
+                                                        : 'Bal Pending'
+                                                )}
+                                            </div>
                                         </td>
-                                        <td className="p-4 text-right text-slate-600 dark:text-slate-300">
-                                            {downPayment.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+
+                                        <td className="p-4 text-right">
+                                            <div className="text-slate-600 dark:text-slate-300 font-medium">
+                                                {downPayment.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 mt-1">
+                                                {formatDate(booking.downpayment_paid_at) || 'Paid Online'}
+                                            </div>
                                         </td>
-                                        <td className="p-4 text-right text-rose-500 dark:text-rose-400">
+
+                                        <td className="p-4 text-right text-rose-500 dark:text-rose-400 font-medium">
                                             - {appFee.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                                         </td>
+
                                         <td className="p-4 text-right font-bold text-slate-900 dark:text-white bg-slate-50/50 dark:bg-slate-800/30">
                                             {netPayout.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                                         </td>
