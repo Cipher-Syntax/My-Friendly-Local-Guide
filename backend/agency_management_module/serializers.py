@@ -20,7 +20,8 @@ class AgencySerializer(serializers.ModelSerializer):
             'created_at', 
             'profile_picture',
             'rating',     
-            'review_count' 
+            'review_count',
+            'down_payment_percentage' 
         ]
         read_only_fields = ("is_approved", "created_at")
 

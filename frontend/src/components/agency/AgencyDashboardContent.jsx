@@ -1,9 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { Calendar, Users, Star, MapPin, TrendingUp, Clock, Award, Download, Filter } from 'lucide-react';
+import { Calendar, Users, Star, MapPin, TrendingUp, Clock, Award, Download, Filter, Settings } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
 
-export default function AgencyDashboardContent({ tourGuides = [], bookings = [], avgRating = 0, completedTours = 0, activeGuides = 0, getStatusBg }) {
+export default function AgencyDashboardContent({
+    tourGuides = [],
+    bookings = [],
+    avgRating = 0,
+    completedTours = 0,
+    activeGuides = 0,
+    getStatusBg,
+    downPaymentPercentage = 30,
+    setDownPaymentPercentage = () => { },
+    handleUpdateDownPayment = () => { },
+    isSavingSettings = false
+}) {
     const [filter, setFilter] = useState('Daily');
 
     // Fallback calculations
@@ -30,7 +41,6 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
         };
 
         if (filter === 'Daily') {
-            // Generate the last 7 days ending with today
             for (let i = 6; i >= 0; i--) {
                 const d = new Date();
                 d.setDate(now.getDate() - i);
@@ -41,7 +51,6 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
                 });
             }
         } else if (filter === 'Weekly') {
-            // Last 4 weeks
             for (let i = 3; i >= 0; i--) {
                 trendData.push({
                     name: i === 0 ? 'This Week' : `${i} Wks Ago`,
@@ -49,14 +58,12 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
                 });
             }
         } else if (filter === 'Monthly') {
-            // Standard 12 months for the current year
             trendData = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, index) => ({
                 name: m,
                 monthIndex: index,
                 Bookings: 0
             }));
         } else if (filter === 'Yearly') {
-            // Last 5 years including the current year
             const currentYear = now.getFullYear();
             trendData = [currentYear - 4, currentYear - 3, currentYear - 2, currentYear - 1, currentYear].map(y => ({
                 name: y.toString(),
@@ -67,7 +74,6 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
 
         // Slot each booking into the right bucket using created_at
         validBookings.forEach(b => {
-            // Your backend serializer sends created_at (booking date) and check_in (tour date)
             const rawDate = b.created_at || b.check_in;
 
             if (!rawDate) return;
@@ -252,7 +258,7 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
                 </div>
             </div>
 
-            {/* Bottom Section: Top Guides & Upcoming Tours */}
+            {/* Bottom Section: Top Guides, Upcoming Tours, & Agency Settings */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 {/* Top Performing Guides */}
@@ -299,11 +305,9 @@ export default function AgencyDashboardContent({ tourGuides = [], bookings = [],
                         {bookings.length > 0 ? (
                             bookings
                                 .filter(b => b.status !== 'Declined' && b.status !== 'Cancelled')
-                                // Sort to show the closest upcoming tours first based on check_in
                                 .sort((a, b) => new Date(a.check_in || 0) - new Date(b.check_in || 0))
                                 .slice(0, 4)
                                 .map((booking) => {
-                                    // Extract the name from destination_detail or accommodation_detail based on your serializers
                                     const tourName = booking.destination_detail?.name || booking.accommodation_detail?.title || `Booking #${booking.id}`;
 
                                     return (

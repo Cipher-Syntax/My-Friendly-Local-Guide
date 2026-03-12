@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert, Settings } from 'lucide-react';
 import api from '../api/api';
 
 import AgencySidebar from '../components/agency/AgencySidebar';
@@ -9,6 +9,7 @@ import AgencyBookingsTable from '../components/agency/AgencyBookingsTable';
 import AgencyTourGuideManagement from '../components/agency/AgencyTourGuideManagement';
 import AgencyReviews from '../components/agency/AgencyReviews';
 import AgencyEarnings from '../components/agency/AgencyEarnings';
+import AgencySettings from '../components/agency/AgencySettings'; // <--- NEW IMPORT
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
 
@@ -438,6 +439,7 @@ export default function AgencyLayout() {
                                         {activeTab === 'guides' && <UsersRound className="w-8 h-8 text-white" />}
                                         {activeTab === 'reviews' && <Star className="w-8 h-8 text-white" />}
                                         {activeTab === 'earnings' && <DollarSign className="w-8 h-8 text-white" />}
+                                        {activeTab === 'settings' && <Settings className="w-8 h-8 text-white" />}
                                     </div>
                                     <div>
                                         <h2 className="text-3xl font-bold text-white">
@@ -445,7 +447,8 @@ export default function AgencyLayout() {
                                                 activeTab === 'bookings' ? 'Bookings Management' :
                                                     activeTab === 'guides' ? 'Tour Guide Management' :
                                                         activeTab === 'reviews' ? 'Reviews & Ratings' :
-                                                            'Earnings & Payments'}
+                                                            activeTab === 'settings' ? 'Agency Settings' :
+                                                                'Earnings & Payments'}
                                         </h2>
                                     </div>
                                 </div>
@@ -561,6 +564,7 @@ export default function AgencyLayout() {
                             )}
                             {activeTab === 'reviews' && <AgencyReviews />}
                             {activeTab === 'earnings' && <AgencyEarnings bookings={bookings} />}
+                            {activeTab === 'settings' && <AgencySettings profileData={user?.agency_profile || {}} onUpdateSuccess={fetchData} />}
                         </>
                     )}
                 </main>

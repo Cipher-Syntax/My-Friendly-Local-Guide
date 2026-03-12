@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, Wallet } from 'lucide-react';
+// --- FIX 1: Import the Settings icon ---
+import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, Wallet, Settings } from 'lucide-react';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -25,12 +26,14 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
         }
     }, []);
 
+    // --- FIX 2: Add Settings to the Menu Items ---
     const menuItems = [
         { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { id: 'bookings', icon: BookOpen, label: 'Bookings Management' },
         { id: 'guides', icon: UsersRound, label: 'Tour Guide Management' },
         { id: 'reviews', icon: Star, label: 'Reviews & Ratings' },
         { id: 'earnings', icon: Wallet, label: 'Earnings & Payments' },
+        { id: 'settings', icon: Settings, label: 'Agency Settings' }, // NEW ITEM
     ];
 
     return (

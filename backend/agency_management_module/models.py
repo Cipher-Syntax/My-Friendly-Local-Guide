@@ -1,6 +1,6 @@
-from django.db import models
+from django.db import models #type: ignore
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError #type: ignore
 
 User = settings.AUTH_USER_MODEL
 
@@ -14,6 +14,9 @@ class Agency(models.Model):
     business_license = models.FileField(upload_to="agency/licenses/", null=True, blank=True)
     is_approved = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    # NEW FIELD: Dynamic Downpayment Percentage
+    down_payment_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=30.00, help_text="Required downpayment percentage (e.g., 30 for 30%)")
 
     def __str__(self):
         return f"{self.business_name} ({'Approved' if self.is_approved else 'Pending'})"

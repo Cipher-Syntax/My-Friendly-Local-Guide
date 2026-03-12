@@ -121,7 +121,13 @@ class BookingViewSet(viewsets.ModelViewSet):
             # Fallback to backend calculation if frontend failed to provide it
             raw_total_price = self.calculate_booking_price(instance)
             total_price = Decimal(str(raw_total_price)).quantize(Decimal('0.01'))
-            down_payment = (total_price * Decimal('0.30')).quantize(Decimal('0.01'))
+            
+            # --- DYNAMIC DOWN PAYMENT ---
+            dp_percentage = Decimal('30.00') # Default 30%
+            if instance.agency and hasattr(instance.agency, 'agency_profile'):
+                dp_percentage = Decimal(str(instance.agency.agency_profile.down_payment_percentage))
+            
+            down_payment = (total_price * (dp_percentage / Decimal('100'))).quantize(Decimal('0.01'))
             balance_due = (total_price - down_payment).quantize(Decimal('0.01'))
             
             instance.total_price = total_price

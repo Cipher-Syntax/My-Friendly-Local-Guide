@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions #type: ignore
 from rest_framework.exceptions import PermissionDenied, ValidationError #type: ignore
-from django.core.mail import send_mail
+from django.core.mail import send_mail #type: ignore
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
@@ -20,6 +20,18 @@ class AgencyListView(generics.ListAPIView):
     queryset = Agency.objects.all().order_by('-created_at')
     serializer_class = AgencySerializer
     permission_classes = [permissions.AllowAny]
+
+
+class AgencyProfileView(generics.RetrieveUpdateAPIView):
+    """Allows an Agency to view and update their profile (including downpayment settings)"""
+    serializer_class = AgencySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        if not hasattr(self.request.user, 'agency_profile'):
+            raise PermissionDenied("You do not have an active agency profile.")
+        return self.request.user.agency_profile
+
 
 class AgencyRegisterView(generics.CreateAPIView):
     """Allows a User to create their Agency Profile"""

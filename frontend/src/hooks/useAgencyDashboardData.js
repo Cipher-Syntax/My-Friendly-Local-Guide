@@ -32,21 +32,30 @@ export const useAgencyDashboardData = () => {
     const [tourGuides, setTourGuides] = useState([]);
     const [availableSpecialties, setAvailableSpecialties] = useState([]); 
     const [isLoading, setIsLoading] = useState(true);
+    
+    // Settings state
+    const [downPaymentPercentage, setDownPaymentPercentage] = useState(30);
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
 
     // Fetch data from backend API
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
                 setIsLoading(true);
-                const [bookingsRes, guidesRes, categoriesRes] = await Promise.all([
+                const [bookingsRes, guidesRes, categoriesRes, profileRes] = await Promise.all([
                     api.get('api/bookings/'),
                     api.get('api/guides/'),
-                    api.get('api/categories/') 
+                    api.get('api/categories/'),
+                    api.get('api/agency/profile/').catch(() => ({ data: null }))
                 ]);
                 
                 setBookings(bookingsRes.data.results || bookingsRes.data || []);
                 setTourGuides(guidesRes.data.results || guidesRes.data || []);
                 setAvailableSpecialties(categoriesRes.data || []); 
+
+                if (profileRes && profileRes.data) {
+                    setDownPaymentPercentage(profileRes.data.down_payment_percentage || 30);
+                }
                 
             } catch (error) {
                 console.error("Error fetching agency dashboard data:", error);
@@ -57,6 +66,20 @@ export const useAgencyDashboardData = () => {
 
         fetchDashboardData();
     }, []);
+
+    const handleUpdateDownPayment = async (newPercentage) => {
+        try {
+            setIsSavingSettings(true);
+            await api.patch(`api/agency/profile/`, { down_payment_percentage: newPercentage });
+            setDownPaymentPercentage(newPercentage);
+            alert("Downpayment percentage updated successfully!");
+        } catch (error) {
+            console.error("Error updating settings:", error);
+            alert("Failed to update settings.");
+        } finally {
+            setIsSavingSettings(false);
+        }
+    };
 
     // --- Helper Functions ---
     const getStatusBg = (status) => {
@@ -98,7 +121,6 @@ export const useAgencyDashboardData = () => {
 
     // Used for toggling a single guide manually
     const assignGuide = async (bookingId, guide) => {
-        // Find current booking state
         const targetBooking = bookings.find(b => b.id === bookingId);
         if (!targetBooking) return;
 
@@ -114,7 +136,6 @@ export const useAgencyDashboardData = () => {
 
         const newStatus = newGuideIds.length > 0 ? 'Accepted' : 'Pending_Payment';
 
-        // 1. Optimistic UI Update (Makes it feel instant)
         setBookings(prevBookings => prevBookings.map(booking => {
             if (booking.id !== bookingId) return booking;
             return {
@@ -126,7 +147,6 @@ export const useAgencyDashboardData = () => {
             };
         }));
 
-        // 2. SAVING TO DJANGO DATABASE
         try {
             await api.patch(`api/bookings/${bookingId}/`, {
                 assigned_agency_guides: newGuideIds,
@@ -135,15 +155,12 @@ export const useAgencyDashboardData = () => {
             console.log(`Successfully saved guide assignment for booking ${bookingId}`);
         } catch (error) {
             console.error("Failed to save guide assignment to database:", error);
-            // If it fails, we could optionally refetch the bookings here to revert the UI
         }
     };
 
-    // Used by Auto-Assign to assign multiple guides at once cleanly
     const updateGuideAssignments = async (bookingId, newGuideIds) => {
         const newStatus = newGuideIds.length > 0 ? 'Accepted' : 'Pending_Payment';
 
-        // 1. Optimistic UI Update
         setBookings(prevBookings => prevBookings.map(booking => {
             if (booking.id !== bookingId) return booking;
             return {
@@ -155,7 +172,6 @@ export const useAgencyDashboardData = () => {
             };
         }));
 
-        // 2. SAVING TO DJANGO DATABASE
         try {
             await api.patch(`api/bookings/${bookingId}/`, {
                 assigned_agency_guides: newGuideIds,
@@ -167,9 +183,7 @@ export const useAgencyDashboardData = () => {
         }
     };
 
-    // Used when clicking the Accept/Decline buttons directly on the table
     const updateBookingStatus = async (bookingId, newStatus) => {
-        // 1. Optimistic UI Update
         setBookings(prevBookings => prevBookings.map(booking => {
             if (booking.id === bookingId) {
                 return { ...booking, status: newStatus };
@@ -177,9 +191,7 @@ export const useAgencyDashboardData = () => {
             return booking;
         }));
 
-        // 2. SAVING TO DJANGO DATABASE
         try {
-            // Ensure status strings map correctly to your backend choices (e.g., 'Accepted', 'Declined')
             const capitalizedStatus = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
             await api.patch(`api/bookings/${bookingId}/`, {
                 status: capitalizedStatus
@@ -304,7 +316,6 @@ export const useAgencyDashboardData = () => {
     };
 
     return {
-        // State
         activeTab,
         setActiveTab,
         isModalOpen,
@@ -326,8 +337,10 @@ export const useAgencyDashboardData = () => {
         tourGuides,
         setTourGuides,
         isLoading,
+        downPaymentPercentage,
+        setDownPaymentPercentage,
+        isSavingSettings,
 
-        // Computed values
         getGuideNames,
         filteredGuides,
         currentSelectedBooking,
@@ -337,7 +350,6 @@ export const useAgencyDashboardData = () => {
         completedTours,
         avgRating,
 
-        // Actions
         getStatusBg,
         assignGuide,
         updateGuideAssignments,
@@ -353,6 +365,7 @@ export const useAgencyDashboardData = () => {
         confirmDeleteGuide,
         cancelDeleteGuide,
         handleSignOut,
+        handleUpdateDownPayment,
         availableLanguages,
     };
 };

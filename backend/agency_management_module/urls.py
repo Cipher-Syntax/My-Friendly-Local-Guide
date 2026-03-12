@@ -1,11 +1,12 @@
-from django.urls import path
+from django.urls import path #type: ignore
 from .views import (
     AgencyRegisterView,
     AgencyApproveView,
     TouristGuideCreateView,
     TouristGuideListView,
     AgencyListView,
-    TouristGuideDetailView
+    TouristGuideDetailView,
+    AgencyProfileView
 )
 
 urlpatterns = [
@@ -17,4 +18,5 @@ urlpatterns = [
     path("agency/guides/create/", TouristGuideCreateView.as_view(), name="agency-guide-create"),
     
     path("agency/guides/<int:pk>/", TouristGuideDetailView.as_view(), name="agency-guide-detail"),
+    path('agency/profile/', AgencyProfileView.as_view(), name='agency-profile')
 ]
