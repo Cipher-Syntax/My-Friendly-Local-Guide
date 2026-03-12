@@ -237,7 +237,7 @@ export default function AgencyLayout() {
         }
     };
 
-    const updateBookingStatus = async (id, status) => {
+    const updateBookingStatus = async (id, status, extraData = {}) => {
         if (status === 'accepted' && user?.guide_tier === 'free') {
             const acceptedBookingsCount = bookings.filter(b => b.status === 'accepted').length;
             if (acceptedBookingsCount >= config.bookingLimit) {
@@ -246,7 +246,10 @@ export default function AgencyLayout() {
             }
         }
         try {
-            await api.patch(`api/bookings/${id}/status/`, { status: status === 'accepted' ? 'Accepted' : 'Declined' });
+            await api.patch(`api/bookings/${id}/status/`, {
+                status: status === 'accepted' ? 'Accepted' : 'Declined',
+                ...extraData
+            });
             fetchData();
             showToast(`Booking ${status} successfully!`);
         } catch (error) {

@@ -425,11 +425,23 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
                 instance.guide.booking_count += 1
                 instance.guide.save()
              
+             # --- NEW: Save dynamic Meetup fields passed from the Agency/Guide ---
+             meetup_loc = request.data.get('meetup_location')
+             meetup_time = request.data.get('meetup_time')
+             meetup_inst = request.data.get('meetup_instructions')
+             
+             if meetup_loc:
+                 instance.meetup_location = meetup_loc
+             if meetup_time:
+                 instance.meetup_time = meetup_time
+             if meetup_inst:
+                 instance.meetup_instructions = meetup_inst
+
              SystemAlert.objects.create(
                 target_type='Tourist',
                 recipient=instance.tourist,
                 title="Booking Accepted!",
-                message=f"Your booking for {instance.destination or 'your trip'} has been accepted.",
+                message=f"Your booking for {instance.destination or 'your trip'} has been accepted. Please review the meetup details and complete your down payment.",
                 related_object_id=instance.id,
                 related_model='Booking',
                 is_read=False

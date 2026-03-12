@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
-import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag } from 'lucide-react';
+import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info } from 'lucide-react';
 
 export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, openManageGuidesModal, agencyTier, freeBookingLimit }) {
     const [filterStatus, setFilterStatus] = useState('all');
     const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
+
+    // --- NEW: State for Accept & Meetup Modal ---
+    const [acceptModalOpen, setAcceptModalOpen] = useState(false);
+    const [selectedBookingForAccept, setSelectedBookingForAccept] = useState(null);
+    const [meetupForm, setMeetupForm] = useState({ location: '', time: '', instructions: '' });
 
     const acceptedBookingsCount = bookings.filter(b => b.status === 'accepted').length;
     const isLimitReached = agencyTier === 'free' && acceptedBookingsCount >= freeBookingLimit;
@@ -33,6 +38,25 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
             return cat.name || cat.title || 'General Tour';
         }
         return String(cat);
+    };
+
+    // --- Handle the submission of the Meetup Form ---
+    const handleAcceptConfirm = () => {
+        if (!meetupForm.location || !meetupForm.time) {
+            showToast("Location and Time are required to accept a booking.", "error");
+            return;
+        }
+
+        // Pass the extra meetup data to the layout function
+        updateBookingStatus(selectedBookingForAccept.id, 'accepted', {
+            meetup_location: meetupForm.location,
+            meetup_time: meetupForm.time,
+            meetup_instructions: meetupForm.instructions
+        });
+
+        setAcceptModalOpen(false);
+        setMeetupForm({ location: '', time: '', instructions: '' });
+        setSelectedBookingForAccept(null);
     };
 
     return (
@@ -89,7 +113,6 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-700/30">
                         {filteredBookings.length > 0 ? (
                             filteredBookings.map((booking) => {
-                                // ADDED 'confirmed' TO THESE CHECKS
                                 const isManageDisabled = ['accepted', 'paid', 'confirmed', 'completed', 'declined', 'cancelled'].includes(booking.status?.toLowerCase());
                                 const isDecisionMade = ['accepted', 'paid', 'confirmed', 'completed', 'declined', 'cancelled'].includes(booking.status?.toLowerCase());
                                 const isPositiveStatus = ['accepted', 'paid', 'confirmed', 'completed'].includes(booking.status?.toLowerCase());
@@ -99,9 +122,6 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
 
                                 const bookingName = getBookingName(booking);
                                 const bookingCategory = getBookingCategory(booking);
-
-                                // --- DEBUG TABLE VIEW ---
-                                console.log(`[TABLE VIEW] Booking ID: ${booking.id} | Extracted Category: "${bookingCategory}" | Raw Dest:`, booking.destination_detail);
 
                                 return (
                                     <tr key={booking.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
@@ -167,10 +187,11 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                                 <button
                                                     onClick={() => {
                                                         if (!hasGuides) {
-                                                            showToast("Please choose a guide for this booking", "error");
+                                                            showToast("Please assign a guide before accepting.", "error");
                                                             return;
                                                         }
-                                                        updateBookingStatus(booking.id, 'accepted');
+                                                        setSelectedBookingForAccept(booking);
+                                                        setAcceptModalOpen(true);
                                                     }}
                                                     disabled={isDecisionMade || isLimitReached}
                                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors w-[80px] ${isPositiveStatus ? 'bg-green-500 text-white cursor-default' : isDecisionMade ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed' : 'bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-green-500 hover:text-white'}`}
@@ -195,6 +216,78 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                     </tbody>
                 </table>
             </div>
+
+            {/* --- NEW: ACCEPT & MEETUP MODAL --- */}
+            {acceptModalOpen && selectedBookingForAccept && (
+                <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 transition-colors duration-300">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden transition-colors duration-300">
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Coordinate Meetup</h3>
+                            <button onClick={() => setAcceptModalOpen(false)} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                                <XCircle className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <p className="text-sm text-slate-600 dark:text-slate-300 mb-2">
+                                Please provide the meetup details for <span className="font-bold">{getBookingName(selectedBookingForAccept)}</span>. The tourist will see this on their receipt.
+                            </p>
+
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Meetup Location *</label>
+                                <div className="relative">
+                                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Zamboanga Port, Gate 2"
+                                        value={meetupForm.location}
+                                        onChange={(e) => setMeetupForm({ ...meetupForm, location: e.target.value })}
+                                        className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Meetup Time *</label>
+                                <div className="relative">
+                                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input
+                                        type="time"
+                                        value={meetupForm.time}
+                                        onChange={(e) => setMeetupForm({ ...meetupForm, time: e.target.value })}
+                                        className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                                    Special Instructions <span className="text-xs font-normal text-slate-400">(Optional)</span>
+                                </label>
+                                <div className="relative">
+                                    <Info className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                                    <textarea
+                                        rows="3"
+                                        placeholder="e.g. Look for our guide wearing a green LocaLynk vest."
+                                        value={meetupForm.instructions}
+                                        onChange={(e) => setMeetupForm({ ...meetupForm, instructions: e.target.value })}
+                                        className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 resize-none"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900/50">
+                            <button onClick={() => setAcceptModalOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+                                Cancel
+                            </button>
+                            <button onClick={handleAcceptConfirm} className="px-4 py-2 font-medium rounded-lg bg-green-500 hover:bg-green-600 text-white transition-colors shadow-sm">
+                                Accept & Send Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

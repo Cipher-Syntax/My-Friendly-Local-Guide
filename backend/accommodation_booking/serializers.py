@@ -11,7 +11,6 @@ User = get_user_model()
 
 # --- FIX: Define a Simple User Serializer here to prevent 502 Infinite Recursion ---
 class SimpleUserSerializer(serializers.ModelSerializer):
-    # (Optional) If your agency saves their phone number in the Agency model instead of the User model, add this line:
     agency_phone = serializers.CharField(source='agency_profile.phone', read_only=True)
 
     class Meta:
@@ -101,6 +100,9 @@ class BookingSerializer(serializers.ModelSerializer):
             # --- PAYOUT FIELDS ---
             'platform_fee', 'guide_payout_amount', 'is_payout_settled',
             
+            # --- NEW: MEETUP DETAILS ---
+            'meetup_location', 'meetup_time', 'meetup_instructions',
+            
             'status', 'created_at'
         ]
         
@@ -108,7 +110,8 @@ class BookingSerializer(serializers.ModelSerializer):
             'status', 'created_at', 
             'total_price', 'down_payment', 'balance_due', 
             'platform_fee', 'guide_payout_amount', 
-            'assigned_guides', 'assigned_agency_guides', 'destination_detail'
+            'assigned_guides', 'assigned_agency_guides', 'destination_detail',
+            'meetup_location', 'meetup_time', 'meetup_instructions' # Read only for regular updates, handled by custom views
         ]
 
     def get_guide_detail(self, obj):
