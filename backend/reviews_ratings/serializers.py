@@ -1,9 +1,12 @@
 from rest_framework import serializers #type: ignore
+from better_profanity import profanity #type: ignore
 from .models import Review, DestinationReview
 from user_authentication.models import User
 from destinations_and_attractions.models import Destination
 from accommodation_booking.models import Booking
 
+profanity.load_censor_words()
+profanity.add_censor_words(['putangina', 'gago', 'tarantado', 'bobo', 'ulol'])
 
 class ReviewSerializer(serializers.ModelSerializer):
     
@@ -27,6 +30,11 @@ class ReviewSerializer(serializers.ModelSerializer):
         if value < 1 or value > 5:
             raise serializers.ValidationError("Rating must be between 1 and 5.")
         return value
+
+    def validate_comment(self, value):
+        if value and profanity.contains_profanity(value):
+            raise serializers.ValidationError("Your review contains inappropriate language. Please revise it.")
+        return value
         
     def validate(self, data):
         reviewer = self.context['request'].user
@@ -40,7 +48,6 @@ class ReviewSerializer(serializers.ModelSerializer):
              raise serializers.ValidationError({"booking": "You have already submitted a guide review for this booking."})
              
         return data
-
 
 
 class DestinationReviewSerializer(serializers.ModelSerializer):
@@ -64,6 +71,11 @@ class DestinationReviewSerializer(serializers.ModelSerializer):
     def validate_rating(self, value):
         if value < 1 or value > 5:
             raise serializers.ValidationError("Rating must be between 1 and 5.")
+        return value
+
+    def validate_comment(self, value):
+        if value and profanity.contains_profanity(value):
+            raise serializers.ValidationError("Your review contains inappropriate language. Please revise it.")
         return value
         
     def validate(self, data):
