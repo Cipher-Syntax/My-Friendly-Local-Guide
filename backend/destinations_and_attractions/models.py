@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models #type: ignore
 from django.conf import settings 
 
 User = settings.AUTH_USER_MODEL 
@@ -57,6 +57,8 @@ class TourPackage(models.Model):
     description = models.TextField()
     
     duration = models.CharField(max_length=100)
+    # NEW EXTENSION: Multi-day support flag to dictate auto-calculating dates in the frontend
+    duration_days = models.PositiveIntegerField(default=1) 
     max_group_size = models.PositiveIntegerField()
     what_to_bring = models.TextField(blank=True, null=True)
     
