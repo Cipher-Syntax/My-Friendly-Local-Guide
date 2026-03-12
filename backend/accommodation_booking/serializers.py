@@ -36,7 +36,6 @@ class SimpleDestinationSerializer(serializers.ModelSerializer):
             return first_img.image.url
         return None
 
-
 class AccommodationSerializer(serializers.ModelSerializer):
     host_id = serializers.PrimaryKeyRelatedField(source='host', read_only=True)
     host_username = serializers.CharField(source='host.username', read_only=True)
@@ -68,7 +67,6 @@ class AccommodationSerializer(serializers.ModelSerializer):
                 validated_data['amenities'] = {}
         return super().create(validated_data)
 
-
 class BookingSerializer(serializers.ModelSerializer):
     tourist_id = serializers.PrimaryKeyRelatedField(source='tourist', read_only=True)
     tourist_username = serializers.CharField(source='tourist.username', read_only=True)
@@ -90,19 +88,14 @@ class BookingSerializer(serializers.ModelSerializer):
             'assigned_guides', 'assigned_guides_detail',
             'assigned_agency_guides', 'assigned_agency_guides_detail',
 
-            'check_in', 'check_out', 'num_guests', 
+            'check_in', 'check_out', 'num_guests', 'additional_guest_names',
             'tourist_valid_id_image', 'tourist_selfie_image', 
             
-            # --- FINANCIAL FIELDS ---
             'total_price', 'down_payment', 'balance_due',
-            
-            # --- REVISION 12: PAYMENT TIMESTAMPS ---
             'downpayment_paid_at', 'balance_paid_at',
             
-            # --- PAYOUT FIELDS ---
             'platform_fee', 'guide_payout_amount', 'is_payout_settled',
             
-            # --- MEETUP DETAILS ---
             'meetup_location', 'meetup_time', 'meetup_instructions',
             
             'status', 'created_at'
@@ -116,6 +109,15 @@ class BookingSerializer(serializers.ModelSerializer):
             'assigned_guides', 'assigned_agency_guides', 'destination_detail',
             'meetup_location', 'meetup_time', 'meetup_instructions' 
         ]
+
+    # --- NEW: Safely parse JSON strings from mobile form-data into a native list ---
+    def validate_additional_guest_names(self, value):
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return []
+        return value
 
     def get_guide_detail(self, obj):
         if obj.guide:

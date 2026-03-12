@@ -60,6 +60,9 @@ class Booking(models.Model):
     check_out = models.DateField()
     num_guests = models.IntegerField(default=1) 
     
+    # --- NEW: JSON Field to store the list of additional guest names ---
+    additional_guest_names = models.JSONField(default=list, blank=True, null=True, help_text="List of additional guest names")
+    
     tourist_valid_id_image = models.ImageField(upload_to='booking_ids/', blank=True, null=True)
     tourist_selfie_image = models.ImageField(upload_to='booking_selfies/', blank=True, null=True)
     
@@ -67,7 +70,6 @@ class Booking(models.Model):
     down_payment = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 
     balance_due = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 
 
-    # --- REVISION 12: TIMESTAMPS FOR PAYMENT LEDGER ---
     downpayment_paid_at = models.DateTimeField(null=True, blank=True, help_text="When the down payment was successfully processed online")
     balance_paid_at = models.DateTimeField(null=True, blank=True, help_text="When the face-to-face balance was confirmed received")
 
