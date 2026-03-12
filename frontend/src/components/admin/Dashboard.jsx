@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../../api/api';
 import {
     Users, Activity, Map, Briefcase,
-    UserCheck, AlertTriangle, Loader2, DollarSign, Calendar, ArrowRight
+    UserCheck, AlertTriangle, Loader2, Banknote, Calendar, ArrowRight
 } from 'lucide-react';
 
 const StatCard = ({ title, value, subtext, icon: Icon, color }) => (
@@ -81,7 +81,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard title="Total Users" value={users.total_users.toLocaleString()} subtext="Tourists, Guides & Agencies" icon={Users} color="blue" />
                 <StatCard title="Destinations" value={content.destinations.toLocaleString()} subtext="Active locations available" icon={Map} color="purple" />
-                <StatCard title="Platform Revenue" value={`₱${finance.platform_revenue.toLocaleString()}`} subtext="Earned from app fees" icon={DollarSign} color="emerald" />
+                <StatCard title="Platform Revenue" value={finance.platform_revenue.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })} subtext="Earned from app fees" icon={Banknote} color="emerald" />
                 <StatCard title="System Health" value={`${system.health}%`} subtext="Operational status" icon={Activity} color="cyan" />
             </div>
 
@@ -114,7 +114,7 @@ export default function Dashboard() {
                                         <tr key={booking.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                                             <td className="px-6 py-4 text-slate-600 dark:text-slate-300 font-mono">#{booking.id}</td>
                                             <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{booking.tourist__username}</td>
-                                            <td className="px-6 py-4 text-emerald-600 dark:text-emerald-400 font-medium">₱{parseFloat(booking.total_price || 0).toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-emerald-600 dark:text-emerald-400 font-medium">{parseFloat(booking.total_price || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(booking.status)}`}>
                                                     {booking.status.replace('_', ' ')}

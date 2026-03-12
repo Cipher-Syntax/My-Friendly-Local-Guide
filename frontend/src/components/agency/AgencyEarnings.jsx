@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { DollarSign, Clock, CheckCircle, Receipt } from 'lucide-react';
+import { Banknote, Clock, CheckCircle, Receipt } from 'lucide-react';
 
 export default function AgencyEarnings({ bookings }) {
     const stats = useMemo(() => {
@@ -9,15 +9,10 @@ export default function AgencyEarnings({ bookings }) {
         const validBookings = [];
 
         bookings.forEach(booking => {
-            // Debugging log: Uncomment this if you still see 0.00 to see what the backend is sending
-            // console.log("Booking data:", booking.status, booking.down_payment, booking.total_price);
-
-            // FIX: Added 'accepted' to the array since Agency bookings use 'Accepted' instead of 'Confirmed'
             if (['accepted', 'confirmed', 'completed'].includes(booking.status?.toLowerCase())) {
                 const downPayment = parseFloat(booking.down_payment || 0);
                 const totalBookingPrice = parseFloat(booking.total_price || 0);
 
-                // Prioritize agency payout amount from backend, fallback to manual calculation
                 let payoutAmount = parseFloat(booking.agency_payout_amount || booking.guide_payout_amount || 0);
 
                 if (payoutAmount === 0 && downPayment > 0) {
@@ -51,11 +46,11 @@ export default function AgencyEarnings({ bookings }) {
                     <div className="flex items-center justify-between">
                         <h3 className="text-white/90 font-medium">Total Lifetime Earnings</h3>
                         <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                            <DollarSign className="w-5 h-5" />
+                            <Banknote className="w-5 h-5" />
                         </div>
                     </div>
                     <p className="text-3xl font-black mt-4">
-                        ₱{stats.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {stats.total.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                     </p>
                 </div>
 
@@ -68,7 +63,7 @@ export default function AgencyEarnings({ bookings }) {
                         </div>
                     </div>
                     <p className="text-3xl font-black text-slate-900 dark:text-white mt-4">
-                        ₱{stats.pending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {stats.pending.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                     </p>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">From App Admin</p>
                 </div>
@@ -82,7 +77,7 @@ export default function AgencyEarnings({ bookings }) {
                         </div>
                     </div>
                     <p className="text-3xl font-black text-slate-900 dark:text-white mt-4">
-                        ₱{stats.settled.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {stats.settled.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                     </p>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">Successfully Received</p>
                 </div>
@@ -112,7 +107,7 @@ export default function AgencyEarnings({ bookings }) {
                                 </div>
                                 <div className="text-left sm:text-right ml-16 sm:ml-0">
                                     <p className="font-bold text-cyan-600 dark:text-cyan-400 text-lg">
-                                        + ₱{booking.payoutAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        + {booking.payoutAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                                     </p>
                                     <span className={`inline-block mt-1.5 px-3 py-1 text-xs font-bold rounded-md uppercase tracking-wide ${booking.is_payout_settled ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400'}`}>
                                         {booking.is_payout_settled ? "Settled" : "Processing"}

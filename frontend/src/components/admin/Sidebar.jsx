@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { BarChart3, Map, Users, User, Home, MessageSquare, Settings, LogOut, CircleDollarSign, PieChart, Calendar, Sun, Moon, Archive, FileText, AlertTriangle, XCircle } from 'lucide-react';
+import { BarChart3, Map, Users, User, Home, MessageSquare, Settings, LogOut, CircleDollarSign, PieChart, Calendar, Sun, Moon, Archive, FileText, AlertTriangle, XCircle, PhilippinePeso } from 'lucide-react';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -10,7 +10,7 @@ const menuItems = [
     { id: 'users', icon: Users, label: 'User Management', path: '/admin/users' },
     { id: 'agency', icon: Map, label: 'Agency Approvals', path: '/admin/agency' },
     { id: 'guides', icon: FileText, label: 'Guide Applications', path: '/admin/guides' },
-    { id: 'payments', icon: CircleDollarSign, label: 'Payments & Payouts', path: '/admin/payments' },
+    { id: 'payments', icon: PhilippinePeso, label: 'Payments & Payouts', path: '/admin/payments' },
     { id: 'content', icon: Home, label: 'Content Management', path: '/admin/content' },
     { id: 'feedback', icon: MessageSquare, label: 'Feedback', path: '/admin/feedback' },
     { id: 'analytics', icon: PieChart, label: 'Reports & Analytics', path: '/admin/analytics' },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, Activity, ArrowUpRight, DollarSign, Download, Filter } from 'lucide-react';
+import { TrendingUp, Activity, ArrowUpRight, DollarSign, Download, Filter, PhilippinePeso } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
 import api from '../../api/api';
@@ -222,9 +222,9 @@ export default function ReportsAndAnalysis() {
             <div className="grid grid-cols-1">
                 <StatCard
                     title="Total Volume"
-                    value={`₱${processedData.totalRevenue.toLocaleString()}`}
+                    value={`₱ ${processedData.totalRevenue.toLocaleString()}`}
                     subtext={`Gross booking value (${filter} view)`}
-                    icon={DollarSign}
+                    icon={PhilippinePeso}
                     color="emerald"
                     trend={12.5} // Simulated positive trend
                 />

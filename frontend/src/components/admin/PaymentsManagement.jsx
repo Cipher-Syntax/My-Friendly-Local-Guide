@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // IMPORT USENAVIGATE
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/api';
 import * as XLSX from 'xlsx';
 import {
-    DollarSign,
+    Banknote,
     TrendingUp,
     CheckCircle,
     Clock,
@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export default function PaymentsManagement() {
-    const navigate = useNavigate(); // INITIALIZE NAVIGATE
+    const navigate = useNavigate();
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
@@ -25,12 +25,10 @@ export default function PaymentsManagement() {
         settledPayouts: 0
     });
 
-    // --- MODAL STATES ---
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // Toast State
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
     const showToast = (message, type = 'success') => {
@@ -134,14 +132,12 @@ export default function PaymentsManagement() {
         return 'N/A';
     };
 
-    // Updated to try multiple phone fields and show explicit missing message
     const getProviderPhone = (b) => {
         if (b.guide_detail) return b.guide_detail.phone_number || "Not Setup";
         if (b.agency_detail) return b.agency_detail.agency_phone || b.agency_detail.phone_number || "Not Setup";
         if (b.accommodation_detail) return b.accommodation_detail.phone_number || "Not Setup";
         return "N/A";
     };
-
 
     const handleExport = () => {
         if (filteredBookings.length === 0) {
@@ -161,7 +157,6 @@ export default function PaymentsManagement() {
             "Payout Status": b.is_payout_settled ? 'Settled' : 'Pending',
             "Date Created": new Date(b.created_at).toLocaleDateString()
         }));
-
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -183,7 +178,6 @@ export default function PaymentsManagement() {
         XLSX.writeFile(wb, fileName);
     };
 
-    // Updated Card component to handle clickability
     const StatsCard = ({ title, value, icon: Icon, color, subValue, clickable, onClick }) => (
         <div
             onClick={onClick}
@@ -277,30 +271,30 @@ export default function PaymentsManagement() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatsCard
                     title="Platform Earnings (2%)"
-                    value={`₱${stats.platformFees.toLocaleString()}`}
+                    value={stats.platformFees.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                     subValue="From settled payouts"
                     icon={TrendingUp}
                     color="emerald"
                 />
                 <StatsCard
                     title="Pending Payouts"
-                    value={`₱${stats.pendingPayouts.toLocaleString()}`}
+                    value={stats.pendingPayouts.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                     subValue="Needs transfer to guides"
                     icon={Clock}
                     color="orange"
                 />
                 <StatsCard
                     title="Settled Payouts"
-                    value={`₱${stats.settledPayouts.toLocaleString()}`}
+                    value={stats.settledPayouts.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                     subValue="Already transferred"
                     icon={CheckCircle}
                     color="blue"
                 />
                 <StatsCard
                     title="Total Collected"
-                    value={`₱${stats.totalCollected.toLocaleString()}`}
+                    value={stats.totalCollected.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                     subValue="Click to view all bookings"
-                    icon={DollarSign}
+                    icon={Banknote}
                     color="purple"
                     clickable={true}
                     onClick={() => navigate('/admin/bookings')}
@@ -362,13 +356,13 @@ export default function PaymentsManagement() {
                                     </td>
 
                                     <td className="p-4 text-right text-slate-600 dark:text-slate-300">
-                                        ₱{parseFloat(booking.down_payment || 0).toLocaleString()}
+                                        {parseFloat(booking.down_payment || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                                     </td>
                                     <td className="p-4 text-right text-emerald-600 dark:text-emerald-400">
-                                        +₱{parseFloat(booking.platform_fee || 0).toLocaleString()}
+                                        + {parseFloat(booking.platform_fee || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                                     </td>
                                     <td className="p-4 text-right font-bold text-slate-900 dark:text-white">
-                                        ₱{parseFloat(booking.guide_payout_amount || 0).toLocaleString()}
+                                        {parseFloat(booking.guide_payout_amount || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
                                     </td>
 
                                     <td className="p-4 text-center">
