@@ -1,9 +1,9 @@
 from rest_framework import generics, permissions, status, viewsets #type: ignore
 from rest_framework.response import Response #type: ignore
 from django.db import transaction #type: ignore
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum #type: ignore
 from rest_framework.views import APIView #type: ignore
-from django.core.mail import send_mail
+from django.core.mail import send_mail #type: ignore
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
@@ -65,12 +65,45 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
         try:
             admin_emails = list(User.objects.filter(is_superuser=True).values_list('email', flat=True))
             if admin_emails:
+                plain_message = f"User {user.username} has submitted an application to be a guide.\nPlease review in dashboard."
+                html_message = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+                        .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+                        .header {{ background-color: #0072FF; padding: 20px; text-align: center; color: #ffffff; font-size: 20px; font-weight: bold; }}
+                        .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+                        .highlight {{ font-weight: bold; color: #333; }}
+                        .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">System Administrator Alert</div>
+                        <div class="content">
+                            <p>A user has just completed their profile to become an independent Local Guide.</p>
+                            <ul>
+                                <li><span class="highlight">Username:</span> {user.username}</li>
+                                <li><span class="highlight">Full Name:</span> {user.first_name} {user.last_name}</li>
+                                <li><span class="highlight">Status:</span> Pending Review</li>
+                            </ul>
+                            <p>Please log in to the admin dashboard to review their uploaded documents.</p>
+                        </div>
+                        <div class="footer">&copy; 2026 LocaLynk Internal System.</div>
+                    </div>
+                </body>
+                </html>
+                """
+
                 send_mail(
-                    subject="New Guide Application",
-                    message=f"User {user.username} has submitted an application to be a guide.\nPlease review in dashboard.",
+                    subject="New Guide Application - Action Required",
+                    message=plain_message,
                     from_email=settings.DEFAULT_FROM_EMAIL,
                     recipient_list=admin_emails,
-                    fail_silently=True
+                    fail_silently=True,
+                    html_message=html_message
                 )
         except Exception as e:
             print(f"Error sending admin email: {e}")
@@ -120,7 +153,6 @@ class GuideReviewRequestViewSet(viewsets.ModelViewSet):
             user_to_reject.save(update_fields=['is_local_guide', 'guide_approved'])
 
         return Response(serializer.data)
-
 
 
 class UserAlertListView(generics.ListAPIView):

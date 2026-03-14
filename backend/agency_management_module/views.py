@@ -51,12 +51,44 @@ class AgencyRegisterView(generics.CreateAPIView):
         admin_emails = User.objects.filter(is_superuser=True).values_list('email', flat=True)
         
         if admin_emails:
+            plain_message = f"A new agency '{agency.business_name}' (Owner: {agency.owner_name}) has registered and is pending approval."
+            html_message = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+                    .header {{ background-color: #0072FF; padding: 20px; text-align: center; color: #ffffff; font-size: 20px; font-weight: bold; }}
+                    .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+                    .highlight {{ font-weight: bold; color: #333; }}
+                    .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">System Administrator Alert</div>
+                    <div class="content">
+                        <p>A new Agency has registered on the platform and is currently pending your review and approval.</p>
+                        <ul>
+                            <li><span class="highlight">Business Name:</span> {agency.business_name}</li>
+                            <li><span class="highlight">Owner Name:</span> {agency.owner_name}</li>
+                        </ul>
+                        <p>Please log in to the admin dashboard to review the application and verify their submitted credentials.</p>
+                    </div>
+                    <div class="footer">&copy; 2026 LocaLynk Internal System.</div>
+                </div>
+            </body>
+            </html>
+            """
+            
             send_mail(
                 subject="New Agency Registration Request",
-                message=f"A new agency '{agency.business_name}' (Owner: {agency.owner_name}) has registered and is pending approval.",
+                message=plain_message,
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=list(admin_emails),
                 fail_silently=True,
+                html_message=html_message
             )
 
 class AgencyApproveView(generics.UpdateAPIView):

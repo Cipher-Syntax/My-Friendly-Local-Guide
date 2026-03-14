@@ -49,12 +49,44 @@ class CreateUserView(generics.CreateAPIView):
         
         verify_link = f"{settings.BACKEND_BASE_URL}/api/verify-email/{uid}/{token}/"
 
+        plain_message = f"Hello {user.username},\n\nClick this link to verify your LocaLynk account:\n{verify_link}"
+        html_message = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+                .header {{ background-color: #0072FF; padding: 30px 20px; text-align: center; color: #ffffff; font-size: 24px; font-weight: bold; }}
+                .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+                .btn {{ display: inline-block; background-color: #0072FF; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; text-align: center; }}
+                .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">LocaLynk</div>
+                <div class="content">
+                    <h2 style="color: #333; margin-top: 0;">Welcome, {user.username}!</h2>
+                    <p>Thank you for registering with LocaLynk. Please verify your email address to activate your account and start exploring.</p>
+                    <div style="text-align: center;">
+                        <a href="{verify_link}" class="btn">Verify Email Address</a>
+                    </div>
+                    <p style="margin-top: 30px; font-size: 14px;">If you did not create this account, you can safely ignore this email.</p>
+                </div>
+                <div class="footer">&copy; 2026 LocaLynk. All rights reserved.</div>
+            </div>
+        </body>
+        </html>
+        """
+
         send_mail(
             subject="Verify your LocaLynk account",
-            message=f"Hello {user.username},\n\nClick this link to verify your account:\n{verify_link}",
+            message=plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
             fail_silently=False,
+            html_message=html_message
         )
 
 class VerifyEmailView(APIView):
@@ -95,8 +127,9 @@ class VerifyEmailView(APIView):
             <title>Email Verified - LocaLynk</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
+                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
                 body {{
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                    font-family: 'Poppins', Arial, sans-serif;
                     text-align: center;
                     padding: 40px 20px;
                     background-color: #f8f9fa;
@@ -116,12 +149,9 @@ class VerifyEmailView(APIView):
                     max-width: 400px;
                     width: 100%;
                 }}
-                .icon {{
-                    font-size: 48px;
-                    margin-bottom: 20px;
-                }}
-                h2 {{ margin-top: 0; color: #10b981; }}
-                p {{ color: #666; margin-bottom: 30px; line-height: 1.5; }}
+                .icon {{ font-size: 56px; margin-bottom: 20px; }}
+                h2 {{ margin-top: 0; color: #10b981; font-weight: 700; }}
+                p {{ color: #475569; margin-bottom: 30px; line-height: 1.6; }}
                 .btn {{
                     display: block;
                     width: 100%;
@@ -129,22 +159,14 @@ class VerifyEmailView(APIView):
                     padding: 14px 20px;
                     text-decoration: none;
                     border-radius: 8px;
-                    font-weight: bold;
+                    font-weight: 600;
                     font-size: 16px;
                     margin-bottom: 12px;
                     transition: all 0.2s;
                 }}
-                .btn-app {{
-                    background-color: #0ea5e9;
-                    color: white;
-                }}
-                .btn-app:hover {{ background-color: #0284c7; }}
-                
-                .btn-web {{
-                    background-color: #f1f5f9;
-                    color: #475569;
-                    border: 1px solid #cbd5e1;
-                }}
+                .btn-app {{ background-color: #0072FF; color: white; border: 1px solid #0072FF; }}
+                .btn-app:hover {{ background-color: #005bb5; border-color: #005bb5; }}
+                .btn-web {{ background-color: #f8f9fa; color: #475569; border: 1px solid #cbd5e1; }}
                 .btn-web:hover {{ background-color: #e2e8f0; color: #1e293b; }}
             </style>
         </head>
@@ -153,11 +175,9 @@ class VerifyEmailView(APIView):
                 <div class="icon">✅</div>
                 <h2>Email Verified!</h2>
                 <p>Your LocaLynk account has been successfully verified.</p>
-                
                 <a href="{APP_SCHEME}?status=success" class="btn btn-app">Open Mobile App</a>
                 <a href="{WEB_AGENCY_LOGIN}?status=success&message=Email+verified+successfully" class="btn btn-web">Agency Partner Login</a>
             </div>
-
             <script>
                 setTimeout(function() {{
                     window.location.href = "{APP_SCHEME}?status=success";
@@ -189,12 +209,43 @@ class ResendVerificationEmailView(APIView):
         
         verify_link = f"{settings.BACKEND_BASE_URL}/api/verify-email/{uid}/{token}/"
 
+        plain_message = f"Hello {user.username},\n\nClick this link to verify your LocaLynk account:\n{verify_link}"
+        html_message = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+                .header {{ background-color: #0072FF; padding: 30px 20px; text-align: center; color: #ffffff; font-size: 24px; font-weight: bold; }}
+                .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+                .btn {{ display: inline-block; background-color: #0072FF; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; text-align: center; }}
+                .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">LocaLynk</div>
+                <div class="content">
+                    <h2 style="color: #333; margin-top: 0;">Hello {user.username},</h2>
+                    <p>We received a request to resend your verification email. Please verify your email address to activate your account.</p>
+                    <div style="text-align: center;">
+                        <a href="{verify_link}" class="btn">Verify Email Address</a>
+                    </div>
+                </div>
+                <div class="footer">&copy; 2026 LocaLynk. All rights reserved.</div>
+            </div>
+        </body>
+        </html>
+        """
+
         send_mail(
             subject="Verify your LocaLynk account",
-            message=f"Hello {user.username},\n\nClick this link to verify your account:\n{verify_link}",
+            message=plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
             fail_silently=False,
+            html_message=html_message
         )
         return Response({"detail": "Verification email resent successfully. Please check your inbox."}, status=status.HTTP_200_OK)
 
@@ -251,8 +302,9 @@ class PasswordResetAppRedirectView(APIView):
             <title>Redirecting...</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
+                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
                 body {{
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                    font-family: 'Poppins', Arial, sans-serif;
                     text-align: center;
                     padding: 40px 20px;
                     background-color: #f8f9fa;
@@ -262,6 +314,7 @@ class PasswordResetAppRedirectView(APIView):
                     justify-content: center;
                     height: 100vh;
                     box-sizing: border-box;
+                    color: #333;
                 }}
                 .btn {{
                     display: inline-block;
@@ -270,23 +323,23 @@ class PasswordResetAppRedirectView(APIView):
                     padding: 15px 30px;
                     text-decoration: none;
                     border-radius: 25px;
-                    font-weight: bold;
+                    font-weight: 600;
                     font-size: 16px;
                     margin-top: 20px;
                     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
                     transition: background-color 0.3s;
                 }}
                 .btn:hover {{ background-color: #005bb5; }}
-                h2 {{ color: #333; margin-bottom: 10px; }}
-                p {{ color: #666; margin-bottom: 5px; font-size: 14px; }}
+                h2 {{ margin-bottom: 10px; font-weight: 700; }}
+                p {{ color: #475569; margin-bottom: 5px; font-size: 14px; line-height: 1.6; }}
                 .debug {{ 
                     margin-top: 30px; 
                     padding: 10px; 
-                    background: #eee; 
+                    background: #f1f5f9; 
                     border-radius: 5px; 
                     font-family: monospace; 
                     font-size: 12px;
-                    color: #555;
+                    color: #64748b;
                     word-break: break-all;
                 }}
             </style>
@@ -324,7 +377,6 @@ class PasswordResetRequestView(generics.GenericAPIView):
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         
-        # Determine if request is from the web frontend
         is_web = request.data.get('is_web', False)
 
         if is_web:
@@ -339,18 +391,33 @@ class PasswordResetRequestView(generics.GenericAPIView):
             )
 
             html_message = f"""
+            <!DOCTYPE html>
             <html>
-                <body style="font-family: Arial, sans-serif; color: #333;">
-                    <p>Hi {user.username},</p>
-                    <p>We received a request to reset your password for your web account.</p>
-                    <p>
-                        <a href="{reset_link}" style="background-color: #0072FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                            Reset Password
-                        </a>
-                    </p>
-                    <br><br>
-                    <p><small style="color: #888;">If you didn't request this, please ignore this email.</small></p>
-                </body>
+            <head>
+                <style>
+                    body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+                    .header {{ background-color: #0072FF; padding: 30px 20px; text-align: center; color: #ffffff; font-size: 24px; font-weight: bold; }}
+                    .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+                    .btn {{ display: inline-block; background-color: #0072FF; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; text-align: center; }}
+                    .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">LocaLynk</div>
+                    <div class="content">
+                        <h2 style="color: #333; margin-top: 0;">Password Reset</h2>
+                        <p>Hi {user.username},</p>
+                        <p>We received a request to reset the password for your LocaLynk account. Click the button below to proceed:</p>
+                        <div style="text-align: center;">
+                            <a href="{reset_link}" class="btn">Reset Password</a>
+                        </div>
+                        <p style="margin-top: 30px; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>
+                    </div>
+                    <div class="footer">&copy; 2026 LocaLynk. All rights reserved.</div>
+                </div>
+            </body>
             </html>
             """
         else:
@@ -361,45 +428,59 @@ class PasswordResetRequestView(generics.GenericAPIView):
                 f"We received a request to reset your password. Click the link below to open the app:\n"
                 f"{redirect_link}\n\n"
                 f"--- OR MANUALLY ENTER CODES ---\n"
-                f"If the link doesn't work, enter these details in the app:\n\n"
                 f"UID: {uid}\n"
                 f"Token: {token}\n\n"
                 f"If you didn't request this, ignore this email."
             )
 
             html_message = f"""
+            <!DOCTYPE html>
             <html>
-                <body style="font-family: Arial, sans-serif; color: #333;">
-                    <p>Hi {user.username},</p>
-                    <p>We received a request to reset your password.</p>
-                    
-                    <p>
-                        <a href="{redirect_link}" style="background-color: #0072FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                            Reset Password (Open App)
-                        </a>
-                    </p>
-                    
-                    <br>
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                    
-                    <p><strong>If the button doesn't work, please manually enter these codes in the app:</strong></p>
-                    
-                    <div style="background-color: #f4f6f8; padding: 15px; border-radius: 8px; border: 1px solid #e1e4e8; display: inline-block; min-width: 250px;">
-                        <p style="margin: 5px 0; font-size: 14px;"><strong>UID:</strong></p>
-                        <p style="margin: 0 0 10px 0; font-family: monospace; font-size: 18px; color: #0072FF; background: #fff; padding: 5px; border: 1px solid #ddd; border-radius: 4px;">{uid}</p>
+            <head>
+                <style>
+                    body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+                    .header {{ background-color: #0072FF; padding: 30px 20px; text-align: center; color: #ffffff; font-size: 24px; font-weight: bold; }}
+                    .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+                    .btn {{ display: inline-block; background-color: #0072FF; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; text-align: center; }}
+                    .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+                    .manual-entry {{ background-color: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 30px; text-align: center; }}
+                    .code-block {{ margin: 5px 0 15px 0; font-family: monospace; font-size: 16px; color: #0072FF; background: #ffffff; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; word-break: break-all; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">LocaLynk</div>
+                    <div class="content">
+                        <h2 style="color: #333; margin-top: 0;">Password Reset</h2>
+                        <p>Hi {user.username},</p>
+                        <p>We received a request to reset your password. Click the button below to securely open the LocaLynk app and set a new password:</p>
                         
-                        <p style="margin: 5px 0; font-size: 14px;"><strong>Token:</strong></p>
-                        <p style="margin: 0; font-family: monospace; font-size: 18px; color: #0072FF; background: #fff; padding: 5px; border: 1px solid #ddd; border-radius: 4px; word-break: break-all;">{token}</p>
-                    </div>
+                        <div style="text-align: center;">
+                            <a href="{redirect_link}" class="btn">Open App to Reset</a>
+                        </div>
+                        
+                        <div class="manual-entry">
+                            <p style="margin-top: 0; font-weight: bold; color: #333;">Link not working?</p>
+                            <p style="font-size: 14px;">You can manually enter these codes in the app:</p>
+                            
+                            <p style="margin: 0; font-size: 14px; font-weight: bold;">UID:</p>
+                            <div class="code-block">{uid}</div>
+                            
+                            <p style="margin: 0; font-size: 14px; font-weight: bold;">Token:</p>
+                            <div class="code-block">{token}</div>
+                        </div>
 
-                    <br><br>
-                    <p><small style="color: #888;">If you didn't request this, please ignore this email.</small></p>
-                </body>
+                        <p style="margin-top: 30px; font-size: 14px;">If you didn't request this, please ignore this email.</p>
+                    </div>
+                    <div class="footer">&copy; 2026 LocaLynk. All rights reserved.</div>
+                </div>
+            </body>
             </html>
             """
 
         send_mail(
-            subject="Reset Your Password",
+            subject="Reset Your Password - LocaLynk",
             message=plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
@@ -474,12 +555,43 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
         
         admin_emails = User.objects.filter(is_superuser=True).values_list('email', flat=True)
         if admin_emails:
+            plain_message = f"A new individual guide application has been submitted by {user.username} ({user.email}) and is pending review."
+            html_message = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+                    .header {{ background-color: #0072FF; padding: 20px; text-align: center; color: #ffffff; font-size: 20px; font-weight: bold; }}
+                    .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+                    .highlight {{ font-weight: bold; color: #333; }}
+                    .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">System Administrator Alert</div>
+                    <div class="content">
+                        <p>A new individual guide application has been submitted and is awaiting your review.</p>
+                        <ul>
+                            <li><span class="highlight">Username:</span> {user.username}</li>
+                            <li><span class="highlight">Email:</span> {user.email}</li>
+                        </ul>
+                        <p>Please log in to the admin dashboard to review the submitted documentation.</p>
+                    </div>
+                    <div class="footer">&copy; 2026 LocaLynk Internal System.</div>
+                </div>
+            </body>
+            </html>
+            """
             send_mail(
                 subject="New Individual Guide Application Submitted",
-                message=f"A new individual guide application has been submitted by {user.username} ({user.email}) and is pending review.",
+                message=plain_message,
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=list(admin_emails),
                 fail_silently=True,
+                html_message=html_message
             )
 
         return Response(

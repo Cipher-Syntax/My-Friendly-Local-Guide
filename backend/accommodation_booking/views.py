@@ -138,8 +138,8 @@ class BookingViewSet(viewsets.ModelViewSet):
         if provider and provider.email:
             try:
                 tourist_name = f"{user.first_name} {user.last_name}".strip() or user.username
-                subject = "New Booking Request Received"
-                message = (
+                subject = "New Booking Request Received - LocaLynk"
+                plain_message = (
                     f"Hi {provider.username},\n\n"
                     f"You have received a new booking request from {tourist_name}!\n\n"
                     f"Details:\n"
@@ -149,12 +149,56 @@ class BookingViewSet(viewsets.ModelViewSet):
                     f"This booking is currently 'Pending Payment'. You will receive another notification once the tourist completes their down payment.\n\n"
                     f"Please check your dashboard for more details."
                 )
+
+                html_message = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+                        .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+                        .header {{ background-color: #0072FF; padding: 30px 20px; text-align: center; color: #ffffff; font-size: 24px; font-weight: bold; }}
+                        .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+                        .details-box {{ background-color: #f1f5f9; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0; }}
+                        .highlight {{ font-weight: bold; color: #333; }}
+                        .status-badge {{ display: inline-block; background-color: #f59e0b; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-top: 10px; }}
+                        .btn {{ display: inline-block; background-color: #0072FF; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; text-align: center; }}
+                        .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">New Booking Request!</div>
+                        <div class="content">
+                            <h2 style="color: #333; margin-top: 0;">Hi {provider.username},</h2>
+                            <p>You have received a new booking request from <span class="highlight">{tourist_name}</span>.</p>
+                            
+                            <div class="details-box">
+                                <p style="margin: 5px 0;"><span class="highlight">Destination:</span> {instance.destination or 'N/A'}</p>
+                                <p style="margin: 5px 0;"><span class="highlight">Dates:</span> {instance.check_in} to {instance.check_out}</p>
+                                <p style="margin: 5px 0;"><span class="highlight">Guests:</span> {instance.num_guests}</p>
+                                <span class="status-badge">Pending Payment</span>
+                            </div>
+
+                            <p style="font-size: 14px;">The tourist is currently processing their down payment. We will notify you again once the payment is confirmed.</p>
+                            
+                            <div style="text-align: center;">
+                                <a href="{getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')}/login" class="btn">View Dashboard</a>
+                            </div>
+                        </div>
+                        <div class="footer">&copy; 2026 LocaLynk Partner Network.</div>
+                    </div>
+                </body>
+                </html>
+                """
+
                 send_mail(
                     subject,
-                    message,
+                    plain_message,
                     settings.DEFAULT_FROM_EMAIL,
                     [provider.email],
                     fail_silently=True,
+                    html_message=html_message
                 )
             except Exception as e:
                 print(f"Failed to send request notification email: {e}")
@@ -202,7 +246,6 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         booking.balance_due = 0
         booking.status = 'Completed' 
-        # --- REVISION 12: Record exactly when face-to-face payment was settled ---
         booking.balance_paid_at = timezone.now()
         booking.save()
 
@@ -224,36 +267,57 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         plain_text_receipt = (
             f"Hi {booking.tourist.username},\n\n"
-            f"Your payment has been fully processed and your booking is complete!\n"
-            f"Total Paid: ₱{booking.total_price}\n"
+            f"Your face-to-face payment has been fully processed and your booking is complete!\n"
+            f"Total Paid: ₱{booking.total_price:,.2f}\n"
             f"Provider: {provider_name}\n"
             f"Dates: {booking.check_in} to {booking.check_out}\n\n"
-            f"Thank you for using LocaLynk!"
+            f"Thank you for exploring with LocaLynk!"
         )
 
         html_receipt = f"""
+        <!DOCTYPE html>
         <html>
-            <body style="font-family: Arial, sans-serif; color: #333; padding: 20px;">
-                <h2 style="color: #0072FF;">Payment Receipt</h2>
-                <p>Hi <strong>{booking.tourist.username}</strong>,</p>
-                <p>Your payment has been successfully processed and your trip is marked as completed!</p>
-                
-                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin: 20px 0;">
-                    <p><strong>Destination:</strong> {booking.destination}</p>
-                    <p><strong>Provider:</strong> {provider_name}</p>
-                    <p><strong>Dates:</strong> {booking.check_in} to {booking.check_out}</p>
-                    <hr style="border: 0; border-top: 1px solid #ccc;">
-                    <h3 style="margin-bottom: 0;">Total Amount Paid: <span style="color: #28a745;">₱{booking.total_price}</span></h3>
+        <head>
+            <style>
+                body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+                .header {{ background-color: #10b981; padding: 30px 20px; text-align: center; color: #ffffff; font-size: 24px; font-weight: bold; }}
+                .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+                .summary-box {{ border-bottom: 1px dashed #cbd5e1; padding-bottom: 20px; margin-bottom: 20px; }}
+                .summary-title {{ font-size: 12px; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px; }}
+                .total-amount {{ font-size: 24px; font-weight: bold; color: #10b981; text-align: right; margin-top: 15px; }}
+                .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">Payment Receipt</div>
+                <div class="content">
+                    <h2 style="color: #333; margin-top: 0; text-align: center;">Trip Completed!</h2>
+                    <p style="text-align: center; margin-bottom: 30px;">Hi <strong>{booking.tourist.username}</strong>, your face-to-face payment has been verified by your provider.</p>
+                    
+                    <div class="summary-box">
+                        <div class="summary-title">Booking Details</div>
+                        <p style="margin: 5px 0;"><strong>Destination:</strong> {booking.destination or 'N/A'}</p>
+                        <p style="margin: 5px 0;"><strong>Provider:</strong> {provider_name}</p>
+                        <p style="margin: 5px 0;"><strong>Dates:</strong> {booking.check_in} &mdash; {booking.check_out}</p>
+                    </div>
+                    
+                    <div>
+                        <div class="summary-title">Settlement Summary</div>
+                        <div class="total-amount">Total Trip Value: &#8369; {booking.total_price:,.2f}</div>
+                        <p style="text-align: right; font-size: 12px; color: #64748b; margin-top: 5px;">(Including initial down payment)</p>
+                    </div>
                 </div>
-                
-                <p>Thank you for booking with <strong>LocaLynk</strong>!</p>
-            </body>
+                <div class="footer">&copy; 2026 LocaLynk. Thank you for exploring with us!</div>
+            </div>
+        </body>
         </html>
         """
 
         try:
             send_mail(
-                subject=f"Receipt: Your LocaLynk Trip to {booking.destination}",
+                subject=f"Receipt: Your LocaLynk Trip to {booking.destination or 'your destination'}",
                 message=plain_text_receipt,
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[booking.tourist.email],
@@ -406,7 +470,6 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
                 return Response({"error": "Dates are no longer available."}, status=400)
 
             instance.status = 'Confirmed'
-            # --- REVISION 12: Record when downpayment was completed (Confirmed state) ---
             if not instance.downpayment_paid_at:
                 instance.downpayment_paid_at = timezone.now()
 

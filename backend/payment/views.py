@@ -7,14 +7,14 @@ from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response 
 from rest_framework.views import APIView 
 from rest_framework.exceptions import ValidationError as DRFValidationError
-from django.core.exceptions import ValidationError as ModelValidationError
+from django.core.exceptions import ValidationError as ModelValidationError #type: ignore
 from django.shortcuts import get_object_or_404
 from django.apps import apps 
 from requests.exceptions import RequestException #type: ignore
-from django.core.mail import send_mail 
+from django.core.mail import send_mail #type: ignore
 
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator #type: ignore
+from django.views.decorators.csrf import csrf_exempt #type: ignore
 
 from .models import Payment
 from .serializers import PaymentSerializer, PaymentInitiationSerializer
@@ -185,43 +185,68 @@ class PaymentWebhookView(APIView):
 
                         subject = f"Your Booking Receipt - #{booking.id}"
                         
+                        plain_content = f"Booking Confirmed! Receipt for {booking.destination}. Transaction ID: {payment.gateway_transaction_id}"
+                        
                         html_content = f"""
+                        <!DOCTYPE html>
                         <html>
-                        <body style="font-family: 'Helvetica', Arial, sans-serif; color: #1E293B; background-color: #F8FAFC; padding: 20px;">
-                            <div style="max-width: 500px; margin: auto; background: white; border-radius: 20px; padding: 30px; border: 1px solid #E2E8F0;">
-                                <div style="text-align: center; margin-bottom: 20px;">
-                                    <h2 style="color: #0072FF; margin: 0; letter-spacing: 1px;">BOOKING SUMMARY</h2>
-                                    <p style="font-size: 12px; color: #94A3B8;">{date.today().strftime('%B %d, %Y')}</p>
-                                </div>
-                                
-                                <div style="margin-bottom: 20px; border-bottom: 1px dashed #CBD5E1; padding-bottom: 20px;">
-                                    <p style="font-size: 10px; font-weight: bold; color: #94A3B8; margin-bottom: 10px; text-transform: uppercase;">Itinerary</p>
-                                    <p style="margin: 5px 0;"><strong>Dates:</strong> {booking.check_in} — {booking.check_out}</p>
-                                    <p style="margin: 5px 0;"><strong>Provider:</strong> {provider_name}</p>
-                                    <p style="margin: 5px 0;"><strong>Destination:</strong> {booking.destination or 'N/A'}</p>
-                                </div>
+                        <head>
+                            <style>
+                                body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+                                .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+                                .header {{ background-color: #0072FF; padding: 30px 20px; text-align: center; color: #ffffff; font-size: 24px; font-weight: bold; }}
+                                .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+                                .summary-box {{ border-bottom: 1px dashed #cbd5e1; padding-bottom: 20px; margin-bottom: 20px; }}
+                                .summary-title {{ font-size: 12px; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px; }}
+                                .table-row {{ padding: 6px 0; }}
+                                .highlight-blue {{ color: #0072FF; font-weight: bold; }}
+                                .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+                                .tx-box {{ background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; font-size: 12px; color: #64748b; margin-top: 30px; border: 1px solid #e2e8f0; }}
+                            </style>
+                        </head>
+                        <body>
+                            <div class="container">
+                                <div class="header">LocaLynk Booking Receipt</div>
+                                <div class="content">
+                                    <h2 style="color: #333; margin-top: 0; text-align: center;">Booking Confirmed!</h2>
+                                    <p style="text-align: center; font-size: 14px; color: #94a3b8; margin-top: -10px;">{date.today().strftime('%B %d, %Y')}</p>
 
-                                <div style="margin-bottom: 20px;">
-                                    <p style="font-size: 10px; font-weight: bold; color: #94A3B8; margin-bottom: 10px; text-transform: uppercase;">Payment Breakdown</p>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                                        <span>Total Trip Cost:</span> <span style="float: right;">₱ {booking.total_price:,.2f}</span>
+                                    <div class="summary-box">
+                                        <div class="summary-title">Itinerary Details</div>
+                                        <p style="margin: 5px 0;"><strong>Dates:</strong> {booking.check_in} &mdash; {booking.check_out}</p>
+                                        <p style="margin: 5px 0;"><strong>Provider:</strong> {provider_name}</p>
+                                        <p style="margin: 5px 0;"><strong>Destination:</strong> {booking.destination or 'N/A'}</p>
                                     </div>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; color: #0072FF; font-weight: bold;">
-                                        <span>Down Payment Paid (30%):</span> <span style="float: right;">₱ {booking.down_payment:,.2f}</span>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; color: #64748B;">
-                                        <span>Balance (Pay to Provider):</span> <span style="float: right;">₱ {booking.balance_due:,.2f}</span>
-                                    </div>
-                                </div>
 
-                                <div style="background: #F1F5F9; padding: 15px; border-radius: 10px; text-align: center;">
-                                    <p style="font-size: 11px; color: #64748B; margin: 0;">Transaction ID: {payment.gateway_transaction_id}</p>
+                                    <div>
+                                        <div class="summary-title">Payment Breakdown</div>
+                                        <table width="100%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td class="table-row" align="left">Total Trip Cost:</td>
+                                                <td class="table-row" align="right">&#8369; {booking.total_price:,.2f}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="table-row highlight-blue" align="left">Down Payment Paid (30%):</td>
+                                                <td class="table-row highlight-blue" align="right">&#8369; {booking.down_payment:,.2f}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="table-row" align="left" style="color: #64748b; font-weight: bold;">Balance (Pay to Provider):</td>
+                                                <td class="table-row" align="right" style="color: #64748b; font-weight: bold;">&#8369; {booking.balance_due:,.2f}</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+
+                                    <div class="tx-box">
+                                        <strong>Transaction ID:</strong><br/>
+                                        <span style="font-family: monospace;">{payment.gateway_transaction_id}</span>
+                                    </div>
                                 </div>
+                                <div class="footer">&copy; 2026 LocaLynk. All rights reserved.</div>
                             </div>
                         </body>
                         </html>
                         """
-                        send_mail(subject, "", settings.DEFAULT_FROM_EMAIL, [payment.payer.email], html_message=html_content)
+                        send_mail(subject, plain_content, settings.DEFAULT_FROM_EMAIL, [payment.payer.email], html_message=html_content)
                     except Exception as e:
                         print(f"Error sending HTML receipt: {e}")
 
@@ -240,14 +265,58 @@ class PaymentWebhookView(APIView):
                         
                         try:
                             p_subject = "Action Required: New Confirmed Booking"
-                            p_message = (
+                            p_plain_message = (
                                 f"Hi {provider.username},\n\n"
                                 f"A new booking has been confirmed by {tourist_name}.\n\n"
                                 f"Itinerary: {booking.check_in} to {booking.check_out}\n"
                                 f"Your Pending Payout (from down payment): ₱{net_payout:,.2f}\n\n"
                                 f"The tourist will pay the remaining balance of ₱{booking.balance_due:,.2f} directly to you. Please check your dashboard for details."
                             )
-                            send_mail(p_subject, p_message, settings.DEFAULT_FROM_EMAIL, [provider.email])
+                            p_html_message = f"""
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                                <style>
+                                    body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+                                    .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+                                    .header {{ background-color: #10b981; padding: 30px 20px; text-align: center; color: #ffffff; font-size: 24px; font-weight: bold; }}
+                                    .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+                                    .highlight {{ font-weight: bold; color: #333; }}
+                                    .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+                                    .btn {{ display: inline-block; background-color: #10b981; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; text-align: center; }}
+                                    .details-box {{ background: #f1f5f9; padding: 20px 20px 20px 40px; border-radius: 8px; margin: 20px 0; }}
+                                </style>
+                            </head>
+                            <body>
+                                <div class="container">
+                                    <div class="header">New Confirmed Booking!</div>
+                                    <div class="content">
+                                        <p>Hi {provider.username},</p>
+                                        <p>Great news! A new booking has just been confirmed by <span class="highlight">{tourist_name}</span>.</p>
+                                        
+                                        <ul class="details-box">
+                                            <li><span class="highlight">Itinerary:</span> {booking.check_in} to {booking.check_out}</li>
+                                            <li><span class="highlight">Your Pending Payout:</span> &#8369; {net_payout:,.2f} <span style="font-size: 12px; color: #64748b;">(From down payment)</span></li>
+                                            <li><span class="highlight">Balance Due:</span> &#8369; {booking.balance_due:,.2f} <span style="font-size: 12px; color: #64748b;">(To be paid directly to you)</span></li>
+                                        </ul>
+
+                                        <p>Please log in to your dashboard to view the full details and communicate with the tourist.</p>
+                                        <div style="text-align: center;">
+                                            <a href="{getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')}/login" class="btn">View Booking Dashboard</a>
+                                        </div>
+                                    </div>
+                                    <div class="footer">&copy; 2026 LocaLynk Partner Network.</div>
+                                </div>
+                            </body>
+                            </html>
+                            """
+                            send_mail(
+                                p_subject, 
+                                p_plain_message, 
+                                settings.DEFAULT_FROM_EMAIL, 
+                                [provider.email],
+                                html_message=p_html_message
+                            )
                         except Exception as e:
                             print(f"Error notifying provider: {e}")
 
