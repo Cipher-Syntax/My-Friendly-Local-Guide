@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2, Search, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, confirmPayment, openManageGuidesModal, agencyTier, freeBookingLimit }) {
+export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, confirmPayment, deleteBooking, openManageGuidesModal, agencyTier, freeBookingLimit }) {
     const [filterStatus, setFilterStatus] = useState('all');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
     const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
 
     // State for Accept & Meetup Modal
@@ -14,12 +17,45 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [selectedBookingForPayment, setSelectedBookingForPayment] = useState(null);
 
+    // State for Delete Booking Modal
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [selectedBookingForDelete, setSelectedBookingForDelete] = useState(null);
+
     const acceptedBookingsCount = bookings.filter(b => b.status === 'accepted').length;
     const isLimitReached = agencyTier === 'free' && acceptedBookingsCount >= freeBookingLimit;
 
-    const filteredBookings = filterStatus === 'all'
-        ? bookings
-        : bookings.filter(b => b.status === filterStatus);
+    const filteredBookings = useMemo(() => {
+        const normalizedSearch = searchTerm.trim().toLowerCase();
+
+        return bookings.filter((b) => {
+            const statusOk = filterStatus === 'all' ? true : b.status === filterStatus;
+            if (!statusOk) return false;
+
+            if (!normalizedSearch) return true;
+
+            const haystack = [
+                b.name,
+                b.destination_detail?.name,
+                b.accommodation_detail?.title,
+                b.tourist_username,
+                b.status,
+                b.check_in,
+                b.check_out,
+                String(b.id),
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return haystack.includes(normalizedSearch);
+        });
+    }, [bookings, filterStatus, searchTerm]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredBookings.length / pageSize));
+    const safePage = Math.min(currentPage, totalPages);
+    const startIndex = (safePage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedBookings = filteredBookings.slice(startIndex, endIndex);
 
     const formatDate = (dateStr) => {
         if (!dateStr) return 'N/A';
@@ -72,6 +108,18 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
         }
     };
 
+    const handleDeleteConfirm = async () => {
+        if (!selectedBookingForDelete) return;
+
+        try {
+            await deleteBooking(selectedBookingForDelete.id);
+            setDeleteModalOpen(false);
+            setSelectedBookingForDelete(null);
+        } catch (error) {
+            showToast("Failed to delete booking. Please try again.", "error");
+        }
+    };
+
     return (
         <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl overflow-hidden flex flex-col h-full relative transition-colors duration-300">
             {toast.show && (
@@ -85,26 +133,59 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                 </div>
             )}
 
-            <div className="p-4 border-b border-slate-200 dark:border-slate-700/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="flex items-center gap-2">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700/50 flex flex-col gap-4">
+                <div className="flex items-center justify-between gap-4">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">Bookings List</h3>
                     <span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs px-2 py-1 rounded-full font-medium">{filteredBookings.length}</span>
                 </div>
-                <div className="relative group">
-                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-hover:text-cyan-500 dark:group-hover:text-cyan-400 transition-colors" />
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative group flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-hover:text-cyan-500 dark:group-hover:text-cyan-400 transition-colors" />
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            placeholder="Search booking, tourist, date, or ID..."
+                            className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                        />
+                    </div>
+
+                    <div className="relative group">
+                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-hover:text-cyan-500 dark:group-hover:text-cyan-400 transition-colors" />
+                        <select
+                            value={filterStatus}
+                            onChange={(e) => {
+                                setFilterStatus(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-all appearance-none capitalize min-w-[160px] font-medium"
+                        >
+                            <option value="all">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="accepted">Accepted</option>
+                            <option value="paid">Paid</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="completed">Completed</option>
+                            <option value="declined">Declined</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+
                     <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-all appearance-none capitalize min-w-[160px] font-medium"
+                        value={pageSize}
+                        onChange={(e) => {
+                            setPageSize(Number(e.target.value));
+                            setCurrentPage(1);
+                        }}
+                        className="px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer min-w-[120px] font-medium"
                     >
-                        <option value="all">All Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="accepted">Accepted</option>
-                        <option value="paid">Paid</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="completed">Completed</option>
-                        <option value="declined">Declined</option>
-                        <option value="cancelled">Cancelled</option>
+                        <option value={5}>5 / page</option>
+                        <option value={10}>10 / page</option>
+                        <option value={20}>20 / page</option>
                     </select>
                 </div>
             </div>
@@ -123,8 +204,8 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-700/30">
-                        {filteredBookings.length > 0 ? (
-                            filteredBookings.map((booking) => {
+                        {paginatedBookings.length > 0 ? (
+                            paginatedBookings.map((booking) => {
                                 const statusString = booking.status?.toLowerCase();
                                 const isManageDisabled = ['accepted', 'paid', 'confirmed', 'completed', 'declined', 'cancelled'].includes(statusString);
 
@@ -185,13 +266,24 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <button
-                                                onClick={() => openManageGuidesModal(booking.id)}
-                                                disabled={isManageDisabled}
-                                                className={`px-3 py-1.5 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${isManageDisabled ? 'bg-slate-200 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-600 shadow-lg shadow-cyan-500/20'}`}
-                                            >
-                                                Manage Guides
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => openManageGuidesModal(booking.id)}
+                                                    disabled={isManageDisabled}
+                                                    className={`px-3 py-1.5 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${isManageDisabled ? 'bg-slate-200 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-600 shadow-lg shadow-cyan-500/20'}`}
+                                                >
+                                                    Manage Guides
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedBookingForDelete(booking);
+                                                        setDeleteModalOpen(true);
+                                                    }}
+                                                    className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white transition-colors shadow-sm shadow-rose-500/30"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                                                </button>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             {isPendingStatus && (
@@ -246,6 +338,29 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700/50 flex items-center justify-between text-sm">
+                <span className="text-slate-500 dark:text-slate-400">
+                    Showing {filteredBookings.length === 0 ? 0 : startIndex + 1}-{Math.min(endIndex, filteredBookings.length)} of {filteredBookings.length}
+                </span>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={safePage <= 1}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <ChevronLeft className="w-4 h-4" /> Prev
+                    </button>
+                    <span className="text-slate-700 dark:text-slate-200 font-medium">Page {safePage} / {totalPages}</span>
+                    <button
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={safePage >= totalPages}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        Next <ChevronRight className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
 
             {/* ACCEPT & MEETUP MODAL */}
@@ -352,6 +467,49 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                             </button>
                             <button onClick={handlePaymentConfirm} className="px-4 py-2 font-bold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-colors shadow-sm shadow-emerald-500/30">
                                 Yes, Payment Received
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DELETE BOOKING MODAL */}
+            {deleteModalOpen && selectedBookingForDelete && (
+                <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 transition-colors duration-300">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden transition-colors duration-300">
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between bg-rose-50 dark:bg-rose-900/20">
+                            <h3 className="text-lg font-bold text-rose-700 dark:text-rose-400 flex items-center gap-2">
+                                <Trash2 className="w-5 h-5" /> Delete Booking
+                            </h3>
+                            <button onClick={() => setDeleteModalOpen(false)} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                                <XCircle className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 text-center space-y-3">
+                            <p className="text-sm text-slate-600 dark:text-slate-300">
+                                Are you sure you want to permanently delete <span className="font-bold">{getBookingName(selectedBookingForDelete)}</span>?
+                            </p>
+                            <p className="text-xs text-rose-600 dark:text-rose-400 italic">
+                                This action is different from Accept/Decline and cannot be undone.
+                            </p>
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900/50">
+                            <button
+                                onClick={() => {
+                                    setDeleteModalOpen(false);
+                                    setSelectedBookingForDelete(null);
+                                }}
+                                className="px-4 py-2 font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteConfirm}
+                                className="px-4 py-2 font-bold rounded-lg bg-rose-500 hover:bg-rose-600 text-white transition-colors shadow-sm shadow-rose-500/30"
+                            >
+                                Yes, Delete
                             </button>
                         </div>
                     </div>

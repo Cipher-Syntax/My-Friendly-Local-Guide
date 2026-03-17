@@ -204,8 +204,20 @@ class BookingViewSet(viewsets.ModelViewSet):
                 print(f"Failed to send request notification email: {e}")
         
     def destroy(self, request, *args, **kwargs):
-        if not request.user.is_superuser:
-             return Response({"error": "Only Admins can delete bookings entirely. Please Cancel instead."}, status=403)
+        booking = self.get_object()
+        user = request.user
+
+        is_provider = (
+            booking.guide == user or
+            booking.agency == user or
+            (booking.accommodation and booking.accommodation.host == user)
+        )
+
+        if not (user.is_superuser or is_provider):
+            return Response(
+                {"error": "Only Admins or the booking's assigned provider can delete this booking."},
+                status=403,
+            )
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'])

@@ -305,6 +305,19 @@ export default function AgencyLayout() {
         }
     };
 
+    const deleteBooking = async (bookingId) => {
+        try {
+            await api.delete(`api/bookings/${bookingId}/`);
+            setBookings(prev => prev.filter(b => b.id !== bookingId));
+            showToast('Booking deleted successfully.', 'success');
+        } catch (error) {
+            console.error('Delete booking error:', error);
+            const msg = error.response?.data?.error || 'Failed to delete booking.';
+            showToast(msg, 'error');
+            throw error;
+        }
+    };
+
     const getComputedGuides = () => {
         if (selectedBookingId && isManageGuidesModalOpen) {
             const currentBooking = bookings.find(b => b.id === selectedBookingId);
@@ -544,6 +557,7 @@ export default function AgencyLayout() {
                                     getStatusBg={getStatusBg}
                                     updateBookingStatus={updateBookingStatus}
                                     confirmPayment={confirmPayment}
+                                    deleteBooking={deleteBooking}
                                     openManageGuidesModal={(id) => {
                                         setSelectedBookingId(id);
                                         setIsManageGuidesModalOpen(true);
