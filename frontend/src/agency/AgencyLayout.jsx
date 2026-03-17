@@ -289,6 +289,23 @@ export default function AgencyLayout() {
         await updateGuideAssignments(bookingId, newGuideIds);
     };
 
+    const confirmPayment = async (bookingId) => {
+        try {
+            await api.post(`api/bookings/${bookingId}/mark_paid/`);
+            setBookings(prev => prev.map(b =>
+                b.id === bookingId
+                    ? { ...b, status: 'completed', balance_due: 0, balance_paid_at: new Date().toISOString() }
+                    : b
+            ));
+            showToast('Balance received. Booking marked as completed.', 'success');
+            fetchData();
+        } catch (error) {
+            console.error('Confirm payment error:', error);
+            showToast('Failed to confirm payment.', 'error');
+            throw error;
+        }
+    };
+
     const getComputedGuides = () => {
         if (selectedBookingId && isManageGuidesModalOpen) {
             const currentBooking = bookings.find(b => b.id === selectedBookingId);
@@ -527,6 +544,7 @@ export default function AgencyLayout() {
                                     getGuideNames={getGuideNames}
                                     getStatusBg={getStatusBg}
                                     updateBookingStatus={updateBookingStatus}
+                                    confirmPayment={confirmPayment}
                                     openManageGuidesModal={(id) => {
                                         setSelectedBookingId(id);
                                         setIsManageGuidesModalOpen(true);
