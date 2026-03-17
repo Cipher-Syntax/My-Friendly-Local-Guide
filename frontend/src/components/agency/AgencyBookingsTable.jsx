@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2 } from 'lucide-react';
 
-export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, openManageGuidesModal, agencyTier, freeBookingLimit }) {
+export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, confirmPayment, openManageGuidesModal, agencyTier, freeBookingLimit }) {
     const [filterStatus, setFilterStatus] = useState('all');
     const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
 
@@ -63,7 +63,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
     };
 
     const handlePaymentConfirm = () => {
-        updateBookingStatus(selectedBookingForPayment.id, 'completed');
+        confirmPayment(selectedBookingForPayment.id);
         setPaymentModalOpen(false);
         setSelectedBookingForPayment(null);
         showToast("Balance received. Booking marked as Completed!", "success");
@@ -125,6 +125,9 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                 const statusString = booking.status?.toLowerCase();
                                 const isManageDisabled = ['accepted', 'paid', 'confirmed', 'completed', 'declined', 'cancelled'].includes(statusString);
 
+                                // FIX: Ensure button shows for pending or pending_payment status
+                                const isPendingStatus = statusString === 'pending' || statusString === 'pending_payment';
+
                                 const guideArray = booking.guideIds || booking.assigned_agency_guides || booking.assigned_guides || [];
                                 const hasGuides = guideArray.length > 0;
 
@@ -175,7 +178,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize border whitespace-nowrap ${getStatusBg ? getStatusBg(booking.status) : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
-                                                {booking.status}
+                                                {booking.status ? booking.status.replace('_', ' ') : 'Pending'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
@@ -188,7 +191,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                             </button>
                                         </td>
                                         <td className="px-6 py-4">
-                                            {statusString === 'pending' && (
+                                            {isPendingStatus && (
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={() => {

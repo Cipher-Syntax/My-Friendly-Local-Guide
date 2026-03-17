@@ -134,7 +134,8 @@ export const useAgencyDashboardData = () => {
             newGuideIds = [...currentGuideIds, guide.id];
         }
 
-        const newStatus = newGuideIds.length > 0 ? 'Accepted' : 'Pending_Payment';
+        // FIX: Keep the current status (e.g., Pending) so the Accept button doesn't disappear
+        const currentStatus = targetBooking.status;
 
         setBookings(prevBookings => prevBookings.map(booking => {
             if (booking.id !== bookingId) return booking;
@@ -143,14 +144,13 @@ export const useAgencyDashboardData = () => {
                 guideIds: newGuideIds,
                 assigned_guides: newGuideIds,
                 assigned_agency_guides: newGuideIds,
-                status: newStatus
+                status: currentStatus 
             };
         }));
 
         try {
             await api.patch(`api/bookings/${bookingId}/`, {
                 assigned_agency_guides: newGuideIds,
-                status: newStatus
             });
             console.log(`Successfully saved guide assignment for booking ${bookingId}`);
         } catch (error) {
@@ -159,7 +159,11 @@ export const useAgencyDashboardData = () => {
     };
 
     const updateGuideAssignments = async (bookingId, newGuideIds) => {
-        const newStatus = newGuideIds.length > 0 ? 'Accepted' : 'Pending_Payment';
+        const targetBooking = bookings.find(b => b.id === bookingId);
+        if (!targetBooking) return;
+        
+        // FIX: Keep the current status so the Accept button doesn't disappear
+        const currentStatus = targetBooking.status;
 
         setBookings(prevBookings => prevBookings.map(booking => {
             if (booking.id !== bookingId) return booking;
@@ -168,14 +172,13 @@ export const useAgencyDashboardData = () => {
                 guideIds: newGuideIds,
                 assigned_guides: newGuideIds,
                 assigned_agency_guides: newGuideIds,
-                status: newStatus
+                status: currentStatus
             };
         }));
 
         try {
             await api.patch(`api/bookings/${bookingId}/`, {
                 assigned_agency_guides: newGuideIds,
-                status: newStatus
             });
             console.log(`Successfully Auto-Assigned guides to booking ${bookingId}`);
         } catch (error) {
@@ -183,10 +186,10 @@ export const useAgencyDashboardData = () => {
         }
     };
 
-    const updateBookingStatus = async (bookingId, newStatus) => {
+    const updateBookingStatus = async (bookingId, newStatus, extraData = {}) => {
         setBookings(prevBookings => prevBookings.map(booking => {
             if (booking.id === bookingId) {
-                return { ...booking, status: newStatus };
+                return { ...booking, status: newStatus, ...extraData };
             }
             return booking;
         }));
@@ -194,11 +197,29 @@ export const useAgencyDashboardData = () => {
         try {
             const capitalizedStatus = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
             await api.patch(`api/bookings/${bookingId}/`, {
-                status: capitalizedStatus
+                status: capitalizedStatus,
+                ...extraData
             });
             console.log(`Successfully updated booking ${bookingId} status to ${capitalizedStatus}`);
         } catch (error) {
             console.error("Failed to update booking status in database:", error);
+        }
+    };
+
+    // FIX FOR PAYMENT: Uses the dedicated mark_paid endpoint on the backend
+    const confirmPayment = async (bookingId) => {
+        setBookings(prevBookings => prevBookings.map(booking => {
+            if (booking.id === bookingId) {
+                return { ...booking, status: 'Completed', balance_due: 0 };
+            }
+            return booking;
+        }));
+
+        try {
+            await api.post(`api/bookings/${bookingId}/mark_paid/`);
+            console.log(`Successfully marked booking ${bookingId} as paid`);
+        } catch (error) {
+            console.error("Failed to mark booking as paid:", error);
         }
     };
 
@@ -354,6 +375,7 @@ export const useAgencyDashboardData = () => {
         assignGuide,
         updateGuideAssignments,
         updateBookingStatus,
+        confirmPayment,
         openManageGuidesModal,
         closeModal,
         openAddGuideModal,
