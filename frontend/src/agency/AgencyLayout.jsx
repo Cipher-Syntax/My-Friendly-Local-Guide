@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert, Settings } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert, Settings, PhilippinePeso } from 'lucide-react';
 import api from '../api/api';
 
 import AgencySidebar from '../components/agency/AgencySidebar';
@@ -302,7 +302,6 @@ export default function AgencyLayout() {
         } catch (error) {
             console.error('Confirm payment error:', error);
             showToast('Failed to confirm payment.', 'error');
-            throw error;
         }
     };
 
@@ -492,7 +491,7 @@ export default function AgencyLayout() {
                                             onClick={initiateSubscription}
                                             className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded-lg transition-colors flex items-center gap-2 font-medium shadow-md"
                                         >
-                                            <DollarSign className="w-5 h-5" />
+                                            <PhilippinePeso className="w-5 h-5" />
                                             Upgrade to Unlimited (₱{config.subscriptionPrice.toLocaleString('en-PH')}/yr)
                                         </button>
                                     </div>

@@ -62,11 +62,14 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
         showToast("Booking accepted & meetup details sent!", "success");
     };
 
-    const handlePaymentConfirm = () => {
-        confirmPayment(selectedBookingForPayment.id);
-        setPaymentModalOpen(false);
-        setSelectedBookingForPayment(null);
-        showToast("Balance received. Booking marked as Completed!", "success");
+    const handlePaymentConfirm = async () => {
+        try {
+            await confirmPayment(selectedBookingForPayment.id);
+            setPaymentModalOpen(false);
+            setSelectedBookingForPayment(null);
+        } catch (error) {
+            showToast("Failed to confirm payment. Please try again.", "error");
+        }
     };
 
     return (

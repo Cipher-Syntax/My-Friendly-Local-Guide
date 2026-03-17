@@ -263,7 +263,9 @@ class BookingViewSet(viewsets.ModelViewSet):
         if booking.guide:
             provider_name = f"Guide {booking.guide.first_name}"
         elif booking.agency:
-            provider_name = f"Agency {booking.agency.business_name}"
+            agency_profile = getattr(booking.agency, 'agency_profile', None)
+            agency_name = getattr(agency_profile, 'business_name', None) or booking.agency.username
+            provider_name = f"Agency {agency_name}"
 
         plain_text_receipt = (
             f"Hi {booking.tourist.username},\n\n"
