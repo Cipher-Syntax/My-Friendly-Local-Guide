@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info } from 'lucide-react';
+import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2 } from 'lucide-react';
 
 export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, openManageGuidesModal, agencyTier, freeBookingLimit }) {
     const [filterStatus, setFilterStatus] = useState('all');
     const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
 
-    // --- NEW: State for Accept & Meetup Modal ---
+    // State for Accept & Meetup Modal
     const [acceptModalOpen, setAcceptModalOpen] = useState(false);
     const [selectedBookingForAccept, setSelectedBookingForAccept] = useState(null);
     const [meetupForm, setMeetupForm] = useState({ location: '', time: '', instructions: '' });
+
+    // State for Confirm Payment Modal
+    const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+    const [selectedBookingForPayment, setSelectedBookingForPayment] = useState(null);
 
     const acceptedBookingsCount = bookings.filter(b => b.status === 'accepted').length;
     const isLimitReached = agencyTier === 'free' && acceptedBookingsCount >= freeBookingLimit;
@@ -40,14 +44,12 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
         return String(cat);
     };
 
-    // --- Handle the submission of the Meetup Form ---
     const handleAcceptConfirm = () => {
         if (!meetupForm.location || !meetupForm.time) {
             showToast("Location and Time are required to accept a booking.", "error");
             return;
         }
 
-        // Pass the extra meetup data to the layout function
         updateBookingStatus(selectedBookingForAccept.id, 'accepted', {
             meetup_location: meetupForm.location,
             meetup_time: meetupForm.time,
@@ -57,6 +59,14 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
         setAcceptModalOpen(false);
         setMeetupForm({ location: '', time: '', instructions: '' });
         setSelectedBookingForAccept(null);
+        showToast("Booking accepted & meetup details sent!", "success");
+    };
+
+    const handlePaymentConfirm = () => {
+        updateBookingStatus(selectedBookingForPayment.id, 'completed');
+        setPaymentModalOpen(false);
+        setSelectedBookingForPayment(null);
+        showToast("Balance received. Booking marked as Completed!", "success");
     };
 
     return (
@@ -102,20 +112,18 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                         <tr className="border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/20">
                             <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold text-sm">Booking Name</th>
                             <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold text-sm">Schedule</th>
-                            <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold text-sm">Location</th>
                             <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold text-sm">Group Size</th>
                             <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold text-sm">Assigned Guides</th>
                             <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold text-sm">Status</th>
                             <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold text-sm">Action</th>
-                            <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold text-sm">Decision</th>
+                            <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold text-sm">Decision / Payment</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-700/30">
                         {filteredBookings.length > 0 ? (
                             filteredBookings.map((booking) => {
-                                const isManageDisabled = ['accepted', 'paid', 'confirmed', 'completed', 'declined', 'cancelled'].includes(booking.status?.toLowerCase());
-                                const isDecisionMade = ['accepted', 'paid', 'confirmed', 'completed', 'declined', 'cancelled'].includes(booking.status?.toLowerCase());
-                                const isPositiveStatus = ['accepted', 'paid', 'confirmed', 'completed'].includes(booking.status?.toLowerCase());
+                                const statusString = booking.status?.toLowerCase();
+                                const isManageDisabled = ['accepted', 'paid', 'confirmed', 'completed', 'declined', 'cancelled'].includes(statusString);
 
                                 const guideArray = booking.guideIds || booking.assigned_agency_guides || booking.assigned_guides || [];
                                 const hasGuides = guideArray.length > 0;
@@ -150,9 +158,6 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <p className="text-slate-700 dark:text-white text-sm truncate max-w-[120px] font-medium" title={booking.location || 'Local'}>{booking.location || 'Local'}</p>
-                                        </td>
-                                        <td className="px-6 py-4">
                                             <p className="text-slate-700 dark:text-white text-sm font-medium">{booking.num_guests || booking.groupSize || 1} people</p>
                                         </td>
                                         <td className="px-6 py-4">
@@ -183,29 +188,49 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                             </button>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
+                                            {statusString === 'pending' && (
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            if (!hasGuides) {
+                                                                showToast("Please assign a guide before accepting.", "error");
+                                                                return;
+                                                            }
+                                                            setSelectedBookingForAccept(booking);
+                                                            setAcceptModalOpen(true);
+                                                        }}
+                                                        disabled={isLimitReached}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors w-[80px] bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-green-500 hover:text-white`}
+                                                    >
+                                                        Accept
+                                                    </button>
+                                                    <button
+                                                        onClick={() => updateBookingStatus(booking.id, 'declined')}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors w-[80px] bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-red-500 hover:text-white`}
+                                                    >
+                                                        Decline
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {statusString === 'confirmed' && (
                                                 <button
                                                     onClick={() => {
-                                                        if (!hasGuides) {
-                                                            showToast("Please assign a guide before accepting.", "error");
-                                                            return;
-                                                        }
-                                                        setSelectedBookingForAccept(booking);
-                                                        setAcceptModalOpen(true);
+                                                        setSelectedBookingForPayment(booking);
+                                                        setPaymentModalOpen(true);
                                                     }}
-                                                    disabled={isDecisionMade || isLimitReached}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors w-[80px] ${isPositiveStatus ? 'bg-green-500 text-white cursor-default' : isDecisionMade ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed' : 'bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-green-500 hover:text-white'}`}
+                                                    className="flex items-center justify-center gap-1 w-full px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-colors shadow-sm shadow-emerald-500/30"
                                                 >
-                                                    {isPositiveStatus ? 'Accepted' : 'Accept'}
+                                                    <CheckCircle2 className="w-4 h-4" /> Collect Balance
                                                 </button>
-                                                <button
-                                                    onClick={() => updateBookingStatus(booking.id, 'declined')}
-                                                    disabled={isDecisionMade}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors w-[80px] ${booking.status?.toLowerCase() === 'declined' ? 'bg-red-500 text-white cursor-default' : isDecisionMade ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed' : 'bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-red-500 hover:text-white'}`}
-                                                >
-                                                    {booking.status?.toLowerCase() === 'declined' ? 'Declined' : 'Decline'}
-                                                </button>
-                                            </div>
+                                            )}
+
+                                            {['accepted', 'paid', 'completed', 'declined', 'cancelled'].includes(statusString) && (
+                                                <span className="text-xs font-medium text-slate-400 dark:text-slate-500 italic block mt-1">
+                                                    {statusString === 'completed' ? 'Fully Paid & Completed' :
+                                                        statusString === 'accepted' ? 'Waiting for downpayment...' : 'Action Locked'}
+                                                </span>
+                                            )}
                                         </td>
                                     </tr>
                                 );
@@ -217,7 +242,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                 </table>
             </div>
 
-            {/* --- NEW: ACCEPT & MEETUP MODAL --- */}
+            {/* ACCEPT & MEETUP MODAL */}
             {acceptModalOpen && selectedBookingForAccept && (
                 <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 transition-colors duration-300">
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden transition-colors duration-300">
@@ -283,6 +308,44 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                             </button>
                             <button onClick={handleAcceptConfirm} className="px-4 py-2 font-medium rounded-lg bg-green-500 hover:bg-green-600 text-white transition-colors shadow-sm">
                                 Accept & Send Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* CONFIRM PAYMENT MODAL */}
+            {paymentModalOpen && selectedBookingForPayment && (
+                <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 transition-colors duration-300">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden transition-colors duration-300">
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/20">
+                            <h3 className="text-lg font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+                                <CheckCircle2 className="w-5 h-5" /> Confirm Payment
+                            </h3>
+                            <button onClick={() => setPaymentModalOpen(false)} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                                <XCircle className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 text-center space-y-4">
+                            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <span className="text-3xl">💰</span>
+                            </div>
+                            <h4 className="text-xl font-bold text-slate-900 dark:text-white">Collect Balance</h4>
+                            <p className="text-sm text-slate-600 dark:text-slate-300">
+                                Has the tourist paid the remaining balance for <span className="font-bold">{getBookingName(selectedBookingForPayment)}</span>?
+                            </p>
+                            <p className="text-xs text-emerald-600 dark:text-emerald-400 italic">
+                                * This will mark the booking as "Completed" and the transaction as finalized.
+                            </p>
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900/50">
+                            <button onClick={() => setPaymentModalOpen(false)} className="px-4 py-2 font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+                                Not Yet
+                            </button>
+                            <button onClick={handlePaymentConfirm} className="px-4 py-2 font-bold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-colors shadow-sm shadow-emerald-500/30">
+                                Yes, Payment Received
                             </button>
                         </div>
                     </div>
