@@ -502,30 +502,11 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
                  instance.meetup_time = meetup_time
              if meetup_inst:
                  instance.meetup_instructions = meetup_inst
-
-             SystemAlert.objects.create(
-                target_type='Tourist',
-                recipient=instance.tourist,
-                title="Booking Accepted!",
-                message=f"Your booking for {instance.destination or 'your trip'} has been accepted. Please review the meetup details and complete your down payment.",
-                related_object_id=instance.id,
-                related_model='Booking',
-                is_read=False
-            )
              instance.status = 'Accepted'
              instance.save()
              return Response(self.get_serializer(instance).data)
 
         if new_status == 'Declined':
-             SystemAlert.objects.create(
-                target_type='Tourist',
-                recipient=instance.tourist,
-                title="Booking Declined",
-                message=f"Your booking request was declined.",
-                related_object_id=instance.id,
-                related_model='Booking',
-                is_read=False
-            )
              instance.status = 'Declined'
              instance.save()
              return Response(self.get_serializer(instance).data)

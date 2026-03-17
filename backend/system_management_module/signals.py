@@ -1,4 +1,4 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from .models import SystemAlert
 
@@ -22,10 +22,25 @@ def create_alert_for_new_message(sender, instance, created, **kwargs):
             related_object_id=instance.id
         )
 
+@receiver(pre_save, sender=Booking)
+def cache_previous_booking_status(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._previous_status = None
+        return
+    try:
+        previous = sender.objects.get(pk=instance.pk)
+        instance._previous_status = previous.status
+    except sender.DoesNotExist:
+        instance._previous_status = None
+
 @receiver(post_save, sender=Booking)
 def create_alert_for_booking_status(sender, instance, created, **kwargs):
 
     if not created:
+        previous_status = getattr(instance, '_previous_status', None)
+        if previous_status == instance.status:
+            return
+
         if instance.status == 'Accepted':
             
             provider_name = "your guide"
