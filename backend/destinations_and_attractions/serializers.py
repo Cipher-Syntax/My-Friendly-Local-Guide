@@ -33,18 +33,24 @@ class DestinationSerializer(serializers.ModelSerializer):
         child=serializers.ImageField(), write_only=True, required=False
     )
     
+    # NEW: Add this to capture the list of URLs of the images the user wants to keep
+    existing_images = serializers.ListField(
+        child=serializers.CharField(), write_only=True, required=False
+    )
+    
     class Meta:
         model = Destination
         fields = [
             'id', 'name', 'description', 'category', 'location', 
             'latitude', 'longitude', 'average_rating', 
-            'images', 'uploaded_images', 'attractions', 'is_featured'
+            'images', 'uploaded_images', 'existing_images', 'attractions', 'is_featured'
         ]
         read_only_fields = ['average_rating']
 
     def create(self, validated_data):
         # Pop the uploaded images from the validated data
         uploaded_images = validated_data.pop('uploaded_images', [])
+        validated_data.pop('existing_images', []) # Prevent errors if accidentally sent
         
         # Create the main Destination
         destination = Destination.objects.create(**validated_data)
@@ -54,6 +60,31 @@ class DestinationSerializer(serializers.ModelSerializer):
             DestinationImage.objects.create(destination=destination, image=image)
             
         return destination
+        
+    def update(self, instance, validated_data):
+        # Extract image data
+        uploaded_images = validated_data.pop('uploaded_images', [])
+        existing_images = validated_data.pop('existing_images', None)
+        
+        # Update main text fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Handle Deletion of existing images:
+        # If the frontend passes existing_images, we compare it against current images.
+        if existing_images is not None:
+            for dest_image in instance.images.all():
+                # We check if the image's path is in any of the kept URLs (protects against absolute vs relative URL mismatches)
+                is_kept = any(dest_image.image.url in kept_url for kept_url in existing_images)
+                if not is_kept:
+                    dest_image.delete()
+                    
+        # Handle Addition of new images:
+        for image in uploaded_images:
+            DestinationImage.objects.create(destination=instance, image=image)
+            
+        return instance
 
 class DestinationListSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
