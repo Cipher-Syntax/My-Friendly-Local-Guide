@@ -39,7 +39,7 @@ export default function ArchivedAccounts() {
                 <div>
                     <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Archived Accounts</h2>
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                        Accounts inactive for over 30 days. They will be permanently deleted after the countdown ends.
+                        Accounts inactive for over 30 days. They will be permanently deleted after the 1 year countdown ends.
                     </p>
                 </div>
             </div>
