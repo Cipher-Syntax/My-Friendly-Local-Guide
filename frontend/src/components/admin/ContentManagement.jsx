@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Image as ImageIcon, Eye, Trash2, AlertTriangle, MapPin, Star, XCircle, Plus, Filter, Landmark, CheckCircle, AlertCircle, Loader2, Upload } from 'lucide-react';
+import { Search, Image as ImageIcon, Eye, Trash2, AlertTriangle, MapPin, Star, XCircle, Plus, Filter, Landmark, CheckCircle, AlertCircle, Loader2, Upload, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import api from '../../api/api';
 
 export default function ContentManagement() {
@@ -7,9 +7,15 @@ export default function ContentManagement() {
     const [categoryChoices, setCategoryChoices] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // Filters, Sorting, and Pagination State
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
+    const [filterFeatured, setFilterFeatured] = useState('All'); // 'All', 'Featured', 'Regular'
+    const [sortBy, setSortBy] = useState('name-asc'); // 'name-asc', 'name-desc', 'rating-high'
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 6;
 
+    // Modal States
     const [editingSpot, setEditingSpot] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -91,6 +97,11 @@ export default function ContentManagement() {
         fetchDestinations();
     }, []);
 
+    // Reset pagination when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, selectedCategory, filterFeatured, sortBy]);
+
     const handleCreate = async () => {
         if (!newSpot.name || !newSpot.location || !newSpot.description) {
             showToast("Please fill in all required text fields.", "error");
@@ -115,7 +126,7 @@ export default function ContentManagement() {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            await fetchDestinations(); // Refetch to ensure sync with newly generated backend URLs
+            await fetchDestinations(); 
 
             setIsCreateModalOpen(false);
             setNewSpot({ name: '', description: '', category: categoryChoices[0] || '', location: '', rating: 0, is_featured: false, images: [] });
@@ -139,7 +150,7 @@ export default function ContentManagement() {
             }
             return { ...prev, images: [...prev.images, ...files] };
         });
-        e.target.value = null; // Clear input to allow re-selecting the same file if needed
+        e.target.value = null; 
     };
 
     const removeDestinationImage = (indexToRemove) => {
@@ -163,7 +174,7 @@ export default function ContentManagement() {
             }
             return { ...prev, newImages: [...(prev.newImages || []), ...files] };
         });
-        e.target.value = null; // Clear input to allow re-selecting the same file if needed
+        e.target.value = null; 
     };
 
     const removeEditExistingImage = (indexToRemove) => {
@@ -249,7 +260,7 @@ export default function ContentManagement() {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            await fetchDestinations(); // Refetch perfectly syncs the newly processed backend images to frontend state
+            await fetchDestinations(); 
 
             setIsEditModalOpen(false);
             setEditingSpot(null);
@@ -294,14 +305,41 @@ export default function ContentManagement() {
         setIsViewImagesModalOpen(true);
     };
 
-    const filteredDestinations = useMemo(() => {
-        return destinations.filter(spot => {
+    // Filter, Sort, and Paginate Data
+    const processedDestinations = useMemo(() => {
+        let filtered = destinations.filter(spot => {
             const matchesSearch = spot.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 spot.location.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesCategory = selectedCategory === 'All' || spot.category === selectedCategory;
-            return matchesSearch && matchesCategory;
+            const matchesFeatured = filterFeatured === 'All' 
+                ? true 
+                : filterFeatured === 'Featured' ? spot.featured : !spot.featured;
+                
+            return matchesSearch && matchesCategory && matchesFeatured;
         });
-    }, [destinations, searchTerm, selectedCategory]);
+
+        // Sorting
+        filtered.sort((a, b) => {
+            if (sortBy === 'name-asc') return a.name.localeCompare(b.name);
+            if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
+            if (sortBy === 'rating-high') return b.rating - a.rating;
+            return 0;
+        });
+
+        return filtered;
+    }, [destinations, searchTerm, selectedCategory, filterFeatured, sortBy]);
+
+    // Pagination Calculation
+    const totalPages = Math.ceil(processedDestinations.length / itemsPerPage);
+    const paginatedDestinations = processedDestinations.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    const getImageUrl = (url) => {
+        if (!url) return '';
+        return url.startsWith('http') ? url : `http://127.0.0.1:8000${url}`;
+    };
 
     return (
         <div className="space-y-6 relative transition-colors duration-300">
@@ -318,118 +356,234 @@ export default function ContentManagement() {
                 </div>
             )}
 
-            <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-4 shadow-sm">
-                <div className="flex gap-2 w-full md:w-auto flex-1">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+            {/* Top Control Bar */}
+            <div className="bg-white dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Landmark className="w-6 h-6 text-cyan-500" />
+                        Destinations Directory
+                    </h2>
+                    <button
+                        onClick={() => {
+                            setNewSpot(prev => ({ ...prev, category: categoryChoices[0] || '' }));
+                            setIsCreateModalOpen(true);
+                        }}
+                        className="w-full md:w-auto px-6 py-2.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 font-medium"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Add Destination
+                    </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Search destinations..."
+                            placeholder="Search by name or location..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
                         />
                     </div>
-                    <div className="relative min-w-[150px]">
-                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                            <Filter className="w-4 h-4 text-slate-400" />
-                        </div>
+                    
+                    <div className="relative">
+                        <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                         <select
                             value={selectedCategory}
                             onChange={(e) => setSelectedCategory(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white appearance-none focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer transition-colors"
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-sm text-slate-900 dark:text-white appearance-none focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer transition-colors"
                         >
-                            <option value="All">All Types</option>
+                            <option value="All">All Categories</option>
                             {categoryChoices.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                         </select>
                     </div>
+
+                    <div className="relative">
+                        <Star className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        <select
+                            value={filterFeatured}
+                            onChange={(e) => setFilterFeatured(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-sm text-slate-900 dark:text-white appearance-none focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer transition-colors"
+                        >
+                            <option value="All">All Status</option>
+                            <option value="Featured">Featured Only</option>
+                            <option value="Regular">Regular Only</option>
+                        </select>
+                    </div>
+
+                    <div className="relative">
+                        <SlidersHorizontal className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-sm text-slate-900 dark:text-white appearance-none focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer transition-colors"
+                        >
+                            <option value="name-asc">Sort: A-Z</option>
+                            <option value="name-desc">Sort: Z-A</option>
+                            <option value="rating-high">Highest Rated</option>
+                        </select>
+                    </div>
                 </div>
-                <button
-                    onClick={() => {
-                        setNewSpot(prev => ({ ...prev, category: categoryChoices[0] || '' }));
-                        setIsCreateModalOpen(true);
-                    }}
-                    className="w-full md:w-auto px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 font-medium"
-                >
-                    <Plus className="w-5 h-5" />
-                    Add Destination
-                </button>
             </div>
 
-            <div className="space-y-4">
-                {filteredDestinations.map(spot => (
-                    <div key={spot.id} className={`bg-white dark:bg-slate-800/50 backdrop-blur-sm border rounded-xl p-6 transition-all shadow-sm ${spot.featured ? 'border-amber-300 dark:border-amber-500/30 bg-amber-50/50 dark:bg-slate-800/80 shadow-amber-900/5 dark:shadow-amber-900/10' : 'border-slate-200 dark:border-slate-700/50'}`}>
-                        <div className="flex items-start justify-between mb-4">
-                            <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <h3 className="text-slate-900 dark:text-white font-bold text-xl">{spot.name}</h3>
-                                    <span className="px-2.5 py-0.5 bg-cyan-100 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 text-xs font-semibold rounded-full border border-cyan-200 dark:border-cyan-500/20 uppercase tracking-wide">
+            {/* Destinations Grid */}
+            {loading ? (
+                <div className="flex justify-center items-center py-20">
+                    <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
+                </div>
+            ) : paginatedDestinations.length === 0 ? (
+                <div className="text-center py-20 bg-white/50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                    <Landmark className="w-12 h-12 text-slate-400 mx-auto mb-4 opacity-50" />
+                    <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-1">No destinations found</h3>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">Try adjusting your filters or add a new destination.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {paginatedDestinations.map(spot => (
+                        <div key={spot.id} className={`group bg-white dark:bg-slate-800/80 backdrop-blur-sm border rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-xl ${spot.featured ? 'border-amber-300 dark:border-amber-500/50 shadow-amber-900/5' : 'border-slate-200 dark:border-slate-700/50'}`}>
+                            
+                            {/* Card Image Header */}
+                            <div className="relative h-48 w-full bg-slate-100 dark:bg-slate-900 overflow-hidden">
+                                {spot.imageList && spot.imageList.length > 0 ? (
+                                    <img 
+                                        src={getImageUrl(spot.imageList[0])} 
+                                        alt={spot.name} 
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                    />
+                                ) : (
+                                    <div className="flex items-center justify-center w-full h-full text-slate-400">
+                                        <ImageIcon className="w-10 h-10 opacity-50" />
+                                    </div>
+                                )}
+                                
+                                <div className="absolute top-3 left-3 flex gap-2">
+                                    <span className="px-2.5 py-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur text-slate-900 dark:text-white text-xs font-bold rounded-md shadow-sm">
                                         {spot.category}
                                     </span>
-                                    {spot.featured && (
-                                        <span className="px-2.5 py-0.5 bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold rounded-full border border-amber-200 dark:border-amber-500/20 flex items-center gap-1">
+                                </div>
+
+                                {spot.featured && (
+                                    <div className="absolute top-3 right-3">
+                                        <span className="px-2.5 py-1 bg-amber-500 text-white text-xs font-bold rounded-md shadow-lg flex items-center gap-1">
                                             <Star className="w-3 h-3 fill-current" /> Featured
                                         </span>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-2">
-                                    <MapPin className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                                    {spot.location}
-                                </div>
-                                <p className="text-slate-600 dark:text-slate-300 text-sm mt-2 line-clamp-2 leading-relaxed">{spot.description}</p>
+                                    </div>
+                                )}
                             </div>
-                            <div className="flex flex-col items-end gap-2">
-                                <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-200 dark:border-amber-500/20">
-                                    <Star className="w-4 h-4 fill-current" />
-                                    <span className="text-slate-900 dark:text-white font-bold">{spot.rating}</span>
+
+                            <div className="p-5">
+                                <div className="flex justify-between items-start mb-3 gap-2">
+                                    <div>
+                                        <h3 className="text-slate-900 dark:text-white font-bold text-lg line-clamp-1 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
+                                            {spot.name}
+                                        </h3>
+                                        <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs mt-1">
+                                            <MapPin className="w-3.5 h-3.5" />
+                                            <span className="line-clamp-1">{spot.location}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-500/20 whitespace-nowrap">
+                                        <Star className="w-3.5 h-3.5 fill-current" />
+                                        <span className="text-sm font-bold">{spot.rating}</span>
+                                    </div>
                                 </div>
-                                <span className="text-xs text-slate-500">
-                                    {spot.attractionsCount} Attraction{spot.attractionsCount !== 1 ? 's' : ''}
-                                </span>
+                                
+                                <p className="text-slate-600 dark:text-slate-300 text-sm mb-4 line-clamp-2 leading-relaxed min-h-[40px]">
+                                    {spot.description}
+                                </p>
+
+                                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-4 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                                    <span className="flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5"/> {spot.imagesCount} Photos</span>
+                                    <div className="w-px h-4 bg-slate-300 dark:bg-slate-700"></div>
+                                    <span className="flex items-center gap-1.5"><Landmark className="w-3.5 h-3.5"/> {spot.attractionsCount} Attractions</span>
+                                </div>
+
+                                <div className="grid grid-cols-4 gap-2 pt-4 border-t border-slate-100 dark:border-slate-700/50">
+                                    <button
+                                        onClick={() => viewSpotImages(spot)}
+                                        title="View Gallery"
+                                        className="flex items-center justify-center p-2 bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors"
+                                    >
+                                        <ImageIcon className="w-4 h-4" />
+                                    </button>
+
+                                    <button
+                                        onClick={() => toggleFeatured(spot)}
+                                        title={spot.featured ? "Unfeature" : "Feature"}
+                                        className={`flex items-center justify-center p-2 rounded-lg transition-colors ${spot.featured
+                                            ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-500/30'
+                                            : 'bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                            }`}
+                                    >
+                                        <Star className={`w-4 h-4 ${spot.featured ? 'fill-current' : ''}`} />
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            setEditingSpot({ ...spot, newImages: [] });
+                                            setIsEditModalOpen(true);
+                                        }}
+                                        title="Edit"
+                                        className="flex items-center justify-center p-2 bg-cyan-50 dark:bg-cyan-500/10 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 rounded-lg transition-colors col-span-1"
+                                    >
+                                        <Eye className="w-4 h-4" />
+                                    </button>
+
+                                    <button
+                                        onClick={() => setDeleteConfirmation({ isOpen: true, itemId: spot.id, itemName: spot.name })}
+                                        title="Delete"
+                                        className="flex items-center justify-center p-2 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg transition-colors"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
                         </div>
+                    ))}
+                </div>
+            )}
 
-                        <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-slate-700/50">
-                            <button
-                                onClick={() => viewSpotImages(spot)}
-                                className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border border-slate-200 dark:border-transparent"
-                            >
-                                <ImageIcon className="w-4 h-4" />
-                                Gallery ({spot.imagesCount})
-                            </button>
-
-                            <button
-                                onClick={() => toggleFeatured(spot)}
-                                className={`flex-1 px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border ${spot.featured
-                                    ? 'bg-amber-100 dark:bg-amber-500/10 hover:bg-amber-200 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-500/30'
-                                    : 'bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-transparent'
-                                    }`}
-                            >
-                                <Star className={`w-4 h-4 ${spot.featured ? 'fill-current' : ''}`} />
-                                {spot.featured ? 'Unfeature' : 'Feature'}
-                            </button>
-
-                            <button
-                                onClick={() => {
-                                    setEditingSpot({ ...spot, newImages: [] });
-                                    setIsEditModalOpen(true);
-                                }}
-                                className="flex-1 px-4 py-2.5 bg-cyan-50 dark:bg-cyan-500/10 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                            >
-                                <Eye className="w-4 h-4" />
-                                Edit
-                            </button>
-                            <button
-                                onClick={() => setDeleteConfirmation({ isOpen: true, itemId: spot.id, itemName: spot.name })}
-                                className="px-4 py-2.5 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 rounded-lg transition-colors flex items-center justify-center"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700/50 rounded-2xl p-4 shadow-sm mt-6">
+                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                        Showing <span className="font-semibold text-slate-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-semibold text-slate-900 dark:text-white">{Math.min(currentPage * itemsPerPage, processedDestinations.length)}</span> of <span className="font-semibold text-slate-900 dark:text-white">{processedDestinations.length}</span> destinations
+                    </span>
+                    
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            className={`p-2 rounded-lg border flex items-center justify-center transition-colors ${currentPage === 1 ? 'border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-600 cursor-not-allowed' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        
+                        <div className="flex gap-1">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                <button
+                                    key={page}
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`w-9 h-9 rounded-lg text-sm font-medium flex items-center justify-center transition-colors ${currentPage === page ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/20' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50'}`}
+                                >
+                                    {page}
+                                </button>
+                            ))}
                         </div>
+
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                            className={`p-2 rounded-lg border flex items-center justify-center transition-colors ${currentPage === totalPages ? 'border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-600 cursor-not-allowed' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
                     </div>
-                ))}
-            </div>
+                </div>
+            )}
 
+            {/* Create Modal */}
             {isCreateModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-colors duration-300">
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95">
@@ -524,6 +678,7 @@ export default function ContentManagement() {
                 </div>
             )}
 
+            {/* Attraction Modal */}
             {isAttractionModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-colors duration-300">
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95">
@@ -579,6 +734,7 @@ export default function ContentManagement() {
                 </div>
             )}
 
+            {/* Edit Modal */}
             {isEditModalOpen && editingSpot && (
                 <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-colors duration-300">
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95">
@@ -635,7 +791,7 @@ export default function ContentManagement() {
                                 <div className="grid grid-cols-5 gap-3">
                                     {editingSpot.imageList && editingSpot.imageList.map((imgUrl, index) => (
                                         <div key={`existing-${index}`} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                                            <img src={imgUrl.startsWith('http') ? imgUrl : `http://127.0.0.1:8000${imgUrl}`} alt={`Existing ${index}`} className="w-full h-full object-cover" />
+                                            <img src={getImageUrl(imgUrl)} alt={`Existing ${index}`} className="w-full h-full object-cover" />
                                             <button
                                                 onClick={() => removeEditExistingImage(index)}
                                                 className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-500 text-white rounded-full transition-colors"
@@ -681,6 +837,7 @@ export default function ContentManagement() {
                 </div>
             )}
 
+            {/* Delete Confirmation Modal */}
             {deleteConfirmation.isOpen && (
                 <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-colors duration-300">
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in zoom-in-95">
@@ -697,6 +854,7 @@ export default function ContentManagement() {
                 </div>
             )}
 
+            {/* Image Viewer Modal */}
             {isViewImagesModalOpen && viewingSpotImages && (
                 <div className="fixed inset-0 bg-slate-900/80 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-colors duration-300">
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-3xl w-full shadow-2xl animate-in zoom-in-95 overflow-hidden">
@@ -707,8 +865,8 @@ export default function ContentManagement() {
                         <div className="p-6 grid grid-cols-2 md:grid-cols-3 gap-4 bg-white dark:bg-slate-800 max-h-[70vh] overflow-y-auto">
                             {viewingSpotImages.length === 0 ? <p className="text-slate-500 dark:text-slate-400 col-span-3 text-center font-medium">No images.</p> :
                                 viewingSpotImages.map((imgUrl, idx) => (
-                                    <div key={idx} className="aspect-video rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-                                        <img src={imgUrl.startsWith('http') ? imgUrl : `http://127.0.0.1:8000${imgUrl}`} alt="Gallery" className="w-full h-full object-cover" />
+                                    <div key={idx} className="aspect-video rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow relative group">
+                                        <img src={getImageUrl(imgUrl)} alt="Gallery" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                                     </div>
                                 ))
                             }
