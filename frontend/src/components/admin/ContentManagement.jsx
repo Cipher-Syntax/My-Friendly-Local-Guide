@@ -496,7 +496,7 @@ export default function ContentManagement() {
                                 <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-4 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-700/50">
                                     <span className="flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5"/> {spot.imagesCount} Photos</span>
                                     <div className="w-px h-4 bg-slate-300 dark:bg-slate-700"></div>
-                                    <span className="flex items-center gap-1.5"><Landmark className="w-3.5 h-3.5"/> {spot.attractionsCount} Attractions</span>
+                                    {/* <span className="flex items-center gap-1.5"><Landmark className="w-3.5 h-3.5"/> {spot.attractionsCount} Attractions</span> */}
                                 </div>
 
                                 <div className="grid grid-cols-4 gap-2 pt-4 border-t border-slate-100 dark:border-slate-700/50">
