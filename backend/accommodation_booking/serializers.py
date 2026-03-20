@@ -111,7 +111,6 @@ class BookingSerializer(serializers.ModelSerializer):
             'meetup_location', 'meetup_time', 'meetup_instructions' 
         ]
 
-    # --- NEW: Safely parse JSON strings from mobile form-data into a native list ---
     def validate_additional_guest_names(self, value):
         if isinstance(value, str):
             try:
@@ -131,7 +130,8 @@ class BookingSerializer(serializers.ModelSerializer):
         return None
 
     def get_tour_package_detail(self, obj):
-        if not obj.guide or not obj.destination:
+        # STRICTLY ENFORCE ITINERARIES FOR INDEPENDENT GUIDES ONLY
+        if not obj.guide or obj.agency or not obj.destination:
             return None
 
         trip_days = max((obj.check_out - obj.check_in).days, 1)
@@ -140,11 +140,7 @@ class BookingSerializer(serializers.ModelSerializer):
 
         if obj.tour_package_id:
             stored = TourPackage.objects.filter(id=obj.tour_package_id).first()
-            if (
-                stored
-                and stored.guide_id == obj.guide_id
-                and stored.main_destination_id == obj.destination_id
-            ):
+            if stored and stored.guide_id == obj.guide_id and stored.main_destination_id == obj.destination_id:
                 selected = stored
 
         if not selected:
@@ -161,7 +157,6 @@ class BookingSerializer(serializers.ModelSerializer):
         if not selected:
             return None
 
-        # Guard against inconsistent package data (e.g., 1-day package containing day 2 stops).
         timeline = selected.itinerary_timeline if isinstance(selected.itinerary_timeline, list) else []
         clipped_timeline = []
         for stop in timeline:
