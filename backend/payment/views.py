@@ -28,17 +28,22 @@ try:
 except LookupError:
     Booking = None 
 
-try:
-    TourPackage = apps.get_model('destinations_and_attractions', 'TourPackage')
-except LookupError:
-    TourPackage = None
+
+def get_booking_tour_package_payload(booking):
+    try:
+        from accommodation_booking.serializers import BookingSerializer
+        data = BookingSerializer(booking, context={}).data
+        payload = data.get('tour_package_detail')
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
 
 
-def get_booking_display_days(booking):
-    package = getattr(booking, 'tour_package', None)
-    if package and getattr(package, 'duration_days', None):
+def get_booking_display_days(booking, package_payload=None):
+    if package_payload:
+        raw_duration = package_payload.get('duration_days')
         try:
-            return max(int(package.duration_days), 1)
+            return max(int(raw_duration), 1)
         except (TypeError, ValueError):
             pass
 
@@ -65,29 +70,11 @@ def format_booking_date_display(check_in, check_out, duration_days=1):
     return f"{check_in} to {end_for_display}"
 
 
-def resolve_receipt_tour_package(booking, trip_days):
-    if getattr(booking, 'tour_package', None):
-        return booking.tour_package
-
-    if not TourPackage or not booking.guide or not booking.destination:
-        return None
-
-    candidates = TourPackage.objects.filter(
-        guide=booking.guide,
-        main_destination=booking.destination,
-        is_active=True,
-        duration_days__in=[trip_days, max(trip_days - 1, 1)],
-    ).order_by('-created_at', '-id')
-
-    return candidates.first() if candidates.count() == 1 else None
-
-
-def build_itinerary_sections(booking, trip_days):
-    selected_package = resolve_receipt_tour_package(booking, trip_days)
-    if not selected_package:
+def build_itinerary_sections(package_payload, trip_days):
+    if not package_payload:
         return "", ""
 
-    timeline = selected_package.itinerary_timeline
+    timeline = package_payload.get('itinerary_timeline', [])
     if isinstance(timeline, str):
         try:
             timeline = json.loads(timeline)
@@ -292,9 +279,10 @@ class PaymentWebhookView(APIView):
 
                         subject = f"Your Booking Receipt - #{booking.id}"
 
-                        trip_days = get_booking_display_days(booking)
+                        package_payload = get_booking_tour_package_payload(booking)
+                        trip_days = get_booking_display_days(booking, package_payload)
                         booking_date_display = format_booking_date_display(booking.check_in, booking.check_out, trip_days)
-                        itinerary_html, itinerary_plain = build_itinerary_sections(booking, trip_days)
+                        itinerary_html, itinerary_plain = build_itinerary_sections(package_payload, trip_days)
 
                         plain_content = (
                             f"Booking Confirmed!\n"
@@ -388,7 +376,7 @@ class PaymentWebhookView(APIView):
                             provider_itinerary_display = format_booking_date_display(
                                 booking.check_in,
                                 booking.check_out,
-                                get_booking_display_days(booking)
+                                get_booking_display_days(booking, package_payload)
                             )
 
                             p_plain_message = (
