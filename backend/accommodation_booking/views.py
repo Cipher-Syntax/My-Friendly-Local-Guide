@@ -16,26 +16,55 @@ from .serializers import AccommodationSerializer, BookingSerializer
 from system_management_module.models import SystemAlert
 from destinations_and_attractions.models import TourPackage  
 
+
 def format_booking_date_display(check_in, check_out):
     if not check_in:
         return "N/A"
+    
+    # Extract date objects to safely compare them
+    start_date = check_in.date() if hasattr(check_in, 'date') else check_in
+    
     if not check_out:
-        return str(check_in)
+        return start_date.strftime('%B %d, %Y') if hasattr(start_date, 'strftime') else str(start_date)
     
-    # Robust date comparison ignoring timezones
-    start_date = check_in.date() if isinstance(check_in, datetime) else check_in
-    end_date = check_out.date() if isinstance(check_out, datetime) else check_out
+    end_date = check_out.date() if hasattr(check_out, 'date') else check_out
     
-    if start_date == end_date:
-        return str(start_date)
-    return f"{start_date} to {end_date}"
+    try:
+        # Format beautifully like "March 24, 2026 to March 25, 2026"
+        start_str = start_date.strftime('%B %d, %Y')
+        end_str = end_date.strftime('%B %d, %Y')
+        
+        if start_date == end_date:
+            return start_str
+        return f"{start_str} to {end_str}"
+    except Exception:
+        # Fallback if there is an issue parsing strings
+        if start_date == end_date:
+            return str(start_date)
+        return f"{start_date} to {end_date}"
+
 
 def generate_itinerary_html_and_plain(instance):
     itinerary_html = ""
     itinerary_plain = ""
     
-    if instance.tour_package and instance.tour_package.itinerary_timeline:
-        timeline = instance.tour_package.itinerary_timeline
+    selected_package = instance.tour_package
+    
+    # 1. AUTO-DETECT: Find the package dynamically if not explicitly linked!
+    if not selected_package and instance.guide and not instance.agency and instance.destination:
+        trip_days = max((instance.check_out - instance.check_in).days + 1, 1)
+        candidates = TourPackage.objects.filter(
+            guide=instance.guide,
+            main_destination=instance.destination,
+            is_active=True,
+            duration_days__in=[trip_days, max(trip_days - 1, 1)]
+        ).order_by('-created_at', '-id')
+        
+        if candidates.exists():
+            selected_package = candidates.first()
+            
+    if selected_package and selected_package.itinerary_timeline:
+        timeline = selected_package.itinerary_timeline
         
         if isinstance(timeline, str):
             try:
@@ -44,7 +73,6 @@ def generate_itinerary_html_and_plain(instance):
                 timeline = []
                 
         if isinstance(timeline, list) and len(timeline) > 0:
-            # Group items by day
             grouped_days = {}
             for item in timeline:
                 if isinstance(item, dict):
@@ -60,10 +88,14 @@ def generate_itinerary_html_and_plain(instance):
                 """
                 itinerary_plain += "\nITINERARY SCHEDULE:\n"
                 
-                # Sort days numerically
                 sorted_days = sorted(grouped_days.keys(), key=lambda x: int(x))
+                trip_days = max((instance.check_out - instance.check_in).days + 1, 1)
                 
                 for day in sorted_days:
+                    # Respect the user's booking length
+                    if int(day) > trip_days:
+                        continue
+                        
                     itinerary_html += f"<p style='font-size: 14px; font-weight: bold; color: #0072FF; margin: 15px 0 5px 0;'>Day {day}</p>"
                     itinerary_plain += f"Day {day}:\n"
                     
@@ -86,6 +118,7 @@ def generate_itinerary_html_and_plain(instance):
                 
     return itinerary_html, itinerary_plain
 
+
 class IsHostOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
@@ -100,6 +133,7 @@ class IsHostOrReadOnly(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
         return obj.host == request.user
+
 
 class AccommodationViewSet(viewsets.ModelViewSet):
     serializer_class = AccommodationSerializer
@@ -130,12 +164,14 @@ class AccommodationViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You cannot edit this listing.")
         serializer.save()
 
+
 class AccommodationDropdownListView(generics.ListAPIView):
     serializer_class = AccommodationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return Accommodation.objects.filter(host=self.request.user).order_by('title')
+
 
 class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
@@ -217,6 +253,8 @@ class BookingViewSet(viewsets.ModelViewSet):
             try:
                 tourist_name = f"{user.first_name} {user.last_name}".strip() or user.username
                 booking_date_display = format_booking_date_display(instance.check_in, instance.check_out)
+                
+                # Fetch the dynamically generated HTML and Plain Text Itinerary
                 itin_html, itin_plain = generate_itinerary_html_and_plain(instance)
 
                 subject = "New Booking Request Received - LocaLynk"
@@ -364,6 +402,8 @@ class BookingViewSet(viewsets.ModelViewSet):
             provider_name = f"Agency {agency_name}"
 
         booking_date_display = format_booking_date_display(booking.check_in, booking.check_out)
+        
+        # Fetch the dynamically generated HTML and Plain Text Itinerary
         itin_html, itin_plain = generate_itinerary_html_and_plain(booking)
 
         plain_text_receipt = (
@@ -498,6 +538,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         if not instance.check_in or not instance.check_out:
             return 0
         
+        # Ensure days math is accurate for price calculation
         days = max((instance.check_out - instance.check_in).days + 1, 1)
         total_price = 0
 
@@ -514,11 +555,10 @@ class BookingViewSet(viewsets.ModelViewSet):
                 tour_package = TourPackage.objects.filter(id=requested_tour_id).first()
             
             if not tour_package and instance.destination:
-                trip_days = max((instance.check_out - instance.check_in).days, 1)
                 tour_package = TourPackage.objects.filter(
                     guide=guide,
                     main_destination=instance.destination,
-                    duration_days=trip_days,
+                    duration_days__in=[days, max(days - 1, 1)],
                     is_active=True,
                 ).order_by('-created_at').first()
             
@@ -544,6 +584,7 @@ class BookingViewSet(viewsets.ModelViewSet):
             total_price += 1000 * days * instance.num_guests
 
         return float(total_price)
+
 
 class BookingStatusUpdateView(generics.UpdateAPIView):
     queryset = Booking.objects.all()
@@ -621,6 +662,7 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
             {"status": f"Invalid status transition to '{new_status}'."},
             status=status.HTTP_400_BAD_REQUEST
         )
+
 
 class AssignGuidesView(generics.UpdateAPIView):
     queryset = Booking.objects.all()
