@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser 
 from django.db.models import Q #type: ignore
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from django.utils import timezone #type: ignore
 from django.core.mail import send_mail #type: ignore
 from django.conf import settings
@@ -16,15 +16,19 @@ from .serializers import AccommodationSerializer, BookingSerializer
 from system_management_module.models import SystemAlert
 from destinations_and_attractions.models import TourPackage  
 
-
 def format_booking_date_display(check_in, check_out):
     if not check_in:
         return "N/A"
     if not check_out:
         return str(check_in)
-    if (check_out - check_in).days == 0:
-        return str(check_in)
-    return f"{check_in} to {check_out}"
+    
+    # Robust date comparison ignoring timezones
+    start_date = check_in.date() if isinstance(check_in, datetime) else check_in
+    end_date = check_out.date() if isinstance(check_out, datetime) else check_out
+    
+    if start_date == end_date:
+        return str(start_date)
+    return f"{start_date} to {end_date}"
 
 def generate_itinerary_html_and_plain(instance):
     itinerary_html = ""
@@ -32,44 +36,55 @@ def generate_itinerary_html_and_plain(instance):
     
     if instance.tour_package and instance.tour_package.itinerary_timeline:
         timeline = instance.tour_package.itinerary_timeline
+        
         if isinstance(timeline, str):
             try:
                 timeline = json.loads(timeline)
             except json.JSONDecodeError:
                 timeline = []
-        
-        if isinstance(timeline, list) and len(timeline) > 0:
-            days = {}
-            for stop in timeline:
-                if isinstance(stop, dict):
-                    d = str(stop.get('day', 1))
-                    if d not in days: days[d] = []
-                    days[d].append(stop)
-            
-            trip_days = max((instance.check_out - instance.check_in).days + 1, 1)
-
-            if days:
-                itinerary_html += "<div class='summary-box' style='margin-top: 15px; border-top: 1px dashed #cbd5e1; padding-top: 15px;'><div class='summary-title'>Itinerary Schedule</div>"
-                itinerary_plain += "\nItinerary Schedule:\n"
                 
-                for d_key in sorted(days.keys(), key=lambda x: int(x)):
-                    if int(d_key) > trip_days:
-                        continue
+        if isinstance(timeline, list) and len(timeline) > 0:
+            # Group items by day
+            grouped_days = {}
+            for item in timeline:
+                if isinstance(item, dict):
+                    day_num = str(item.get('day', 1))
+                    if day_num not in grouped_days:
+                        grouped_days[day_num] = []
+                    grouped_days[day_num].append(item)
+            
+            if grouped_days:
+                itinerary_html += """
+                <div style='margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;'>
+                    <h3 style='font-size: 14px; font-weight: bold; color: #333; margin-bottom: 10px; text-transform: uppercase;'>Itinerary Schedule</h3>
+                """
+                itinerary_plain += "\nITINERARY SCHEDULE:\n"
+                
+                # Sort days numerically
+                sorted_days = sorted(grouped_days.keys(), key=lambda x: int(x))
+                
+                for day in sorted_days:
+                    itinerary_html += f"<p style='font-size: 14px; font-weight: bold; color: #0072FF; margin: 15px 0 5px 0;'>Day {day}</p>"
+                    itinerary_plain += f"Day {day}:\n"
                     
-                    itinerary_html += f"<p style='font-size: 13px; font-weight: bold; color: #0072FF; margin: 10px 0 5px 0;'>Day {d_key}</p>"
-                    itinerary_plain += f"Day {d_key}:\n"
-                    
-                    for stop in days[d_key]:
+                    for stop in grouped_days[day]:
                         time_str = stop.get('startTime', '')
+                        end_time_str = stop.get('endTime', '')
                         name_str = stop.get('activityName', stop.get('name', 'Activity Stop'))
-                        time_display = f"{time_str} - " if time_str else ""
-                        itinerary_html += f"<p style='margin: 2px 0 2px 10px; font-size: 13px; color: #475569;'>• {time_display}{name_str}</p>"
+                        
+                        time_display = ""
+                        if time_str:
+                            time_display = f"({time_str}"
+                            if end_time_str:
+                                time_display += f" - {end_time_str}"
+                            time_display += ") "
+                            
+                        itinerary_html += f"<p style='margin: 4px 0 4px 10px; font-size: 14px; color: #475569;'>• {time_display}<strong>{name_str}</strong></p>"
                         itinerary_plain += f"  - {time_display}{name_str}\n"
                 
                 itinerary_html += "</div>"
                 
     return itinerary_html, itinerary_plain
-
 
 class IsHostOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -85,7 +100,6 @@ class IsHostOrReadOnly(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
         return obj.host == request.user
-
 
 class AccommodationViewSet(viewsets.ModelViewSet):
     serializer_class = AccommodationSerializer
@@ -116,14 +130,12 @@ class AccommodationViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You cannot edit this listing.")
         serializer.save()
 
-
 class AccommodationDropdownListView(generics.ListAPIView):
     serializer_class = AccommodationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return Accommodation.objects.filter(host=self.request.user).order_by('title')
-
 
 class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
@@ -186,7 +198,7 @@ class BookingViewSet(viewsets.ModelViewSet):
             raw_total_price = self.calculate_booking_price(instance)
             total_price = Decimal(str(raw_total_price)).quantize(Decimal('0.01'))
             
-            dp_percentage = Decimal('30.00') # Default 30%
+            dp_percentage = Decimal('30.00')
             if instance.agency and hasattr(instance.agency, 'agency_profile'):
                 dp_percentage = Decimal(str(instance.agency.agency_profile.down_payment_percentage))
             
@@ -204,10 +216,11 @@ class BookingViewSet(viewsets.ModelViewSet):
         if provider and provider.email:
             try:
                 tourist_name = f"{user.first_name} {user.last_name}".strip() or user.username
-                subject = "New Booking Request Received - LocaLynk"
                 booking_date_display = format_booking_date_display(instance.check_in, instance.check_out)
                 itin_html, itin_plain = generate_itinerary_html_and_plain(instance)
 
+                subject = "New Booking Request Received - LocaLynk"
+                
                 plain_message = (
                     f"Hi {provider.username},\n\n"
                     f"You have received a new booking request from {tourist_name}!\n\n"
@@ -225,33 +238,33 @@ class BookingViewSet(viewsets.ModelViewSet):
                 <html>
                 <head>
                     <style>
-                        body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
-                        .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
-                        .header {{ background-color: #0072FF; padding: 30px 20px; text-align: center; color: #ffffff; font-size: 24px; font-weight: bold; }}
-                        .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
-                        .details-box {{ background-color: #f1f5f9; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0; }}
-                        .highlight {{ font-weight: bold; color: #333; }}
-                        .status-badge {{ display: inline-block; background-color: #f59e0b; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-top: 10px; }}
-                        .btn {{ display: inline-block; background-color: #0072FF; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; text-align: center; }}
-                        .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+                        body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }}
+                        .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }}
+                        .header {{ background-color: #0072FF; padding: 20px; text-align: center; color: #ffffff; font-size: 22px; font-weight: bold; }}
+                        .content {{ padding: 30px; font-size: 15px; color: #444; line-height: 1.5; }}
+                        .details-box {{ background-color: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 20px 0; }}
+                        .btn {{ display: inline-block; background-color: #0072FF; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 20px; text-align: center; }}
+                        .footer {{ padding: 15px; text-align: center; color: #888; font-size: 12px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; }}
                     </style>
                 </head>
                 <body>
                     <div class="container">
-                        <div class="header">New Booking Request!</div>
+                        <div class="header">New Booking Request</div>
                         <div class="content">
                             <h2 style="color: #333; margin-top: 0;">Hi {provider.username},</h2>
-                            <p>You have received a new booking request from <span class="highlight">{tourist_name}</span>.</p>
+                            <p>You have received a new booking request from <strong>{tourist_name}</strong>.</p>
                             
                             <div class="details-box">
-                                <p style="margin: 5px 0;"><span class="highlight">Destination:</span> {instance.destination or 'N/A'}</p>
-                                <p style="margin: 5px 0;"><span class="highlight">Dates:</span> {booking_date_display}</p>
-                                <p style="margin: 5px 0;"><span class="highlight">Guests:</span> {instance.num_guests}</p>
-                                <span class="status-badge">Pending Payment</span>
+                                <p style="margin: 5px 0;"><strong>Destination:</strong> {instance.destination or 'N/A'}</p>
+                                <p style="margin: 5px 0;"><strong>Dates:</strong> {booking_date_display}</p>
+                                <p style="margin: 5px 0;"><strong>Guests:</strong> {instance.num_guests}</p>
+                                
+                                <div style="display: inline-block; background-color: #f59e0b; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-top: 10px;">Pending Payment</div>
+                                
                                 {itin_html}
                             </div>
 
-                            <p style="font-size: 14px;">The tourist is currently processing their down payment. We will notify you again once the payment is confirmed.</p>
+                            <p>The tourist is currently processing their down payment. We will notify you again once the payment is confirmed.</p>
                             
                             <div style="text-align: center;">
                                 <a href="{getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')}/login" class="btn">View Dashboard</a>
@@ -368,14 +381,14 @@ class BookingViewSet(viewsets.ModelViewSet):
         <html>
         <head>
             <style>
-                body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
-                .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
-                .header {{ background-color: #10b981; padding: 30px 20px; text-align: center; color: #ffffff; font-size: 24px; font-weight: bold; }}
-                .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
-                .summary-box {{ border-bottom: 1px dashed #cbd5e1; padding-bottom: 20px; margin-bottom: 20px; }}
-                .summary-title {{ font-size: 12px; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px; }}
+                body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }}
+                .header {{ background-color: #10b981; padding: 20px; text-align: center; color: #ffffff; font-size: 22px; font-weight: bold; }}
+                .content {{ padding: 30px; font-size: 15px; color: #444; line-height: 1.5; }}
+                .summary-box {{ border-bottom: 1px dashed #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; }}
+                .summary-title {{ font-size: 13px; font-weight: bold; color: #888; text-transform: uppercase; margin-bottom: 10px; }}
                 .total-amount {{ font-size: 24px; font-weight: bold; color: #10b981; text-align: right; margin-top: 15px; }}
-                .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+                .footer {{ padding: 15px; text-align: center; color: #888; font-size: 12px; background-color: #f8fafc; }}
             </style>
         </head>
         <body>
@@ -396,7 +409,7 @@ class BookingViewSet(viewsets.ModelViewSet):
                     <div>
                         <div class="summary-title">Settlement Summary</div>
                         <div class="total-amount">Total Trip Value: &#8369; {booking.total_price:,.2f}</div>
-                        <p style="text-align: right; font-size: 12px; color: #64748b; margin-top: 5px;">(Including initial down payment)</p>
+                        <p style="text-align: right; font-size: 12px; color: #888; margin-top: 5px;">(Including initial down payment)</p>
                     </div>
                 </div>
                 <div class="footer">&copy; 2026 LocaLynk. Thank you for exploring with us!</div>
@@ -532,7 +545,6 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         return float(total_price)
 
-
 class BookingStatusUpdateView(generics.UpdateAPIView):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
@@ -609,7 +621,6 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
             {"status": f"Invalid status transition to '{new_status}'."},
             status=status.HTTP_400_BAD_REQUEST
         )
-
 
 class AssignGuidesView(generics.UpdateAPIView):
     queryset = Booking.objects.all()
