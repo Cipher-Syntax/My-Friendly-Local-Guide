@@ -135,6 +135,7 @@ class BookingSerializer(serializers.ModelSerializer):
             return None
 
         trip_days = max((obj.check_out - obj.check_in).days, 1)
+        possible_days = sorted({trip_days, max(trip_days + 1, 1)})
         selected = None
 
         if obj.tour_package_id:
@@ -143,7 +144,6 @@ class BookingSerializer(serializers.ModelSerializer):
                 stored
                 and stored.guide_id == obj.guide_id
                 and stored.main_destination_id == obj.destination_id
-                and stored.duration_days == trip_days
             ):
                 selected = stored
 
@@ -152,7 +152,7 @@ class BookingSerializer(serializers.ModelSerializer):
                 guide=obj.guide,
                 main_destination=obj.destination,
                 is_active=True,
-                duration_days=trip_days,
+                duration_days__in=possible_days,
             ).order_by('-created_at', '-id')
 
             if candidates.count() == 1:

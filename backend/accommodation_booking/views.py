@@ -124,12 +124,10 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         requested_tour_id = self.request.data.get('tour_package_id')
         if requested_tour_id and requested_tour_id != 'null' and instance.guide and instance.destination:
-            trip_days = max((instance.check_out - instance.check_in).days, 1)
             selected_tour = TourPackage.objects.filter(
                 id=requested_tour_id,
                 guide=instance.guide,
                 main_destination=instance.destination,
-                duration_days=trip_days,
                 is_active=True,
             ).first()
             if selected_tour:

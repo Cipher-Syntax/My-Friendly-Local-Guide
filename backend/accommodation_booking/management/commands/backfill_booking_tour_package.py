@@ -60,13 +60,14 @@ class Command(BaseCommand):
         with transaction.atomic():
             for booking in bookings.iterator():
                 trip_days = max((booking.check_out - booking.check_in).days, 1)
+                possible_days = {trip_days, max(trip_days + 1, 1)}
                 current = booking.tour_package
 
                 has_valid_current = (
                     current is not None
                     and current.guide_id == booking.guide_id
                     and current.main_destination_id == booking.destination_id
-                    and current.duration_days == trip_days
+                    and current.duration_days in possible_days
                     and (include_inactive or current.is_active)
                 )
 
@@ -83,7 +84,7 @@ class Command(BaseCommand):
                 candidates = TourPackage.objects.filter(
                     guide=booking.guide,
                     main_destination=booking.destination,
-                    duration_days=trip_days,
+                    duration_days__in=possible_days,
                 )
 
                 if not include_inactive:
