@@ -9,6 +9,7 @@ from django.utils import timezone #type: ignore
 from django.core.mail import send_mail #type: ignore
 from django.conf import settings
 from decimal import Decimal
+import json
 
 from .models import Accommodation, Booking
 from .serializers import AccommodationSerializer, BookingSerializer
@@ -21,10 +22,54 @@ def format_booking_date_display(check_in, check_out):
         return "N/A"
     if not check_out:
         return str(check_in)
-    # FIXED: Only hide check_out if the trip is literally 0 days long (Starts and ends on same day)
     if (check_out - check_in).days == 0:
         return str(check_in)
     return f"{check_in} to {check_out}"
+
+def generate_itinerary_html_and_plain(instance):
+    itinerary_html = ""
+    itinerary_plain = ""
+    
+    if instance.tour_package and instance.tour_package.itinerary_timeline:
+        timeline = instance.tour_package.itinerary_timeline
+        if isinstance(timeline, str):
+            try:
+                timeline = json.loads(timeline)
+            except json.JSONDecodeError:
+                timeline = []
+        
+        if isinstance(timeline, list) and len(timeline) > 0:
+            days = {}
+            for stop in timeline:
+                if isinstance(stop, dict):
+                    d = str(stop.get('day', 1))
+                    if d not in days: days[d] = []
+                    days[d].append(stop)
+            
+            trip_days = max((instance.check_out - instance.check_in).days + 1, 1)
+
+            if days:
+                itinerary_html += "<div class='summary-box' style='margin-top: 15px; border-top: 1px dashed #cbd5e1; padding-top: 15px;'><div class='summary-title'>Itinerary Schedule</div>"
+                itinerary_plain += "\nItinerary Schedule:\n"
+                
+                for d_key in sorted(days.keys(), key=lambda x: int(x)):
+                    if int(d_key) > trip_days:
+                        continue
+                    
+                    itinerary_html += f"<p style='font-size: 13px; font-weight: bold; color: #0072FF; margin: 10px 0 5px 0;'>Day {d_key}</p>"
+                    itinerary_plain += f"Day {d_key}:\n"
+                    
+                    for stop in days[d_key]:
+                        time_str = stop.get('startTime', '')
+                        name_str = stop.get('activityName', stop.get('name', 'Activity Stop'))
+                        time_display = f"{time_str} - " if time_str else ""
+                        itinerary_html += f"<p style='margin: 2px 0 2px 10px; font-size: 13px; color: #475569;'>• {time_display}{name_str}</p>"
+                        itinerary_plain += f"  - {time_display}{name_str}\n"
+                
+                itinerary_html += "</div>"
+                
+    return itinerary_html, itinerary_plain
+
 
 class IsHostOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -161,13 +206,16 @@ class BookingViewSet(viewsets.ModelViewSet):
                 tourist_name = f"{user.first_name} {user.last_name}".strip() or user.username
                 subject = "New Booking Request Received - LocaLynk"
                 booking_date_display = format_booking_date_display(instance.check_in, instance.check_out)
+                itin_html, itin_plain = generate_itinerary_html_and_plain(instance)
+
                 plain_message = (
                     f"Hi {provider.username},\n\n"
                     f"You have received a new booking request from {tourist_name}!\n\n"
                     f"Details:\n"
                     f"- Destination: {instance.destination or 'N/A'}\n"
                     f"- Dates: {booking_date_display}\n"
-                    f"- Guests: {instance.num_guests}\n\n"
+                    f"- Guests: {instance.num_guests}\n"
+                    f"{itin_plain}\n\n"
                     f"This booking is currently 'Pending Payment'. You will receive another notification once the tourist completes their down payment.\n\n"
                     f"Please check your dashboard for more details."
                 )
@@ -200,6 +248,7 @@ class BookingViewSet(viewsets.ModelViewSet):
                                 <p style="margin: 5px 0;"><span class="highlight">Dates:</span> {booking_date_display}</p>
                                 <p style="margin: 5px 0;"><span class="highlight">Guests:</span> {instance.num_guests}</p>
                                 <span class="status-badge">Pending Payment</span>
+                                {itin_html}
                             </div>
 
                             <p style="font-size: 14px;">The tourist is currently processing their down payment. We will notify you again once the payment is confirmed.</p>
@@ -302,13 +351,15 @@ class BookingViewSet(viewsets.ModelViewSet):
             provider_name = f"Agency {agency_name}"
 
         booking_date_display = format_booking_date_display(booking.check_in, booking.check_out)
+        itin_html, itin_plain = generate_itinerary_html_and_plain(booking)
 
         plain_text_receipt = (
             f"Hi {booking.tourist.username},\n\n"
             f"Your face-to-face payment has been fully processed and your booking is complete!\n"
             f"Total Paid: ₱{booking.total_price:,.2f}\n"
             f"Provider: {provider_name}\n"
-            f"Dates: {booking_date_display}\n\n"
+            f"Dates: {booking_date_display}\n"
+            f"{itin_plain}\n\n"
             f"Thank you for exploring with LocaLynk!"
         )
 
@@ -339,6 +390,7 @@ class BookingViewSet(viewsets.ModelViewSet):
                         <p style="margin: 5px 0;"><strong>Destination:</strong> {booking.destination or 'N/A'}</p>
                         <p style="margin: 5px 0;"><strong>Provider:</strong> {provider_name}</p>
                         <p style="margin: 5px 0;"><strong>Dates:</strong> {booking_date_display}</p>
+                        {itin_html}
                     </div>
                     
                     <div>
