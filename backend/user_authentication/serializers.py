@@ -1,8 +1,8 @@
 from rest_framework import serializers #type: ignore
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  #type: ignore
-from rest_framework.exceptions import AuthenticationFailed # Import this
-from django.utils import timezone # Added for date checking
+from rest_framework.exceptions import AuthenticationFailed
+from django.utils import timezone #type: ignore
 from .models import FeaturedPlace, AccommodationImage, GuideApplication, FavoriteGuide
 from personalization.serializers import PersonalizationSerializer
 from agency_management_module.serializers import AgencySerializer
@@ -203,21 +203,27 @@ class FavoriteGuideSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'guide', 'created_at']
         read_only_fields = ['user', 'created_at']
 
-# NEW: Custom Serializer for specific error messages
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['username'] = user.username
+        token['email'] = user.email
+        token['first_name'] = user.first_name
+        token['last_name'] = user.last_name
+        return token
+
     def validate(self, attrs):
         username = attrs.get(self.username_field)
         
-        # Check if user exists first to get the object
         user_exists = User.objects.filter(username=username).first()
         
         if user_exists:
-            # Check if account is scheduled for deletion
             if user_exists.scheduled_deletion_date is not None:
                 days_left = (user_exists.scheduled_deletion_date - timezone.now()).days
                 msg = f"Account deactivated. Scheduled for deletion in {days_left} days."
                 
-                # Raise specific error code for frontend to catch
                 raise AuthenticationFailed({
                     "detail": msg, 
                     "code": "account_deactivated",
