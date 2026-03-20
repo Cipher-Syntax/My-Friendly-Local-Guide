@@ -10,7 +10,10 @@ import {
     Download,
     AlertCircle,
     XCircle,
-    AlertTriangle
+    AlertTriangle,
+    Search,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 
 export default function PaymentsManagement() {
@@ -18,6 +21,10 @@ export default function PaymentsManagement() {
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10);
+
     const [stats, setStats] = useState({
         totalCollected: 0,
         platformFees: 0,
@@ -41,6 +48,11 @@ export default function PaymentsManagement() {
     useEffect(() => {
         fetchBookings();
     }, []);
+
+    // Reset pagination when search or filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filter]);
 
     const fetchBookings = async () => {
         try {
@@ -112,12 +124,6 @@ export default function PaymentsManagement() {
         setSelectedBookingId(null);
     };
 
-    const filteredBookings = bookings.filter(booking => {
-        if (filter === 'settled') return booking.is_payout_settled;
-        if (filter === 'pending') return !booking.is_payout_settled;
-        return true;
-    });
-
     const getProviderName = (b) => {
         if (b.guide_detail) return `${b.guide_detail.first_name} ${b.guide_detail.last_name}`;
         if (b.agency_detail) return b.agency_detail.username || b.agency_detail.agency_name;
@@ -139,14 +145,41 @@ export default function PaymentsManagement() {
         return "N/A";
     };
 
-    // --- REVISION 12: Added detailed ledger dates to the Excel Export ---
+    // Filter and Search Logic
+    const processedBookings = bookings.filter(booking => {
+        // 1. Status Filter
+        if (filter === 'settled' && !booking.is_payout_settled) return false;
+        if (filter === 'pending' && booking.is_payout_settled) return false;
+
+        // 2. Search Filter
+        if (searchTerm) {
+            const searchLower = searchTerm.toLowerCase();
+            const providerName = getProviderName(booking).toLowerCase();
+            const providerPhone = getProviderPhone(booking).toLowerCase();
+            const bookingIdStr = booking.id.toString();
+
+            if (!providerName.includes(searchLower) &&
+                !providerPhone.includes(searchLower) &&
+                !bookingIdStr.includes(searchLower)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    // Pagination Logic
+    const totalPages = Math.ceil(processedBookings.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedBookings = processedBookings.slice(startIndex, startIndex + itemsPerPage);
+
     const handleExport = () => {
-        if (filteredBookings.length === 0) {
+        if (processedBookings.length === 0) {
             showToast("No data to export.", "error");
             return;
         }
 
-        const exportData = filteredBookings.map(b => ({
+        const exportData = processedBookings.map(b => ({
             "Booking ID": b.id,
             "Provider Name": getProviderName(b),
             "Provider Type": getProviderType(b),
@@ -310,15 +343,30 @@ export default function PaymentsManagement() {
             </div>
 
             <div className="bg-white dark:bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden shadow-sm">
-                <div className="p-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col sm:flex-row gap-4 justify-between">
+                <div className="p-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col sm:flex-row gap-4 justify-between items-center">
                     <div className="flex items-center gap-2">
                         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Payout Requests</h2>
                         <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs">
-                            {filteredBookings.length}
+                            {processedBookings.length}
                         </span>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                        {/* Search Bar */}
+                        <div className="relative w-full sm:w-64">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-4 w-4 text-slate-400" />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Search ID, Provider, Phone..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 pr-4 py-2 w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                            />
+                        </div>
+
+                        {/* Filter Dropdown */}
                         <select
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
@@ -337,7 +385,7 @@ export default function PaymentsManagement() {
                             <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
                                 <th className="p-4">Booking ID</th>
                                 <th className="p-4">Provider / Guide</th>
-                                <th className="p-4">Provider GCash</th>
+                                <th className="p-4">Provider Contact</th>
                                 <th className="p-4 text-right border-l border-slate-200 dark:border-slate-700">Total Price</th>
                                 <th className="p-4 text-right">Down Payment (Paid)</th>
                                 <th className="p-4 text-right">App Fee (2%)</th>
@@ -347,7 +395,7 @@ export default function PaymentsManagement() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                            {filteredBookings.map((booking) => {
+                            {paginatedBookings.map((booking) => {
                                 const totalPrice = parseFloat(booking.total_price || 0);
                                 const downPayment = parseFloat(booking.down_payment || 0);
                                 const appFee = parseFloat(booking.platform_fee || (totalPrice * 0.02));
@@ -373,7 +421,6 @@ export default function PaymentsManagement() {
                                             {getProviderPhone(booking)}
                                         </td>
 
-                                        {/* REVISION 12: Embed Timestamps into the Financial Columns */}
                                         <td className="p-4 text-right border-l border-slate-100 dark:border-slate-800">
                                             <div className="text-slate-500 dark:text-slate-400 font-medium">
                                                 {totalPrice.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
@@ -434,12 +481,40 @@ export default function PaymentsManagement() {
                         </tbody>
                     </table>
 
-                    {filteredBookings.length === 0 && (
+                    {paginatedBookings.length === 0 && (
                         <div className="p-8 text-center text-slate-500 dark:text-slate-400">
-                            No bookings found matching your filter.
+                            No bookings found matching your search or filter criteria.
                         </div>
                     )}
                 </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
+                        <span className="text-sm text-slate-500 dark:text-slate-400">
+                            Showing <span className="font-medium text-slate-900 dark:text-white">{startIndex + 1}</span> to <span className="font-medium text-slate-900 dark:text-white">{Math.min(startIndex + itemsPerPage, processedBookings.length)}</span> of <span className="font-medium text-slate-900 dark:text-white">{processedBookings.length}</span> results
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <div className="flex items-center px-4 text-sm font-medium text-slate-700 dark:text-slate-300">
+                                Page {currentPage} of {totalPages}
+                            </div>
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
