@@ -21,7 +21,8 @@ def format_booking_date_display(check_in, check_out):
         return "N/A"
     if not check_out:
         return str(check_in)
-    if (check_out - check_in).days <= 1:
+    # FIXED: Only hide check_out if the trip is literally 0 days long (Starts and ends on same day)
+    if (check_out - check_in).days == 0:
         return str(check_in)
     return f"{check_in} to {check_out}"
 
@@ -123,12 +124,11 @@ class BookingViewSet(viewsets.ModelViewSet):
         instance = serializer.save(tourist=user, status='Pending_Payment')
 
         requested_tour_id = self.request.data.get('tour_package_id')
-        if requested_tour_id and requested_tour_id != 'null' and instance.guide and instance.destination:
+        
+        if requested_tour_id and requested_tour_id != 'null' and instance.guide:
             selected_tour = TourPackage.objects.filter(
                 id=requested_tour_id,
                 guide=instance.guide,
-                main_destination=instance.destination,
-                is_active=True,
             ).first()
             if selected_tour:
                 instance.tour_package = selected_tour
