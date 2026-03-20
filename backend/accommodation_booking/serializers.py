@@ -130,34 +130,42 @@ class BookingSerializer(serializers.ModelSerializer):
         return None
 
     def get_tour_package_detail(self, obj):
-        # STRICTLY ENFORCE ITINERARIES FOR INDEPENDENT GUIDES ONLY
-        if not obj.guide or obj.agency or not obj.destination:
+        if obj.agency or not obj.guide:
             return None
 
-        trip_days = max((obj.check_out - obj.check_in).days, 1)
-        possible_days = sorted({trip_days, max(trip_days + 1, 1)})
         selected = None
+        if obj.tour_package:
+            selected = obj.tour_package
+        elif obj.tour_package_id:
+            selected = TourPackage.objects.filter(id=obj.tour_package_id).first()
 
-        if obj.tour_package_id:
-            stored = TourPackage.objects.filter(id=obj.tour_package_id).first()
-            if stored and stored.guide_id == obj.guide_id and stored.main_destination_id == obj.destination_id:
-                selected = stored
+        # Mathematically calculate the accurate number of days booked. 
+        # (e.g. Mar 21 to Mar 21 = 0 diff. + 1 = 1 day trip)
+        trip_days = max((obj.check_out - obj.check_in).days + 1, 1)
 
-        if not selected:
+        if not selected and obj.destination:
             candidates = TourPackage.objects.filter(
                 guide=obj.guide,
                 main_destination=obj.destination,
                 is_active=True,
-                duration_days__in=possible_days,
+                duration_days__in=[trip_days, max(trip_days - 1, 1)]
             ).order_by('-created_at', '-id')
-
-            if candidates.count() == 1:
+            if candidates.count() > 0:
                 selected = candidates.first()
 
         if not selected:
             return None
 
-        timeline = selected.itinerary_timeline if isinstance(selected.itinerary_timeline, list) else []
+        timeline = selected.itinerary_timeline
+        if isinstance(timeline, str):
+            try:
+                timeline = json.loads(timeline)
+            except json.JSONDecodeError:
+                timeline = []
+        elif not isinstance(timeline, list):
+            timeline = []
+
+        # Safe and clean clipping based on ACTUAL trip_days
         clipped_timeline = []
         for stop in timeline:
             if not isinstance(stop, dict):
@@ -219,20 +227,19 @@ class BookingSerializer(serializers.ModelSerializer):
             accommodation = data.get('accommodation', self.instance.accommodation)
             guide = data.get('guide', self.instance.guide)
             agency = data.get('agency', self.instance.agency)
-            destination = data.get('destination', self.instance.destination)
             check_in = data.get('check_in', self.instance.check_in)
             check_out = data.get('check_out', self.instance.check_out)
         else:
             accommodation = data.get('accommodation')
             guide = data.get('guide')
             agency = data.get('agency')
-            destination = data.get('destination')
             check_in = data.get('check_in')
             check_out = data.get('check_out')
 
         if check_in and check_out:
-            if check_out <= check_in:
-                raise serializers.ValidationError({"check_out": "Check-out must be after check-in."})
+            # FIX: Only raise an error if checkout is BEFORE checkin. Same-day (1-day tour) is now perfectly legal!
+            if check_out < check_in:
+                raise serializers.ValidationError({"check_out": "Check-out cannot be before check-in."})
             
             if not self.instance or 'check_in' in data:
                 if check_in < date.today():
