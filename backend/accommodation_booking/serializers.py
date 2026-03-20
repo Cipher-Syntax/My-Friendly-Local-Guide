@@ -139,8 +139,7 @@ class BookingSerializer(serializers.ModelSerializer):
         elif obj.tour_package_id:
             selected = TourPackage.objects.filter(id=obj.tour_package_id).first()
 
-        # Mathematically calculate the accurate number of days booked. 
-        # (e.g. Mar 21 to Mar 21 = 0 diff. + 1 = 1 day trip)
+        # Inclusive trip-day math: Mar 23 to Mar 24 is 2 days.
         trip_days = max((obj.check_out - obj.check_in).days + 1, 1)
 
         if not selected and obj.destination:
@@ -148,9 +147,11 @@ class BookingSerializer(serializers.ModelSerializer):
                 guide=obj.guide,
                 main_destination=obj.destination,
                 is_active=True,
-                duration_days__in=[trip_days, max(trip_days - 1, 1)]
+                duration_days=trip_days,
             ).order_by('-created_at', '-id')
-            if candidates.count() > 0:
+
+            # Only auto-select when there is exactly one unambiguous match.
+            if candidates.count() == 1:
                 selected = candidates.first()
 
         if not selected:

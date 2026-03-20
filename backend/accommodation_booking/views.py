@@ -222,6 +222,7 @@ class BookingViewSet(viewsets.ModelViewSet):
             selected_tour = TourPackage.objects.filter(
                 id=requested_tour_id,
                 guide=instance.guide,
+                main_destination=instance.destination,
             ).first()
             if selected_tour:
                 instance.tour_package = selected_tour
