@@ -1,6 +1,6 @@
 from django.db import models #type: ignore
 from user_authentication.models import User 
-from destinations_and_attractions.models import Destination
+from destinations_and_attractions.models import Destination, TourPackage
 from agency_management_module.models import TouristGuide 
 from django.core.exceptions import ValidationError #type: ignore
 from django.db.models import Q #type: ignore
@@ -52,6 +52,7 @@ class Booking(models.Model):
     guide = models.ForeignKey(User, limit_choices_to={'is_local_guide': True, 'guide_approved': True}, related_name='guide_tours_booked', on_delete=models.CASCADE, blank=True, null=True)
     agency = models.ForeignKey(User, limit_choices_to={'is_staff': True}, related_name='agency_bookings', on_delete=models.CASCADE, blank=True, null=True)
     destination = models.ForeignKey(Destination, on_delete=models.SET_NULL, null=True, blank=True, related_name="bookings")
+    tour_package = models.ForeignKey(TourPackage, on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings')
     
     assigned_guides = models.ManyToManyField(User, related_name='assigned_bookings', blank=True, limit_choices_to={'is_local_guide': True, 'guide_approved': True})
     assigned_agency_guides = models.ManyToManyField(TouristGuide, related_name='assigned_bookings', blank=True)

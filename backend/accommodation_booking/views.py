@@ -121,6 +121,17 @@ class BookingViewSet(viewsets.ModelViewSet):
         passed_balance = self.request.data.get('balance_due')
 
         instance = serializer.save(tourist=user, status='Pending_Payment')
+
+        requested_tour_id = self.request.data.get('tour_package_id')
+        if requested_tour_id and requested_tour_id != 'null' and instance.guide and instance.destination:
+            selected_tour = TourPackage.objects.filter(
+                id=requested_tour_id,
+                guide=instance.guide,
+                main_destination=instance.destination,
+                is_active=True,
+            ).first()
+            if selected_tour:
+                instance.tour_package = selected_tour
         
         if passed_total and passed_down_payment and passed_balance:
             instance.total_price = Decimal(str(passed_total)).quantize(Decimal('0.01'))
@@ -431,14 +442,20 @@ class BookingViewSet(viewsets.ModelViewSet):
         
         if instance.guide:
             guide = instance.guide
-            tour_package = None
+            tour_package = instance.tour_package
             requested_tour_id = self.request.data.get('tour_package_id')
             
-            if requested_tour_id and requested_tour_id != 'null':
+            if not tour_package and requested_tour_id and requested_tour_id != 'null':
                 tour_package = TourPackage.objects.filter(id=requested_tour_id).first()
             
             if not tour_package and instance.destination:
-                tour_package = TourPackage.objects.filter(guide=guide, main_destination=instance.destination).first()
+                trip_days = max((instance.check_out - instance.check_in).days, 1)
+                tour_package = TourPackage.objects.filter(
+                    guide=guide,
+                    main_destination=instance.destination,
+                    duration_days=trip_days,
+                    is_active=True,
+                ).order_by('-created_at').first()
             
             base_group_price = guide.price_per_day or 0
             solo_price = guide.solo_price_per_day or base_group_price

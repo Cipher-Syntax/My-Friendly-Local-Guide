@@ -84,7 +84,7 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = [
             'id', 'tourist_id', 'tourist_username',
-            'accommodation', 'guide', 'agency', 'destination',
+            'accommodation', 'guide', 'agency', 'destination', 'tour_package',
             'accommodation_detail', 'guide_detail', 'agency_detail', 'destination_detail', 'tour_package_detail',
             'assigned_guides', 'assigned_guides_detail',
             'assigned_agency_guides', 'assigned_agency_guides_detail',
@@ -107,7 +107,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'total_price', 'down_payment', 'balance_due', 
             'downpayment_paid_at', 'balance_paid_at', 
             'platform_fee', 'guide_payout_amount', 
-            'assigned_guides', 'assigned_agency_guides', 'destination_detail',
+            'assigned_guides', 'assigned_agency_guides', 'destination_detail', 'tour_package',
             'meetup_location', 'meetup_time', 'meetup_instructions' 
         ]
 
@@ -134,14 +134,19 @@ class BookingSerializer(serializers.ModelSerializer):
         if not obj.guide or not obj.destination:
             return None
 
-        trip_days = max((obj.check_out - obj.check_in).days, 1)
-        packages = TourPackage.objects.filter(
-            guide=obj.guide,
-            main_destination=obj.destination,
-            is_active=True,
-        ).order_by('created_at')
+        selected = None
+        if obj.tour_package_id:
+            selected = TourPackage.objects.filter(id=obj.tour_package_id, is_active=True).first()
 
-        selected = packages.filter(duration_days=trip_days).first() or packages.first()
+        if not selected:
+            trip_days = max((obj.check_out - obj.check_in).days, 1)
+            selected = TourPackage.objects.filter(
+                guide=obj.guide,
+                main_destination=obj.destination,
+                is_active=True,
+                duration_days=trip_days,
+            ).order_by('-created_at').first()
+
         if not selected:
             return None
 
