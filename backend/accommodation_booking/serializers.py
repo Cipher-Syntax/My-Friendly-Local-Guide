@@ -1,6 +1,6 @@
 from rest_framework import serializers 
 from .models import Accommodation, Booking
-from destinations_and_attractions.models import Destination
+from destinations_and_attractions.models import Destination, TourPackage
 from django.contrib.auth import get_user_model
 from datetime import date
 import json
@@ -75,6 +75,7 @@ class BookingSerializer(serializers.ModelSerializer):
     guide_detail = serializers.SerializerMethodField(read_only=True)
     agency_detail = serializers.SerializerMethodField(read_only=True)
     destination_detail = SimpleDestinationSerializer(source='destination', read_only=True)
+    tour_package_detail = serializers.SerializerMethodField(read_only=True)
     
     assigned_guides_detail = serializers.SerializerMethodField(read_only=True)
     assigned_agency_guides_detail = serializers.SerializerMethodField(read_only=True)
@@ -84,7 +85,7 @@ class BookingSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'tourist_id', 'tourist_username',
             'accommodation', 'guide', 'agency', 'destination',
-            'accommodation_detail', 'guide_detail', 'agency_detail', 'destination_detail',
+            'accommodation_detail', 'guide_detail', 'agency_detail', 'destination_detail', 'tour_package_detail',
             'assigned_guides', 'assigned_guides_detail',
             'assigned_agency_guides', 'assigned_agency_guides_detail',
 
@@ -128,6 +129,28 @@ class BookingSerializer(serializers.ModelSerializer):
         if obj.agency:
             return SimpleUserSerializer(obj.agency, context=self.context).data
         return None
+
+    def get_tour_package_detail(self, obj):
+        if not obj.guide or not obj.destination:
+            return None
+
+        trip_days = max((obj.check_out - obj.check_in).days, 1)
+        packages = TourPackage.objects.filter(
+            guide=obj.guide,
+            main_destination=obj.destination,
+            is_active=True,
+        ).order_by('created_at')
+
+        selected = packages.filter(duration_days=trip_days).first() or packages.first()
+        if not selected:
+            return None
+
+        return {
+            'id': selected.id,
+            'name': selected.name,
+            'duration_days': selected.duration_days,
+            'itinerary_timeline': selected.itinerary_timeline,
+        }
 
     def get_assigned_guides_detail(self, obj):
         request = self.context.get('request')
