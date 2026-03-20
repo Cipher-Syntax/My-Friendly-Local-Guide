@@ -15,6 +15,16 @@ from .serializers import AccommodationSerializer, BookingSerializer
 from system_management_module.models import SystemAlert
 from destinations_and_attractions.models import TourPackage  
 
+
+def format_booking_date_display(check_in, check_out):
+    if not check_in:
+        return "N/A"
+    if not check_out:
+        return str(check_in)
+    if (check_out - check_in).days <= 1:
+        return str(check_in)
+    return f"{check_in} to {check_out}"
+
 class IsHostOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
@@ -139,12 +149,13 @@ class BookingViewSet(viewsets.ModelViewSet):
             try:
                 tourist_name = f"{user.first_name} {user.last_name}".strip() or user.username
                 subject = "New Booking Request Received - LocaLynk"
+                booking_date_display = format_booking_date_display(instance.check_in, instance.check_out)
                 plain_message = (
                     f"Hi {provider.username},\n\n"
                     f"You have received a new booking request from {tourist_name}!\n\n"
                     f"Details:\n"
                     f"- Destination: {instance.destination or 'N/A'}\n"
-                    f"- Dates: {instance.check_in} to {instance.check_out}\n"
+                    f"- Dates: {booking_date_display}\n"
                     f"- Guests: {instance.num_guests}\n\n"
                     f"This booking is currently 'Pending Payment'. You will receive another notification once the tourist completes their down payment.\n\n"
                     f"Please check your dashboard for more details."
@@ -175,7 +186,7 @@ class BookingViewSet(viewsets.ModelViewSet):
                             
                             <div class="details-box">
                                 <p style="margin: 5px 0;"><span class="highlight">Destination:</span> {instance.destination or 'N/A'}</p>
-                                <p style="margin: 5px 0;"><span class="highlight">Dates:</span> {instance.check_in} to {instance.check_out}</p>
+                                <p style="margin: 5px 0;"><span class="highlight">Dates:</span> {booking_date_display}</p>
                                 <p style="margin: 5px 0;"><span class="highlight">Guests:</span> {instance.num_guests}</p>
                                 <span class="status-badge">Pending Payment</span>
                             </div>
@@ -279,12 +290,14 @@ class BookingViewSet(viewsets.ModelViewSet):
             agency_name = getattr(agency_profile, 'business_name', None) or booking.agency.username
             provider_name = f"Agency {agency_name}"
 
+        booking_date_display = format_booking_date_display(booking.check_in, booking.check_out)
+
         plain_text_receipt = (
             f"Hi {booking.tourist.username},\n\n"
             f"Your face-to-face payment has been fully processed and your booking is complete!\n"
             f"Total Paid: ₱{booking.total_price:,.2f}\n"
             f"Provider: {provider_name}\n"
-            f"Dates: {booking.check_in} to {booking.check_out}\n\n"
+            f"Dates: {booking_date_display}\n\n"
             f"Thank you for exploring with LocaLynk!"
         )
 
@@ -314,7 +327,7 @@ class BookingViewSet(viewsets.ModelViewSet):
                         <div class="summary-title">Booking Details</div>
                         <p style="margin: 5px 0;"><strong>Destination:</strong> {booking.destination or 'N/A'}</p>
                         <p style="margin: 5px 0;"><strong>Provider:</strong> {provider_name}</p>
-                        <p style="margin: 5px 0;"><strong>Dates:</strong> {booking.check_in} &mdash; {booking.check_out}</p>
+                        <p style="margin: 5px 0;"><strong>Dates:</strong> {booking_date_display}</p>
                     </div>
                     
                     <div>

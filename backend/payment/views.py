@@ -27,6 +27,16 @@ try:
 except LookupError:
     Booking = None 
 
+
+def format_booking_date_display(check_in, check_out):
+    if not check_in:
+        return "N/A"
+    if not check_out:
+        return str(check_in)
+    if (check_out - check_in).days <= 1:
+        return str(check_in)
+    return f"{check_in} — {check_out}"
+
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -184,6 +194,8 @@ class PaymentWebhookView(APIView):
                             provider_name = f"Agency: {booking.agency.username}"
 
                         subject = f"Your Booking Receipt - #{booking.id}"
+
+                        booking_date_display = format_booking_date_display(booking.check_in, booking.check_out)
                         
                         plain_content = f"Booking Confirmed! Receipt for {booking.destination}. Transaction ID: {payment.gateway_transaction_id}"
                         
@@ -213,7 +225,7 @@ class PaymentWebhookView(APIView):
 
                                     <div class="summary-box">
                                         <div class="summary-title">Itinerary Details</div>
-                                        <p style="margin: 5px 0;"><strong>Dates:</strong> {booking.check_in} &mdash; {booking.check_out}</p>
+                                        <p style="margin: 5px 0;"><strong>Dates:</strong> {booking_date_display}</p>
                                         <p style="margin: 5px 0;"><strong>Provider:</strong> {provider_name}</p>
                                         <p style="margin: 5px 0;"><strong>Destination:</strong> {booking.destination or 'N/A'}</p>
                                     </div>
@@ -265,10 +277,12 @@ class PaymentWebhookView(APIView):
                         
                         try:
                             p_subject = "Action Required: New Confirmed Booking"
+                            provider_itinerary_display = format_booking_date_display(booking.check_in, booking.check_out)
+
                             p_plain_message = (
                                 f"Hi {provider.username},\n\n"
                                 f"A new booking has been confirmed by {tourist_name}.\n\n"
-                                f"Itinerary: {booking.check_in} to {booking.check_out}\n"
+                                f"Itinerary: {provider_itinerary_display}\n"
                                 f"Your Pending Payout (from down payment): ₱{net_payout:,.2f}\n\n"
                                 f"The tourist will pay the remaining balance of ₱{booking.balance_due:,.2f} directly to you. Please check your dashboard for details."
                             )
@@ -295,7 +309,7 @@ class PaymentWebhookView(APIView):
                                         <p>Great news! A new booking has just been confirmed by <span class="highlight">{tourist_name}</span>.</p>
                                         
                                         <ul class="details-box">
-                                            <li><span class="highlight">Itinerary:</span> {booking.check_in} to {booking.check_out}</li>
+                                            <li><span class="highlight">Itinerary:</span> {provider_itinerary_display}</li>
                                             <li><span class="highlight">Your Pending Payout:</span> &#8369; {net_payout:,.2f} <span style="font-size: 12px; color: #64748b;">(From down payment)</span></li>
                                             <li><span class="highlight">Balance Due:</span> &#8369; {booking.balance_due:,.2f} <span style="font-size: 12px; color: #64748b;">(To be paid directly to you)</span></li>
                                         </ul>
