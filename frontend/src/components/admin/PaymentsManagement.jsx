@@ -23,7 +23,7 @@ export default function PaymentsManagement() {
     const [filter, setFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(10);
+    const [itemsPerPage] = useState(5);
 
     const [stats, setStats] = useState({
         totalCollected: 0,
