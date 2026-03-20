@@ -1,5 +1,6 @@
 import uuid
 import os
+import json
 from decimal import Decimal
 from datetime import date, timedelta
 from django.conf import settings
@@ -27,15 +28,111 @@ try:
 except LookupError:
     Booking = None 
 
+try:
+    TourPackage = apps.get_model('destinations_and_attractions', 'TourPackage')
+except LookupError:
+    TourPackage = None
 
-def format_booking_date_display(check_in, check_out):
+
+def get_booking_display_days(booking):
+    package = getattr(booking, 'tour_package', None)
+    if package and getattr(package, 'duration_days', None):
+        try:
+            return max(int(package.duration_days), 1)
+        except (TypeError, ValueError):
+            pass
+
+    if not booking.check_in or not booking.check_out:
+        return 1
+
+    delta_days = (booking.check_out - booking.check_in).days
+    return 1 if delta_days <= 1 else max(delta_days, 1)
+
+
+def format_booking_date_display(check_in, check_out, duration_days=1):
     if not check_in:
         return "N/A"
-    if not check_out:
+
+    if duration_days <= 1:
         return str(check_in)
-    if (check_out - check_in).days <= 1:
-        return str(check_in)
-    return f"{check_in} — {check_out}"
+
+    computed_end = check_in + timedelta(days=max(duration_days - 1, 1))
+    end_for_display = computed_end
+
+    if check_out and check_out > computed_end:
+        end_for_display = check_out
+
+    return f"{check_in} to {end_for_display}"
+
+
+def resolve_receipt_tour_package(booking, trip_days):
+    if getattr(booking, 'tour_package', None):
+        return booking.tour_package
+
+    if not TourPackage or not booking.guide or not booking.destination:
+        return None
+
+    candidates = TourPackage.objects.filter(
+        guide=booking.guide,
+        main_destination=booking.destination,
+        is_active=True,
+        duration_days__in=[trip_days, max(trip_days - 1, 1)],
+    ).order_by('-created_at', '-id')
+
+    return candidates.first() if candidates.count() == 1 else None
+
+
+def build_itinerary_sections(booking, trip_days):
+    selected_package = resolve_receipt_tour_package(booking, trip_days)
+    if not selected_package:
+        return "", ""
+
+    timeline = selected_package.itinerary_timeline
+    if isinstance(timeline, str):
+        try:
+            timeline = json.loads(timeline)
+        except json.JSONDecodeError:
+            timeline = []
+
+    if not isinstance(timeline, list) or not timeline:
+        return "", ""
+
+    grouped = {}
+    for item in timeline:
+        if not isinstance(item, dict):
+            continue
+        try:
+            day_num = int(item.get('day', 1))
+        except (TypeError, ValueError):
+            day_num = 1
+        if day_num > trip_days:
+            continue
+        grouped.setdefault(day_num, []).append(item)
+
+    if not grouped:
+        return "", ""
+
+    html = """
+    <div class="summary-box" style="border-top: 1px dashed #cbd5e1; border-bottom: none; margin-top: 20px; margin-bottom: 10px; padding-top: 20px;">
+        <div class="summary-title">Tour Itinerary</div>
+    """
+    plain = "\nTour Itinerary:\n"
+
+    for day in sorted(grouped.keys()):
+        html += f"<p style='margin: 8px 0 4px 0; color: #1D4ED8; font-weight: 700;'>Day {day}</p>"
+        plain += f"Day {day}:\n"
+
+        for stop in grouped[day]:
+            activity = stop.get('activityName') or stop.get('name') or 'Activity Stop'
+            start = stop.get('startTime')
+            end = stop.get('endTime')
+            time_text = f" ({start}{(' - ' + end) if end else ''})" if start else ""
+
+            html += f"<p style='margin: 2px 0 2px 12px; color: #475569;'>- <strong>{activity}</strong>{time_text}</p>"
+            plain += f"  - {activity}{time_text}\n"
+
+    html += "</div>"
+    return html, plain
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PaymentSerializer
@@ -195,9 +292,18 @@ class PaymentWebhookView(APIView):
 
                         subject = f"Your Booking Receipt - #{booking.id}"
 
-                        booking_date_display = format_booking_date_display(booking.check_in, booking.check_out)
-                        
-                        plain_content = f"Booking Confirmed! Receipt for {booking.destination}. Transaction ID: {payment.gateway_transaction_id}"
+                        trip_days = get_booking_display_days(booking)
+                        booking_date_display = format_booking_date_display(booking.check_in, booking.check_out, trip_days)
+                        itinerary_html, itinerary_plain = build_itinerary_sections(booking, trip_days)
+
+                        plain_content = (
+                            f"Booking Confirmed!\n"
+                            f"Dates: {booking_date_display}\n"
+                            f"Provider: {provider_name}\n"
+                            f"Destination: {booking.destination or 'N/A'}\n"
+                            f"Transaction ID: {payment.gateway_transaction_id}\n"
+                            f"{itinerary_plain}"
+                        )
                         
                         html_content = f"""
                         <!DOCTYPE html>
@@ -229,6 +335,8 @@ class PaymentWebhookView(APIView):
                                         <p style="margin: 5px 0;"><strong>Provider:</strong> {provider_name}</p>
                                         <p style="margin: 5px 0;"><strong>Destination:</strong> {booking.destination or 'N/A'}</p>
                                     </div>
+
+                                    {itinerary_html}
 
                                     <div>
                                         <div class="summary-title">Payment Breakdown</div>
@@ -277,7 +385,11 @@ class PaymentWebhookView(APIView):
                         
                         try:
                             p_subject = "Action Required: New Confirmed Booking"
-                            provider_itinerary_display = format_booking_date_display(booking.check_in, booking.check_out)
+                            provider_itinerary_display = format_booking_date_display(
+                                booking.check_in,
+                                booking.check_out,
+                                get_booking_display_days(booking)
+                            )
 
                             p_plain_message = (
                                 f"Hi {provider.username},\n\n"
