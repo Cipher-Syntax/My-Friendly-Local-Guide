@@ -3,14 +3,14 @@ import os
 import json
 from decimal import Decimal
 from datetime import date, timedelta
-from django.conf import settings
-from rest_framework import generics, permissions, status, viewsets 
-from rest_framework.response import Response 
-from rest_framework.views import APIView 
-from rest_framework.exceptions import ValidationError as DRFValidationError
+from django.conf import settings #type: ignore
+from rest_framework import generics, permissions, status, viewsets #type: ignore
+from rest_framework.response import Response #type: ignore
+from rest_framework.views import APIView #type: ignore
+from rest_framework.exceptions import ValidationError as DRFValidationError #type: ignore
 from django.core.exceptions import ValidationError as ModelValidationError #type: ignore
-from django.shortcuts import get_object_or_404
-from django.apps import apps 
+from django.shortcuts import get_object_or_404 #type: ignore
+from django.apps import apps #type: ignore
 from requests.exceptions import RequestException #type: ignore
 from django.core.mail import send_mail #type: ignore
 
@@ -40,18 +40,11 @@ def get_booking_tour_package_payload(booking):
 
 
 def get_booking_display_days(booking, package_payload=None):
-    if package_payload:
-        raw_duration = package_payload.get('duration_days')
-        try:
-            return max(int(raw_duration), 1)
-        except (TypeError, ValueError):
-            pass
-
     if not booking.check_in or not booking.check_out:
         return 1
 
-    delta_days = (booking.check_out - booking.check_in).days
-    return 1 if delta_days <= 1 else max(delta_days, 1)
+    # Keep receipt behavior aligned with booking details modal: inclusive day span.
+    return max((booking.check_out - booking.check_in).days + 1, 1)
 
 
 def format_booking_date_display(check_in, check_out, duration_days=1):
