@@ -134,27 +134,52 @@ class BookingSerializer(serializers.ModelSerializer):
         if not obj.guide or not obj.destination:
             return None
 
+        trip_days = max((obj.check_out - obj.check_in).days, 1)
         selected = None
+
         if obj.tour_package_id:
-            selected = TourPackage.objects.filter(id=obj.tour_package_id, is_active=True).first()
+            stored = TourPackage.objects.filter(id=obj.tour_package_id).first()
+            if (
+                stored
+                and stored.guide_id == obj.guide_id
+                and stored.main_destination_id == obj.destination_id
+                and stored.duration_days == trip_days
+            ):
+                selected = stored
 
         if not selected:
-            trip_days = max((obj.check_out - obj.check_in).days, 1)
-            selected = TourPackage.objects.filter(
+            candidates = TourPackage.objects.filter(
                 guide=obj.guide,
                 main_destination=obj.destination,
                 is_active=True,
                 duration_days=trip_days,
-            ).order_by('-created_at').first()
+            ).order_by('-created_at', '-id')
+
+            if candidates.count() == 1:
+                selected = candidates.first()
 
         if not selected:
             return None
+
+        # Guard against inconsistent package data (e.g., 1-day package containing day 2 stops).
+        timeline = selected.itinerary_timeline if isinstance(selected.itinerary_timeline, list) else []
+        clipped_timeline = []
+        for stop in timeline:
+            if not isinstance(stop, dict):
+                continue
+            raw_day = stop.get('day', 1)
+            try:
+                day_num = int(raw_day)
+            except (TypeError, ValueError):
+                day_num = 1
+            if day_num <= trip_days:
+                clipped_timeline.append(stop)
 
         return {
             'id': selected.id,
             'name': selected.name,
             'duration_days': selected.duration_days,
-            'itinerary_timeline': selected.itinerary_timeline,
+            'itinerary_timeline': clipped_timeline,
         }
 
     def get_assigned_guides_detail(self, obj):
