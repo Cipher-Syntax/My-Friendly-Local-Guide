@@ -10,6 +10,20 @@ except ImportError:
 
 from communication.models import Message 
 
+
+def _display_name_for_user(user):
+    full_name = (user.get_full_name() or '').strip()
+    if full_name:
+        return full_name
+
+    username = (getattr(user, 'username', '') or '').strip()
+    if '@' in username:
+        local = username.split('@', 1)[0].replace('.', ' ').replace('_', ' ').replace('-', ' ').strip()
+        if local:
+            return ' '.join(part.capitalize() for part in local.split())
+
+    return username or 'User'
+
 @receiver(post_save, sender=Message)
 def create_alert_for_new_message(sender, instance, created, **kwargs):
    
@@ -36,7 +50,7 @@ def create_alert_for_new_message(sender, instance, created, **kwargs):
                 related_object_id=instance.id,
                 extra={
                     'partner_id': instance.sender.id,
-                    'partner_name': instance.sender.get_full_name() or instance.sender.username,
+                    'partner_name': _display_name_for_user(instance.sender),
                 },
             ),
             event_key=f"message:{instance.id}",

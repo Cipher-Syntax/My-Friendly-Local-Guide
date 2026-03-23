@@ -8,6 +8,23 @@ from .serializers import MessageSerializer
 
 User = get_user_model()
 
+
+def _display_name_for_user(user):
+    full_name = (user.get_full_name() or '').strip()
+    if full_name:
+        return full_name
+
+    username = (user.username or '').strip()
+    if '@' in username:
+        local = username.split('@', 1)[0].replace('.', ' ').replace('_', ' ').replace('-', ' ').strip()
+        if local:
+            return ' '.join(part.capitalize() for part in local.split())
+
+    if username:
+        return username
+
+    return 'User'
+
 class ConversationListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -31,6 +48,7 @@ class ConversationListView(generics.ListAPIView):
             'id': p.id,
             'username': p.username,
             'full_name': p.get_full_name(),
+            'display_name': _display_name_for_user(p),
         } for p in partners]
         
         return Response(data)
