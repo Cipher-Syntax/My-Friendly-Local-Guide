@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions #type: ignore
 from rest_framework.response import Response #type: ignore
-from rest_framework.exceptions import NotFound #type: ignore
+from rest_framework.exceptions import NotFound, ValidationError #type: ignore
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from .models import Message
@@ -64,5 +64,8 @@ class MessageThreadView(generics.ListCreateAPIView):
             receiver = User.objects.get(pk=partner_id)
         except User.DoesNotExist:
             raise NotFound({"detail": "Receiver user not found."})
+
+        if receiver.id == user.id:
+            raise ValidationError({"detail": "You cannot send a message to your own account."})
 
         serializer.save(sender=user, receiver=receiver)
