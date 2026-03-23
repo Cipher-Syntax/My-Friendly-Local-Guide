@@ -14,6 +14,7 @@ import json
 from .models import Accommodation, Booking
 from .serializers import AccommodationSerializer, BookingSerializer
 from system_management_module.models import SystemAlert
+from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
 from destinations_and_attractions.models import TourPackage  
 
 
@@ -250,9 +251,9 @@ class BookingViewSet(viewsets.ModelViewSet):
         self.validate_booking_target(instance)
 
         provider = instance.guide or instance.agency or (instance.accommodation.host if instance.accommodation else None)
+        tourist_name = f"{user.first_name} {user.last_name}".strip() or user.username
         if provider and provider.email:
             try:
-                tourist_name = f"{user.first_name} {user.last_name}".strip() or user.username
                 booking_date_display = format_booking_date_display(instance.check_in, instance.check_out)
                 
                 # Fetch the dynamically generated HTML and Plain Text Itinerary
@@ -325,6 +326,21 @@ class BookingViewSet(viewsets.ModelViewSet):
                 )
             except Exception as e:
                 print(f"Failed to send request notification email: {e}")
+
+        if provider:
+            provider_name = provider.get_full_name() or provider.username
+            send_push_to_user(
+                user=provider,
+                title='New Booking Request',
+                body=f"{tourist_name} sent a new booking request.",
+                data=build_alert_push_data(
+                    alert_type='new_booking_request',
+                    related_model='Booking',
+                    related_object_id=instance.id,
+                    extra={'provider_name': provider_name},
+                ),
+                event_key=f"booking-request:{instance.id}",
+            )
         
     def destroy(self, request, *args, **kwargs):
         booking = self.get_object()
@@ -392,6 +408,18 @@ class BookingViewSet(viewsets.ModelViewSet):
             related_object_id=booking.id,
             related_model='Booking',
             is_read=False
+        )
+
+        send_push_to_user(
+            user=booking.tourist,
+            title='Trip Completed',
+            body='Your trip has been marked completed. Thanks for using LocaLynk!',
+            data=build_alert_push_data(
+                alert_type='trip_completed',
+                related_model='Booking',
+                related_object_id=booking.id,
+            ),
+            event_key=f"trip-completed:{booking.id}",
         )
 
         provider_name = "LocaLynk"
@@ -496,6 +524,18 @@ class BookingViewSet(viewsets.ModelViewSet):
                     related_object_id=booking.id,
                     related_model='Booking',
                     is_read=False
+                )
+
+                send_push_to_user(
+                    user=recipient,
+                    title='New Confirmed Booking',
+                    body=f"{tourist_name} has a confirmed trip on {booking.check_in}.",
+                    data=build_alert_push_data(
+                        alert_type='booking_confirmed',
+                        related_model='Booking',
+                        related_object_id=booking.id,
+                    ),
+                    event_key=f"booking-confirmed:{booking.id}",
                 )
         except Exception as e:
             print(f"Error creating booking alert: {e}")

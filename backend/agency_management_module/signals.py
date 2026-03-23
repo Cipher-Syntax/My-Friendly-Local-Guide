@@ -4,6 +4,7 @@ from .models import Agency, TouristGuide
 from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth import get_user_model 
+from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
 
 User = get_user_model() 
 
@@ -35,3 +36,16 @@ def sync_guides_with_agency_approval(sender, instance, **kwargs):
             recipient_list=[instance.email],
             fail_silently=False,
         )
+
+        if instance.user:
+            send_push_to_user(
+                user=instance.user,
+                title='Agency Approved',
+                body='Your agency account is now approved. You can start managing guides and bookings.',
+                data=build_alert_push_data(
+                    alert_type='agency_approved',
+                    related_model='Agency',
+                    related_object_id=instance.id,
+                ),
+                event_key=f"agency-approved:{instance.id}",
+            )

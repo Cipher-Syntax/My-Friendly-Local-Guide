@@ -5,6 +5,7 @@ from rest_framework.exceptions import PermissionDenied #type: ignore
 from .models import Report
 from .serializers import ReportSerializer
 from system_management_module.models import SystemAlert
+from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
 
 
 class ReportCreateView(generics.CreateAPIView):
@@ -35,6 +36,18 @@ class ReportAdminViewSet(viewsets.ReadOnlyModelViewSet):
             message=warning_message,
             related_object_id=report.id,
             related_model='Report'
+        )
+
+        send_push_to_user(
+            user=user_to_warn,
+            title='Content Warning',
+            body=warning_message,
+            data=build_alert_push_data(
+                alert_type='content_warning',
+                related_model='Report',
+                related_object_id=report.id,
+            ),
+            event_key=f"report-warning:{report.id}",
         )
 
         return Response({'status': 'Warning sent successfully'}, status=status.HTTP_200_OK)

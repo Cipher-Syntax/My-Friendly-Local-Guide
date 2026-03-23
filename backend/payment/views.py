@@ -20,6 +20,7 @@ from django.views.decorators.csrf import csrf_exempt #type: ignore
 from .models import Payment
 from .serializers import PaymentSerializer, PaymentInitiationSerializer
 from system_management_module.models import SystemAlert
+from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
 
 from .paymongo import create_checkout_session, retrieve_checkout_session
 
@@ -351,6 +352,18 @@ class PaymentWebhookView(APIView):
                     except Exception as e:
                         print(f"Error sending HTML receipt: {e}")
 
+                    send_push_to_user(
+                        user=booking.tourist,
+                        title='Payment Successful',
+                        body=f"Your booking #{booking.id} is confirmed.",
+                        data=build_alert_push_data(
+                            alert_type='payment_success',
+                            related_model='Booking',
+                            related_object_id=booking.id,
+                        ),
+                        event_key=f"payment-success:{payment.id}:tourist",
+                    )
+
                     provider = booking.guide or booking.agency or (booking.accommodation.host if booking.accommodation else None)
                     if provider:
                         tourist_name = f"{booking.tourist.first_name} {booking.tourist.last_name}"
@@ -362,6 +375,18 @@ class PaymentWebhookView(APIView):
                             related_object_id=booking.id,
                             related_model='Booking',
                             is_read=False
+                        )
+
+                        send_push_to_user(
+                            user=provider,
+                            title='Payment Successful',
+                            body=f"{tourist_name} completed payment for booking #{booking.id}.",
+                            data=build_alert_push_data(
+                                alert_type='payment_success',
+                                related_model='Booking',
+                                related_object_id=booking.id,
+                            ),
+                            event_key=f"payment-success:{payment.id}:provider",
                         )
                         
                         try:
@@ -442,6 +467,18 @@ class PaymentWebhookView(APIView):
                         related_object_id=booking.id,
                         related_model='Booking',
                         is_read=False
+                    )
+
+                    send_push_to_user(
+                        user=booking.tourist,
+                        title='Payment Update',
+                        body='Your booking could not be confirmed. Refund has been initiated.',
+                        data=build_alert_push_data(
+                            alert_type='refund_initiated',
+                            related_model='Booking',
+                            related_object_id=booking.id,
+                        ),
+                        event_key=f"payment-refund:{payment.id}:tourist",
                     )
 
             if payment.payment_type == "YearlySubscription":

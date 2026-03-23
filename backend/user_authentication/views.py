@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied, ValidationError 
 from rest_framework_simplejwt.views import TokenObtainPairView 
 from system_management_module.models import SystemAlert
+from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
 
 from .serializers import (
     UserSerializer, 
@@ -278,6 +279,19 @@ class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
                         recipient=user_instance,
                         title=f"Account {status_msg.capitalize()}",
                         message=f"Your account has been {status_msg} by an administrator."
+                    )
+
+                    send_push_to_user(
+                        user=user_instance,
+                        title=f"Account {status_msg.capitalize()}",
+                        body=f"Your account has been {status_msg} by an administrator.",
+                        data=build_alert_push_data(
+                            alert_type='account_status_changed',
+                            related_model='User',
+                            related_object_id=user_instance.id,
+                            extra={'status': status_msg},
+                        ),
+                        event_key=f"account-status:{user_instance.id}:{status_msg}",
                     )
                 except Exception as e:
                     print(f"Could not send alert: {e}")

@@ -3,6 +3,7 @@ from django.dispatch import receiver #type: ignore
 from django.core.mail import send_mail #type: ignore
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
 
 User = get_user_model()
 
@@ -75,4 +76,16 @@ def notify_guide_approval(sender, instance, created, **kwargs):
             recipient_list=[instance.email],
             fail_silently=True,
             html_message=html_message
+        )
+
+        send_push_to_user(
+            user=instance,
+            title='Application Approved!',
+            body='Your guide application has been approved. You can now accept bookings.',
+            data=build_alert_push_data(
+                alert_type='guide_approved',
+                related_model='User',
+                related_object_id=instance.id,
+            ),
+            event_key=f"guide-approved:{instance.id}",
         )

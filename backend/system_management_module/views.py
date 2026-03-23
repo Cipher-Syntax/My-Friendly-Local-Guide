@@ -8,6 +8,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from .models import GuideReviewRequest, SystemAlert
+from .models import PushDeviceToken
 from user_authentication.models import GuideApplication
 from agency_management_module.models import Agency
 from accommodation_booking.models import Booking
@@ -16,7 +17,9 @@ from .serializers import (
     GuideApplicationSubmissionSerializer, 
     AdminGuideReviewSerializer,
     SystemAlertSerializer,
-    CreateSystemAlertSerializer
+    CreateSystemAlertSerializer,
+    PushTokenRegisterSerializer,
+    PushTokenUnregisterSerializer,
 )
 
 User = get_user_model()
@@ -195,6 +198,55 @@ class CreateSystemAlertView(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
+
+
+class PushTokenRegisterView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = PushTokenRegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        token = serializer.validated_data['expo_push_token']
+        device_id = serializer.validated_data.get('device_id')
+        platform = serializer.validated_data.get('platform', 'unknown')
+        app_version = serializer.validated_data.get('app_version')
+
+        device, _ = PushDeviceToken.objects.update_or_create(
+            expo_push_token=token,
+            defaults={
+                'user': request.user,
+                'device_id': device_id,
+                'platform': platform,
+                'app_version': app_version,
+                'is_active': True,
+            }
+        )
+
+        return Response({
+            'detail': 'Push token registered successfully.',
+            'id': device.id,
+        }, status=status.HTTP_200_OK)
+
+
+class PushTokenUnregisterView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = PushTokenUnregisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        token = serializer.validated_data['expo_push_token']
+        updated = PushDeviceToken.objects.filter(
+            user=request.user,
+            expo_push_token=token,
+            is_active=True,
+        ).update(is_active=False)
+
+        if not updated:
+            return Response({'detail': 'Token not found or already inactive.'}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({'detail': 'Push token deactivated.'}, status=status.HTTP_200_OK)
 
 class AdminDashboardSummaryView(APIView):
     # permission_classes = [permissions.IsAdminUser] 

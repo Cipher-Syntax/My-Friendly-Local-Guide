@@ -127,3 +127,56 @@ class GuideReviewRequest(models.Model):
                 related_model='GuideReviewRequest',
                 related_object_id=self.pk
             )
+
+
+class PushDeviceToken(models.Model):
+    PLATFORM_CHOICES = [
+        ('ios', 'iOS'),
+        ('android', 'Android'),
+        ('web', 'Web'),
+        ('unknown', 'Unknown'),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='push_device_tokens'
+    )
+    expo_push_token = models.CharField(max_length=255, unique=True, db_index=True)
+    device_id = models.CharField(max_length=128, blank=True, null=True)
+    platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES, default='unknown')
+    app_version = models.CharField(max_length=50, blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.platform} - {self.expo_push_token[:20]}..."
+
+
+class PushNotificationDeliveryLog(models.Model):
+    STATUS_CHOICES = [
+        ('queued', 'Queued'),
+        ('retrying', 'Retrying'),
+        ('sent', 'Sent'),
+        ('failed', 'Failed'),
+        ('dropped', 'Dropped'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    device_token = models.ForeignKey(PushDeviceToken, on_delete=models.SET_NULL, null=True, blank=True)
+    event_key = models.CharField(max_length=255, null=True, blank=True, db_index=True)
+    title = models.CharField(max_length=150)
+    body = models.TextField()
+    data = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
+    attempts = models.PositiveSmallIntegerField(default=0)
+    expo_ticket_id = models.CharField(max_length=255, blank=True, null=True)
+    error_message = models.TextField(blank=True, null=True)
+    response_payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"PushLog<{self.id}> {self.status} - {self.title}"

@@ -3,6 +3,7 @@ from django.utils import timezone
 from accommodation_booking.models import Booking
 from reviews_ratings.models import Review, DestinationReview
 from system_management_module.models import SystemAlert
+from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
 from destinations_and_attractions.models import Destination
 
 class Command(BaseCommand):
@@ -48,6 +49,18 @@ class Command(BaseCommand):
                     message='Please take a moment to review your recent trip. Your feedback is valuable!',
                     related_object_id=booking.id,
                     related_model='Booking'
+                )
+
+                send_push_to_user(
+                    user=booking.tourist,
+                    title='How was your trip?',
+                    body='Please leave a quick review for your recent trip.',
+                    data=build_alert_push_data(
+                        alert_type='review_reminder',
+                        related_model='Booking',
+                        related_object_id=booking.id,
+                    ),
+                    event_key=f"review-reminder:{booking.id}",
                 )
 
                 booking.review_notification_sent = True

@@ -1,5 +1,5 @@
 from rest_framework import serializers #type: ignore
-from .models import GuideReviewRequest, SystemAlert
+from .models import GuideReviewRequest, SystemAlert, PushDeviceToken
 from user_authentication.models import User, GuideApplication
 
 class GuideApplicationSubmissionSerializer(serializers.ModelSerializer):
@@ -71,3 +71,23 @@ class CreateSystemAlertSerializer(serializers.ModelSerializer):
     class Meta:
         model = SystemAlert
         fields = ['recipient', 'title', 'message', 'target_type', 'related_model', 'related_object_id']
+
+
+class PushTokenRegisterSerializer(serializers.Serializer):
+    expo_push_token = serializers.CharField(max_length=255)
+    device_id = serializers.CharField(max_length=128, required=False, allow_blank=True, allow_null=True)
+    platform = serializers.ChoiceField(
+        choices=[choice[0] for choice in PushDeviceToken.PLATFORM_CHOICES],
+        required=False,
+        default='unknown'
+    )
+    app_version = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+
+    def validate_expo_push_token(self, value):
+        if not value.startswith('ExponentPushToken[') and not value.startswith('ExpoPushToken['):
+            raise serializers.ValidationError('Invalid Expo push token format.')
+        return value
+
+
+class PushTokenUnregisterSerializer(serializers.Serializer):
+    expo_push_token = serializers.CharField(max_length=255)
