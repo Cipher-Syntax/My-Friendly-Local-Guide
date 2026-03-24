@@ -1,6 +1,21 @@
 from rest_framework import serializers #type: ignore
 from .models import GuideReviewRequest, SystemAlert, PushDeviceToken
 from user_authentication.models import User, GuideApplication
+from communication.models import Message
+
+
+def _display_name_for_user(user):
+    full_name = (user.get_full_name() or '').strip()
+    if full_name:
+        return full_name
+
+    username = (getattr(user, 'username', '') or '').strip()
+    if '@' in username:
+        local = username.split('@', 1)[0].replace('.', ' ').replace('_', ' ').replace('-', ' ').strip()
+        if local:
+            return ' '.join(part.capitalize() for part in local.split())
+
+    return username or 'User'
 
 class GuideApplicationSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -62,9 +77,50 @@ class AdminGuideReviewSerializer(serializers.ModelSerializer):
             }
 
 class SystemAlertSerializer(serializers.ModelSerializer):
+    partner_id = serializers.SerializerMethodField()
+    partner_name = serializers.SerializerMethodField()
+
+    def _get_partner_from_message_alert(self, obj):
+        if obj.related_model != 'Message' or not obj.related_object_id:
+            return None
+
+        try:
+            message = Message.objects.select_related('sender', 'receiver').get(pk=obj.related_object_id)
+        except Message.DoesNotExist:
+            return None
+
+        request = self.context.get('request')
+        current_user = getattr(request, 'user', None)
+        if not current_user or not getattr(current_user, 'is_authenticated', False):
+            return message.sender
+
+        if message.sender_id == current_user.id:
+            return message.receiver
+        if message.receiver_id == current_user.id:
+            return message.sender
+        return message.sender
+
+    def get_partner_id(self, obj):
+        partner = self._get_partner_from_message_alert(obj)
+        return partner.id if partner else None
+
+    def get_partner_name(self, obj):
+        partner = self._get_partner_from_message_alert(obj)
+        return _display_name_for_user(partner) if partner else None
+
     class Meta:
         model = SystemAlert
-        fields = ['id', 'title', 'message', 'is_read', 'created_at', 'related_model', 'related_object_id']
+        fields = [
+            'id',
+            'title',
+            'message',
+            'is_read',
+            'created_at',
+            'related_model',
+            'related_object_id',
+            'partner_id',
+            'partner_name',
+        ]
         read_only_fields = ['created_at']
 
 class CreateSystemAlertSerializer(serializers.ModelSerializer):
