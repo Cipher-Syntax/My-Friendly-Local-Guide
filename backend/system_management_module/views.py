@@ -184,6 +184,39 @@ class UserAlertMarkReadView(generics.UpdateAPIView):
         instance.save(update_fields=['is_read'])
         return Response(self.get_serializer(instance).data)
 
+
+class UserAlertMarkAllReadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        updated = SystemAlert.objects.filter(
+            recipient=request.user,
+            is_read=False,
+        ).update(is_read=True)
+        return Response({'detail': 'All notifications marked as read.', 'updated': updated}, status=status.HTTP_200_OK)
+
+
+class UserAlertDeleteView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = SystemAlertSerializer
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        return SystemAlert.objects.filter(recipient=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserAlertDeleteAllView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request):
+        deleted_count, _ = SystemAlert.objects.filter(recipient=request.user).delete()
+        return Response({'detail': 'All notifications deleted.', 'deleted': deleted_count}, status=status.HTTP_200_OK)
+
 class UnreadAlertCountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

@@ -31,19 +31,53 @@ def create_alert_for_new_message(sender, instance, created, **kwargs):
         receiver = instance.receiver
         receiver_role = 'Guide' if getattr(receiver, 'is_local_guide', False) else 'Tourist'
 
-        SystemAlert.objects.create(
-            target_type=receiver_role,
+        sender_name = _display_name_for_user(instance.sender)
+        unread_from_sender = Message.objects.filter(
+            sender=instance.sender,
+            receiver=receiver,
+            is_read=False,
+        ).count()
+
+        if unread_from_sender > 1:
+            alert_message = f"You have {unread_from_sender} new messages from {sender_name}"
+        else:
+            alert_message = f"You received a message from {sender_name}"
+
+        # Keep one unread "New Message" alert per sender to avoid notification spam.
+        existing_alert = None
+        candidate_alerts = SystemAlert.objects.filter(
             recipient=receiver,
             title="New Message",
-            message=f"You received a message from {instance.sender.username}",
             related_model='Message',
-            related_object_id=instance.id
-        )
+            is_read=False,
+        ).order_by('-created_at')[:50]
+
+        for alert in candidate_alerts:
+            if not alert.related_object_id:
+                continue
+            related_message = Message.objects.filter(pk=alert.related_object_id).only('sender_id').first()
+            if related_message and related_message.sender_id == instance.sender_id:
+                existing_alert = alert
+                break
+
+        if existing_alert:
+            existing_alert.message = alert_message
+            existing_alert.related_object_id = instance.id
+            existing_alert.save(update_fields=['message', 'related_object_id'])
+        else:
+            SystemAlert.objects.create(
+                target_type=receiver_role,
+                recipient=receiver,
+                title="New Message",
+                message=alert_message,
+                related_model='Message',
+                related_object_id=instance.id
+            )
 
         send_push_to_user(
             user=receiver,
             title='New Message',
-            body=f"You received a message from {instance.sender.username}",
+            body=alert_message,
             data=build_alert_push_data(
                 alert_type='new_message',
                 related_model='Message',
