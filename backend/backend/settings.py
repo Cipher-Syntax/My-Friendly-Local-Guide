@@ -249,3 +249,6 @@ STORAGES = {
 GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID')
 
 CRON_SECRET_KEY = config('CRON_SECRET_KEY')
+
+# Optional Expo access token for authenticated Expo Push API requests.
+EXPO_ACCESS_TOKEN = config('EXPO_ACCESS_TOKEN', default='')
