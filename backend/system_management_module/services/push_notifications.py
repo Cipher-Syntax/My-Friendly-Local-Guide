@@ -32,7 +32,9 @@ def _expo_headers():
     }
     access_token = getattr(settings, 'EXPO_ACCESS_TOKEN', None)
     if access_token:
-        headers['Authorization'] = f'Bearer {access_token}'
+        sanitized_token = str(access_token).strip()
+        if sanitized_token:
+            headers['Authorization'] = f'Bearer {sanitized_token}'
     return headers
 
 
