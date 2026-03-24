@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, Star, Award, Phone, Mail, CheckCircle, UserX } from 'lucide-react';
+import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
 export default function TourGuideList({ searchTerm, setSearchTerm, filteredGuides, currentSelectedBooking, selectedBookingId, assignGuide }) {
 
@@ -73,7 +74,7 @@ export default function TourGuideList({ searchTerm, setSearchTerm, filteredGuide
                                         </div>
                                         <div className="flex items-center gap-2 text-slate-400">
                                             <Phone className="w-3 h-3" />
-                                            <span className="truncate">{guide.phone}</span>
+                                            <span className="truncate">{formatPHPhoneLocal(guide.phone) || guide.phone}</span>
                                         </div>
                                         <div className="flex items-center gap-2 text-slate-400">
                                             <Mail className="w-3 h-3" />

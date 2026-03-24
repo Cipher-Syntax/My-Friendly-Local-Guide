@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Plus, User, Phone, Book, Languages, Loader2, Mail, Pencil } from 'lucide-react';
+import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
 export default function AddGuideModal({
     isAddGuideModalOpen,
@@ -68,7 +69,7 @@ export default function AddGuideModal({
                                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed placeholder-slate-400 dark:placeholder-slate-500"
                                 placeholder="09..."
                                 value={newGuideForm.phone}
-                                onChange={(e) => setNewGuideForm({ ...newGuideForm, phone: e.target.value })}
+                                onChange={(e) => setNewGuideForm({ ...newGuideForm, phone: formatPHPhoneLocal(e.target.value) })}
                             />
                         </div>
                         <div className="space-y-1">

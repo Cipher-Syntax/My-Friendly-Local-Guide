@@ -12,6 +12,7 @@ import AgencyEarnings from '../components/agency/AgencyEarnings';
 import AgencySettings from '../components/agency/AgencySettings'; // <--- NEW IMPORT
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
+import { formatPHPhoneLocal, normalizePHPhone } from '../utils/phoneNumber';
 
 import { useAgencyDashboardData, availableLanguages } from '../hooks/useAgencyDashboardData';
 
@@ -96,7 +97,7 @@ export default function AgencyLayout() {
                     rating: 5.0,
                     tours: 0,
                     available: g.is_active,
-                    phone: g.contact_number,
+                    phone: formatPHPhoneLocal(g.contact_number),
                     email: g.email || "contact@agency.com",
                     avatar: g.first_name.charAt(0)
                 }));
@@ -185,11 +186,17 @@ export default function AgencyLayout() {
 
     const handleSaveGuide = async () => {
         try {
+            const normalizedPhone = normalizePHPhone(newGuideForm.phone);
+            if (!normalizedPhone) {
+                showToast("Please enter a valid PH mobile number for the guide.", "error");
+                return;
+            }
+
             const nameParts = newGuideForm.fullName.split(' ');
             const payload = {
                 first_name: nameParts[0],
                 last_name: nameParts.slice(1).join(' ') || '.',
-                contact_number: newGuideForm.phone,
+                contact_number: normalizedPhone,
                 email: newGuideForm.email,
                 specialization: newGuideForm.specialty,
                 languages: newGuideForm.languages,

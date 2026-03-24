@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Phone, Percent, Building, User, Mail, Info, CheckCircle, AlertCircle as AlertIcon } from 'lucide-react';
 import api from '../../api/api';
+import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
 
 export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
     const [isLoading, setIsLoading] = useState(false);
@@ -11,7 +12,7 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
     // Editable Fields
     const [businessName, setBusinessName] = useState(profileData.business_name || '');
     const [ownerName, setOwnerName] = useState(profileData.owner_name || '');
-    const [phone, setPhone] = useState(profileData.phone || '');
+    const [phone, setPhone] = useState(formatPHPhoneLocal(profileData.phone || ''));
     const [downPayment, setDownPayment] = useState(profileData.down_payment_percentage || 30);
 
     // Read-only field
@@ -21,7 +22,7 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
         if (profileData) {
             setBusinessName(profileData.business_name || '');
             setOwnerName(profileData.owner_name || '');
-            setPhone(profileData.phone || '');
+            setPhone(formatPHPhoneLocal(profileData.phone || ''));
             setDownPayment(profileData.down_payment_percentage || 30);
         }
     }, [profileData]);
@@ -35,10 +36,17 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
     const handleSaveSettings = async () => {
         setIsLoading(true);
         try {
+            const normalizedPhone = normalizePHPhone(phone);
+            if (!normalizedPhone) {
+                showFeedback("Please enter a valid PH mobile number.", "error");
+                setIsLoading(false);
+                return;
+            }
+
             await api.patch('api/agency/profile/', {
                 business_name: businessName,
                 owner_name: ownerName,
-                phone: phone,
+                phone: normalizedPhone,
                 down_payment_percentage: downPayment
             });
 
@@ -131,7 +139,7 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                             <input
                                 type="text"
                                 value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
+                                onChange={(e) => setPhone(formatPHPhoneLocal(e.target.value))}
                                 className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
                                 placeholder="+63 912 345 6789"
                             />

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { registerAgency } from '../api/auth';
+import { formatPHPhoneLocal, normalizePHPhone } from '../utils/phoneNumber';
 
 const AgencyRegistrationForm = () => {
 	const [formData, setFormData] = useState({
@@ -17,7 +18,11 @@ const AgencyRegistrationForm = () => {
 	const [success, setSuccess] = useState(false);
 
 	const handleChange = (e) => {
-		setFormData({ ...formData, [e.target.name]: e.target.value });
+		const { name, value } = e.target;
+		setFormData({
+			...formData,
+			[name]: name === 'phone_number' ? formatPHPhoneLocal(value) : value,
+		});
 	};
 
 	const handleSubmit = async (e) => {
@@ -33,7 +38,17 @@ const AgencyRegistrationForm = () => {
 		}
 
 		try {
-			const response = await registerAgency(formData);
+			const normalizedPhone = normalizePHPhone(formData.phone_number);
+			if (formData.phone_number && !normalizedPhone) {
+				setError('Please enter a valid PH mobile number');
+				setLoading(false);
+				return;
+			}
+
+			const response = await registerAgency({
+				...formData,
+				phone_number: normalizedPhone || '',
+			});
 			if (response.id) {
 				setSuccess(true);
 			} else {

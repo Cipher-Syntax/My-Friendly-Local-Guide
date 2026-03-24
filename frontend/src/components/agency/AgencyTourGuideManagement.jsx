@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, Plus, Star, Phone, Mail, Trash2, Pencil } from 'lucide-react';
+import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
 export default function AgencyTourGuideManagement({
     searchTerm,
@@ -99,7 +100,7 @@ export default function AgencyTourGuideManagement({
                         <div className="space-y-2 pt-4 border-t border-slate-200 dark:border-slate-700/50">
                             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium">
                                 <Phone className="w-4 h-4" />
-                                <span>{guide.phone}</span>
+                                <span>{formatPHPhoneLocal(guide.phone) || guide.phone}</span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium">
                                 <Mail className="w-4 h-4" />

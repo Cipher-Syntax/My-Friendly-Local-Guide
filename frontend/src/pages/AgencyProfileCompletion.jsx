@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Upload, Briefcase, ArrowRight } from 'lucide-react';
 import api from '../api/api';
+import { normalizePHPhone } from '../utils/phoneNumber';
 
 const AgencyProfileCompletion = () => {
     const navigate = useNavigate();
@@ -39,11 +40,18 @@ const AgencyProfileCompletion = () => {
         setIsLoading(true);
 
         try {
+            const normalizedPhone = normalizePHPhone(pendingData.phone);
+            if (!normalizedPhone) {
+                setError("Please provide a valid PH mobile number before submitting.");
+                setIsLoading(false);
+                return;
+            }
+
             const agencyFormData = new FormData();
             agencyFormData.append('business_name', pendingData.business_name);
             agencyFormData.append('owner_name', pendingData.owner_name);
             agencyFormData.append('email', pendingData.email); 
-            agencyFormData.append('phone', pendingData.phone);
+            agencyFormData.append('phone', normalizedPhone);
             agencyFormData.append('business_license', licenseFile); // The re-uploaded file
 
             await api.post(

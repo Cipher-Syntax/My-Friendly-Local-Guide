@@ -4,6 +4,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  #typ
 from rest_framework.exceptions import AuthenticationFailed
 from django.utils import timezone #type: ignore
 from .models import FeaturedPlace, AccommodationImage, GuideApplication, FavoriteGuide
+from .phone_utils import normalize_ph_phone
 from personalization.serializers import PersonalizationSerializer
 from agency_management_module.serializers import AgencySerializer
 
@@ -120,6 +121,9 @@ class UserSerializer(serializers.ModelSerializer):
         if queryset.exists():
             raise serializers.ValidationError('Email already exists')
         return value
+
+    def validate_phone_number(self, value):
+        return normalize_ph_phone(value, "phone_number")
     
     def validate(self, data):
         password = data.get('password')

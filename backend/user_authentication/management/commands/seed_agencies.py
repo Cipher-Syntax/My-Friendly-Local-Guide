@@ -20,7 +20,7 @@ class Command(BaseCommand):
                 'bio': 'Reliable and friendly tour agency specializing in outdoor adventures.',
                 'business_name': 'Sunshine Tours Inc.', # Agency Field
                 'owner_name': 'Mr. Sunshine',           # Agency Field
-                'phone': '09123456789',                 # Agency Field
+                'phone': '+639123456789',               # Agency Field
             },
             {
                 'username': 'adventureseekers',
@@ -31,7 +31,7 @@ class Command(BaseCommand):
                 'bio': 'For thrill-seekers and adventure lovers seeking unforgettable experiences.',
                 'business_name': 'Adventure Seekers Co.',
                 'owner_name': 'John Adventurer',
-                'phone': '09987654321',
+                'phone': '+639987654321',
             },
             {
                 'username': 'cityexplorers',
@@ -42,7 +42,7 @@ class Command(BaseCommand):
                 'bio': 'Explore cities and urban landmarks with our knowledgeable guides.',
                 'business_name': 'City Explorers Ltd.',
                 'owner_name': 'Jane City',
-                'phone': '09112223333',
+                'phone': '+639112223333',
             },
         ]
 

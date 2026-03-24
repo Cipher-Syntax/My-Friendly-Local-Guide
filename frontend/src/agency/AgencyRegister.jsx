@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Globe, ArrowRight, Loader2, Upload, CheckCircle, ShieldCheck, Mail, User, Lock, Building2, Phone, Briefcase } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/api';
+import { formatPHPhoneLocal, normalizePHPhone } from '../utils/phoneNumber';
 
 const AgencyRegister = () => {
     const navigate = useNavigate();
@@ -35,7 +36,9 @@ const AgencyRegister = () => {
     }, []);
 
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        const nextValue = name === 'phone' ? formatPHPhoneLocal(value) : value;
+        setFormData({ ...formData, [name]: nextValue });
         if (error) setError(null);
     };
 
@@ -58,6 +61,12 @@ const AgencyRegister = () => {
             return;
         }
 
+        const normalizedPhone = normalizePHPhone(formData.phone);
+        if (!normalizedPhone) {
+            setError("Please enter a valid PH mobile number.");
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -73,7 +82,7 @@ const AgencyRegister = () => {
             const pendingData = {
                 business_name: formData.business_name,
                 owner_name: formData.owner_name,
-                phone: formData.phone,
+                phone: normalizedPhone,
                 email: formData.email
             };
             localStorage.setItem('pending_agency_data', JSON.stringify(pendingData));

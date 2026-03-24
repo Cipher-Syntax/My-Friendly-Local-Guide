@@ -21,6 +21,7 @@ from .models import Payment
 from .serializers import PaymentSerializer, PaymentInitiationSerializer
 from system_management_module.models import SystemAlert
 from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
+from user_authentication.phone_utils import normalize_ph_phone
 
 from .paymongo import create_checkout_session, retrieve_checkout_session
 
@@ -163,10 +164,17 @@ class PaymentInitiationView(APIView):
             status="pending",
         )
 
+        normalized_phone = ""
+        if user.phone_number:
+            try:
+                normalized_phone = normalize_ph_phone(user.phone_number, "phone_number")
+            except DRFValidationError:
+                normalized_phone = ""
+
         billing_data = {
             "name": f"{user.first_name} {user.last_name}",
             "email": user.email,
-            "phone": user.phone_number or ""
+            "phone": normalized_phone
         }
         
         try:

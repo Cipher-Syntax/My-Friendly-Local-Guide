@@ -6,6 +6,7 @@ from rest_framework.views import APIView #type: ignore
 from django.core.mail import send_mail #type: ignore
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from rest_framework.exceptions import ValidationError #type: ignore
 
 from .models import GuideReviewRequest, SystemAlert
 from .models import PushDeviceToken
@@ -21,6 +22,7 @@ from .serializers import (
     PushTokenRegisterSerializer,
     PushTokenUnregisterSerializer,
 )
+from user_authentication.phone_utils import normalize_ph_phone
 
 User = get_user_model()
 
@@ -34,9 +36,16 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
         data = request.data
         files = request.FILES
 
+        normalized_phone = data.get('phone_number', user.phone_number)
+        if normalized_phone:
+            try:
+                normalized_phone = normalize_ph_phone(normalized_phone, 'phone_number')
+            except ValidationError as exc:
+                return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
+
         user.first_name = data.get('first_name', user.first_name)
         user.last_name = data.get('last_name', user.last_name)
-        user.phone_number = data.get('phone_number', user.phone_number)
+        user.phone_number = normalized_phone
         user.location = data.get('address', user.location) 
         user.apply_as_guide() 
         user.save()

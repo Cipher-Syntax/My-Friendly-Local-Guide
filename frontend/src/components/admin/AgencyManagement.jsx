@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Eye, Check, X, Loader2, Building, Shield, CheckCircle, AlertCircle, XCircle, Filter } from 'lucide-react';
 import api from '../../api/api';
+import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
 const getStatusColor = (isApproved) => {
     return isApproved
@@ -245,7 +246,7 @@ export default function AgencyManagement() {
                                 </div>
                                 <div className="bg-slate-50 dark:bg-slate-900/30 p-3 rounded-xl border border-slate-200 dark:border-slate-700/30">
                                     <p className="text-slate-500 dark:text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">Phone</p>
-                                    <p className="text-slate-900 dark:text-white font-medium">{reviewingItem.phone || 'N/A'}</p>
+                                    <p className="text-slate-900 dark:text-white font-medium">{reviewingItem.phone ? formatPHPhoneLocal(reviewingItem.phone) : 'N/A'}</p>
                                 </div>
                             </div>
 

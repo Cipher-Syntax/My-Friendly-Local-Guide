@@ -1,5 +1,6 @@
 from rest_framework import serializers #type: ignore
 from .models import Agency, TouristGuide
+from user_authentication.phone_utils import normalize_ph_phone
 
 class AgencySerializer(serializers.ModelSerializer):
     profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
@@ -25,11 +26,17 @@ class AgencySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ("is_approved", "created_at")
 
+    def validate_phone(self, value):
+        return normalize_ph_phone(value, "phone")
+
 class TouristGuideSerializer(serializers.ModelSerializer):
     class Meta:
         model = TouristGuide
         fields = "__all__"
         read_only_fields = ("agency", "is_active", "created_at")
+
+    def validate_contact_number(self, value):
+        return normalize_ph_phone(value, "contact_number")
 
 class AgencyApprovalSerializer(serializers.ModelSerializer):
     class Meta:
