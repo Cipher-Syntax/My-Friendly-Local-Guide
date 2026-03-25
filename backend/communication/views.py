@@ -43,13 +43,35 @@ class ConversationListView(generics.ListAPIView):
                 partner_ids.add(r)
                 
         partners = User.objects.filter(id__in=partner_ids)
-        
-        data = [{
-            'id': p.id,
-            'username': p.username,
-            'full_name': p.get_full_name(),
-            'display_name': _display_name_for_user(p),
-        } for p in partners]
+
+        data = []
+        for partner in partners:
+            thread = Message.objects.filter(
+                Q(sender=user, receiver=partner) | Q(sender=partner, receiver=user)
+            )
+            latest = thread.order_by('-timestamp').first()
+            unread_count = Message.objects.filter(
+                sender=partner,
+                receiver=user,
+                is_read=False,
+            ).count()
+
+            data.append({
+                'id': partner.id,
+                'username': partner.username,
+                'full_name': partner.get_full_name(),
+                'display_name': _display_name_for_user(partner),
+                'profile_picture': getattr(partner, 'profile_picture', None),
+                'last_message': latest.content if latest else '',
+                'last_message_timestamp': latest.timestamp if latest else None,
+                'last_message_ts': latest.timestamp.timestamp() if latest else 0,
+                'unread_count': unread_count,
+            })
+
+        data.sort(
+            key=lambda item: item.get('last_message_ts') or 0,
+            reverse=True,
+        )
         
         return Response(data)
 
