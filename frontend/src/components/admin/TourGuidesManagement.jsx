@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Eye, Check, X, Image as ImageIcon, Loader2, FileText, Shield, Ban, ExternalLink, CheckCircle, AlertCircle, XCircle, Filter } from 'lucide-react';
 import api from '../../api/api';
+import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
 const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -242,6 +243,7 @@ export default function TourGuidesManagement() {
                                         <tr>
                                             <th className="px-6 py-4">Applicant Name</th>
                                             <th className="px-6 py-4">Contact Email</th>
+                                            <th className="px-6 py-4">Phone Number</th>
                                             <th className="px-6 py-4">Status</th>
                                             <th className="px-6 py-4 text-right">Actions</th>
                                         </tr>
@@ -257,6 +259,9 @@ export default function TourGuidesManagement() {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     {guide.email}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    {guide.phone_number ? formatPHPhoneLocal(guide.phone_number) : 'N/A'}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider inline-block ${getStatusColor(guide.status)}`}>
@@ -332,6 +337,9 @@ export default function TourGuidesManagement() {
                                     <p className="text-slate-500 dark:text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">Applicant</p>
                                     <p className="text-slate-900 dark:text-white font-bold text-lg">{selectedGuide.name}</p>
                                     <p className="text-cyan-600 dark:text-cyan-400 text-sm font-medium">{selectedGuide.email}</p>
+                                    <p className="text-slate-600 dark:text-slate-300 text-sm font-medium mt-1">
+                                        {selectedGuide.phone_number ? formatPHPhoneLocal(selectedGuide.phone_number) : 'N/A'}
+                                    </p>
                                 </div>
                                 <div className={`px-4 py-2 rounded-lg border ${getStatusColor(selectedGuide.status)}`}>
                                     <span className="text-sm font-black uppercase">{selectedGuide.status}</span>

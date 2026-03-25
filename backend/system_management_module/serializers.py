@@ -28,6 +28,7 @@ class AdminGuideReviewSerializer(serializers.ModelSerializer):
   
     name = serializers.SerializerMethodField()
     email = serializers.EmailField(source='applicant.email', read_only=True)
+    phone_number = serializers.CharField(source='applicant.phone_number', read_only=True)
     specialty = serializers.CharField(source='applicant.specialty', read_only=True)
     languages = serializers.JSONField(source='applicant.languages', read_only=True)
     
@@ -36,10 +37,10 @@ class AdminGuideReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = GuideReviewRequest
         fields = [
-            'id', 'name', 'email', 'specialty', 'languages', 
+            'id', 'name', 'email', 'phone_number', 'specialty', 'languages', 
             'status', 'credentials', 'submission_date', 'admin_notes'
         ]
-        read_only_fields = ['id', 'name', 'email', 'specialty', 'languages', 'credentials', 'submission_date']
+        read_only_fields = ['id', 'name', 'email', 'phone_number', 'specialty', 'languages', 'credentials', 'submission_date']
 
     def get_name(self, obj):
         return obj.applicant.get_full_name() or obj.applicant.username
