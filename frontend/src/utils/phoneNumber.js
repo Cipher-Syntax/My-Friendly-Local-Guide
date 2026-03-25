@@ -13,12 +13,14 @@ export const normalizePHPhone = (value = '') => {
 
 export const formatPHPhoneLocal = (value = '') => {
   const normalized = normalizePHPhone(value);
-  const digits = normalized ? normalized.slice(3) : digitsOnly(value).replace(/^63/, '').replace(/^0/, '');
+  const digits = normalized
+    ? `0${normalized.slice(3)}`
+    : digitsOnly(value).replace(/^63/, '0').replace(/^9/, '09');
 
   if (!digits) return '';
 
-  const mobile = digits.slice(0, 10);
-  if (mobile.length <= 4) return `0${mobile}`;
-  if (mobile.length <= 7) return `0${mobile.slice(0, 4)} ${mobile.slice(4)}`;
-  return `0${mobile.slice(0, 4)} ${mobile.slice(4, 7)} ${mobile.slice(7, 10)}`.trim();
+  const mobile = digits.slice(0, 11);
+  if (mobile.length <= 4) return mobile;
+  if (mobile.length <= 7) return `${mobile.slice(0, 4)} ${mobile.slice(4)}`.trim();
+  return `${mobile.slice(0, 4)} ${mobile.slice(4, 7)} ${mobile.slice(7, 11)}`.trim();
 };
