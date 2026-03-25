@@ -25,6 +25,24 @@ def _display_name_for_user(user):
 
     return 'User'
 
+
+def _safe_profile_picture_value(user):
+    image = getattr(user, 'profile_picture', None)
+    if not image:
+        return None
+
+    try:
+        url = image.url
+        return str(url) if url else None
+    except Exception:
+        pass
+
+    try:
+        name = getattr(image, 'name', None)
+        return str(name) if name else None
+    except Exception:
+        return None
+
 class ConversationListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -61,7 +79,7 @@ class ConversationListView(generics.ListAPIView):
                 'username': partner.username,
                 'full_name': partner.get_full_name(),
                 'display_name': _display_name_for_user(partner),
-                'profile_picture': getattr(partner, 'profile_picture', None),
+                'profile_picture': _safe_profile_picture_value(partner),
                 'last_message': latest.content if latest else '',
                 'last_message_timestamp': latest.timestamp if latest else None,
                 'last_message_ts': latest.timestamp.timestamp() if latest else 0,
