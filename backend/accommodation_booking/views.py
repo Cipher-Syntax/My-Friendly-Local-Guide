@@ -739,6 +739,7 @@ class AssignGuidesView(generics.UpdateAPIView):
         return Response(self.get_serializer(booking).data)
 
 class CleanupZombieBookingsView(APIView):
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
