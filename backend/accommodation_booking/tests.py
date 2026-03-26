@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from destinations_and_attractions.models import Destination
+from destinations_and_attractions.models import Destination, TourPackage
 
 from .models import Accommodation, Booking
 from .serializers import BookingSerializer
@@ -95,6 +95,36 @@ class AccommodationBookingSerializerTests(TestCase):
 		)
 		self.assertFalse(serializer.is_valid())
 		self.assertIn("check_out", serializer.errors)
+
+	def test_num_guests_above_tour_max_pax_fails(self):
+		package = TourPackage.objects.create(
+			guide=self.guide,
+			main_destination=self.destination,
+			name="Palawan Day Tour",
+			description="Island hopping",
+			duration="2 days",
+			duration_days=2,
+			max_group_size=10,
+			price_per_day="3000.00",
+			solo_price="3500.00",
+		)
+
+		class DummyRequest:
+			data = {"tour_package_id": str(package.id)}
+
+		serializer = BookingSerializer(
+			data={
+				"guide": self.guide.id,
+				"destination": self.destination.id,
+				"check_in": str(date.today() + timedelta(days=10)),
+				"check_out": str(date.today() + timedelta(days=11)),
+				"num_guests": 999,
+			},
+			context={"request": DummyRequest()},
+		)
+
+		self.assertFalse(serializer.is_valid())
+		self.assertIn("num_guests", serializer.errors)
 
 
 class AccommodationBookingApiTests(TestCase):

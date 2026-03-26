@@ -228,14 +228,20 @@ class BookingSerializer(serializers.ModelSerializer):
             accommodation = data.get('accommodation', self.instance.accommodation)
             guide = data.get('guide', self.instance.guide)
             agency = data.get('agency', self.instance.agency)
+            destination = data.get('destination', self.instance.destination)
             check_in = data.get('check_in', self.instance.check_in)
             check_out = data.get('check_out', self.instance.check_out)
+            num_guests = data.get('num_guests', self.instance.num_guests)
+            selected_package = data.get('tour_package', self.instance.tour_package)
         else:
             accommodation = data.get('accommodation')
             guide = data.get('guide')
             agency = data.get('agency')
+            destination = data.get('destination')
             check_in = data.get('check_in')
             check_out = data.get('check_out')
+            num_guests = data.get('num_guests', 1)
+            selected_package = data.get('tour_package')
 
         if check_in and check_out:
             # FIX: Only raise an error if checkout is BEFORE checkin. Same-day (1-day tour) is now perfectly legal!
@@ -252,5 +258,44 @@ class BookingSerializer(serializers.ModelSerializer):
 
         if not (is_guide or is_accommodation or is_agency):
             raise serializers.ValidationError("A booking must target a Guide, Accommodation, or Agency.")
+
+        # Enforce max pax from selected tour package when booking a guide.
+        if guide:
+            request = self.context.get('request')
+            requested_tour_id = None
+            if request:
+                requested_tour_id = request.data.get('tour_package_id') or request.data.get('tour_package')
+
+            if not selected_package and requested_tour_id:
+                package_qs = TourPackage.objects.filter(
+                    id=requested_tour_id,
+                    guide=guide,
+                    is_active=True,
+                )
+                if destination:
+                    package_qs = package_qs.filter(main_destination=destination)
+                selected_package = package_qs.first()
+
+            if not selected_package and destination and check_in and check_out:
+                trip_days = max((check_out - check_in).days + 1, 1)
+                selected_package = TourPackage.objects.filter(
+                    guide=guide,
+                    main_destination=destination,
+                    is_active=True,
+                    duration_days=trip_days,
+                ).order_by('-created_at', '-id').first()
+
+            try:
+                guests_count = int(num_guests or 1)
+            except (TypeError, ValueError):
+                guests_count = 1
+
+            if selected_package and guests_count > selected_package.max_group_size:
+                raise serializers.ValidationError({
+                    'num_guests': (
+                        f"Maximum guests for '{selected_package.name}' is "
+                        f"{selected_package.max_group_size}."
+                    )
+                })
 
         return data
