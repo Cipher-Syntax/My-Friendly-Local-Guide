@@ -17,6 +17,8 @@ from system_management_module.models import SystemAlert
 from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
 from destinations_and_attractions.models import TourPackage  
 
+from rest_framework.views import APIView
+from .models import Booking
 
 def format_booking_date_display(check_in, check_out):
     if not check_in:
@@ -735,3 +737,26 @@ class AssignGuidesView(generics.UpdateAPIView):
             booking.assigned_agency_guides.add(guide_id)
             
         return Response(self.get_serializer(booking).data)
+
+class CleanupZombieBookingsView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        expected_token = getattr(settings, 'CRON_SECRET_TOKEN')
+        provided_token = request.query_params.get('token')
+
+        if provided_token != expected_token:
+            return Response({"error": "Unauthorized access"}, status=403)
+
+        threshold_time = timezone.now() - timedelta(minutes=30)
+        zombie_bookings = Booking.objects.filter(
+            status='Pending_Payment',
+            created_at__lt=threshold_time
+        )
+        
+        count = zombie_bookings.count()
+        if count > 0:
+            zombie_bookings.delete()
+            return Response({"status": "success", "message": f"Successfully deleted {count} zombie bookings."})
+        
+        return Response({"status": "success", "message": "No zombie bookings found."})

@@ -5,7 +5,8 @@ from .views import (
     BookingViewSet, 
     BookingStatusUpdateView, 
     AssignGuidesView,
-    AccommodationDropdownListView
+    AccommodationDropdownListView,
+    CleanupZombieBookingsView,
 )
 from django.conf import settings
 from django.conf.urls.static import static
@@ -26,6 +27,7 @@ urlpatterns = [
         AssignGuidesView.as_view(),
         name='assign-guides'
     ),
+    path('cleanup-zombies/', CleanupZombieBookingsView.as_view(), name='cleanup-zombies'),
     path('', include(router.urls)),
 ]
 
