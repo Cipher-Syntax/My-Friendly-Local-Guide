@@ -743,10 +743,10 @@ class CleanupZombieBookingsView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        expected_token = getattr(settings, 'CRON_SECRET_TOKEN')
-        provided_token = request.query_params.get('token')
+        expected_key = getattr(settings, 'CRON_SECRET_KEY')
+        provided_key = request.GET.get('key') or request.headers.get('Authorization')
 
-        if provided_token != expected_token:
+        if provided_key != expected_key:
             return Response({"error": "Unauthorized access"}, status=403)
 
         threshold_time = timezone.now() - timedelta(minutes=30)
