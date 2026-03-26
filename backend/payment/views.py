@@ -171,6 +171,7 @@ class PaymentInitiationView(APIView):
                 
                 if normalized_phone.startswith("+63"):
                     normalized_phone = "0" + normalized_phone[3:]
+                    
             except DRFValidationError:
                 normalized_phone = ""
 
@@ -185,6 +186,10 @@ class PaymentInitiationView(APIView):
             
             if 'card' in raw_method: 
                 paymongo_types = ['card']
+            elif 'paymaya' in raw_method or 'maya' in raw_method:
+                paymongo_types = ['paymaya']
+            elif 'qrph' in raw_method:
+                paymongo_types = ['qrph']
             else:
                 paymongo_types = ['gcash']
 
