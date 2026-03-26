@@ -1,0 +1,34 @@
+[run]
+branch = True
+source =
+    accommodation_booking
+    agency_management_module
+    communication
+    destinations_and_attractions
+    payment
+    personalization
+    report
+    reviews_ratings
+    system_management_module
+    user_authentication
+omit =
+    */migrations/*
+    */tests.py
+    */test_*.py
+    */admin.py
+    */apps.py
+    */__init__.py
+
+[report]
+show_missing = True
+skip_covered = True
+precision = 2
+exclude_lines =
+    pragma: no cover
+    def __str__
+    if settings.DEBUG
+    if __name__ == .__main__.:
+
+[html]
+directory = htmlcov
+title = My Friendly Local Guide Backend Coverage
