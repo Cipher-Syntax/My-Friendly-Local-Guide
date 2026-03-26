@@ -168,6 +168,9 @@ class PaymentInitiationView(APIView):
         if user.phone_number:
             try:
                 normalized_phone = normalize_ph_phone(user.phone_number, "phone_number")
+                
+                if normalized_phone.startswith("+63"):
+                    normalized_phone = "0" + normalized_phone[3:]
             except DRFValidationError:
                 normalized_phone = ""
 
