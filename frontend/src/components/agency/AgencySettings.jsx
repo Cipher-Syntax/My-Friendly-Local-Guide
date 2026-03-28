@@ -57,8 +57,8 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                 down_payment_percentage: downPayment
             });
 
-            // 2. Update User Data (Online/Offline Status)
-            await api.patch('api/user/update/', {
+            // 2. FIXED: Send the Online/Offline Status to the correct User endpoint!
+            await api.patch('api/profile/', {
                 is_guide_visible: isOnline
             });
 
