@@ -50,7 +50,6 @@ class UserSerializer(serializers.ModelSerializer):
     has_pending_application = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
     
-    # NEW: Add setup_progress field
     setup_progress = serializers.SerializerMethodField()
     personalization_profile = PersonalizationSerializer(read_only=True)
     
@@ -76,7 +75,7 @@ class UserSerializer(serializers.ModelSerializer):
             'guide_application', 
             
             'has_pending_application', 'full_name',
-            'setup_progress', # Include in fields
+            'setup_progress', 
         ]
         read_only_fields = ('guide_approved', 'date_joined', 'guide_rating')
 
@@ -228,6 +227,13 @@ class AgencyTokenObtainPairSerializer(TokenObtainPairSerializer):
             })
             
         return data
+
+class FavoriteGuideSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FavoriteGuide
+        fields = ['id', 'user', 'guide', 'created_at']
+        read_only_fields = ['user', 'created_at']
+
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
