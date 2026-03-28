@@ -300,7 +300,8 @@ class AdminDashboardSummaryView(APIView):
         pending_guides = User.objects.filter(is_local_guide=True, guide_approved=False).count()
         
         total_agencies = Agency.objects.count()
-        pending_agencies = Agency.objects.filter(is_approved=False).count()
+        # NEW FIXED CODE
+        pending_agencies = Agency.objects.filter(status='Pending').count()
 
         total_users = total_tourists + total_guides + total_agencies
 
