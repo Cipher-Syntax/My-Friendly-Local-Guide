@@ -739,7 +739,6 @@ class DeactivateAccountView(APIView):
         user = request.user
         user.is_active = False 
         user.deactivated_at = timezone.now()
-        # --- CHANGED: Now gives them 365 days until deletion ---
         user.scheduled_deletion_date = timezone.now() + timedelta(days=365)
         user.save()
         
@@ -775,13 +774,16 @@ class ReactivateAccountView(APIView):
         user.save()
 
         refresh = RefreshToken.for_user(user)
+        
+        # FIXED: Serialize the full user object so the frontend handleNavigation logic works correctly
+        user_data = UserSerializer(user).data
+        
         return Response({
             "detail": "Account reactivated successfully.",
             "access": str(refresh.access_token),
             "refresh": str(refresh),
-            "user": user.username
+            "user": user_data 
         }, status=status.HTTP_200_OK)
-
 
 class ArchivedAccountsListView(generics.ListAPIView):
     serializer_class = UserSerializer
