@@ -42,7 +42,6 @@ class AgencyRegisterView(generics.CreateAPIView):
     def perform_create(self, serializer):
         user = self.request.user
         
-        # Prevent duplicate agencies for the same user to avoid IntegrityError
         if Agency.objects.filter(user=user).exists():
             raise ValidationError({"detail": "An agency is already registered for this user account."})
 
@@ -110,7 +109,9 @@ class TouristGuideCreateView(generics.CreateAPIView):
             raise PermissionDenied("You must be a registered Agency to add guides.")
             
         agency = user.agency_profile
-        if not agency.is_approved:
+        
+        # Check against the new string status instead of boolean
+        if agency.status != 'Approved':
             raise PermissionDenied("Your agency must be approved before adding guides.")
         
         if user.guide_tier == 'free':

@@ -5,6 +5,12 @@ from django.core.exceptions import ValidationError #type: ignore
 User = settings.AUTH_USER_MODEL
 
 class Agency(models.Model):
+    STATUS_CHOICES = (
+        ('Pending', 'Pending'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+    )
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='agency_profile', null=True, blank=True)
     
     business_name = models.CharField(max_length=255)
@@ -12,14 +18,14 @@ class Agency(models.Model):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20, blank=True)
     business_license = models.FileField(upload_to="agency/licenses/", null=True, blank=True)
-    is_approved = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
     
-    # NEW FIELD: Dynamic Downpayment Percentage
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
     down_payment_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=30.00, help_text="Required downpayment percentage (e.g., 30 for 30%)")
 
     def __str__(self):
-        return f"{self.business_name} ({'Approved' if self.is_approved else 'Pending'})"
+        return f"{self.business_name} ({self.status})"
 
 class TouristGuide(models.Model):
     agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name="tourist_guides")

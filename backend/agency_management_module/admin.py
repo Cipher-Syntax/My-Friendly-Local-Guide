@@ -5,8 +5,9 @@ from .models import TouristGuide, Agency # Adjust this import path if necessary
 # Register Agency model (example)
 @admin.register(Agency)
 class AgencyAdmin(admin.ModelAdmin):
-    list_display = ('business_name', 'owner_name', 'email', 'is_approved', 'created_at')
-    list_filter = ('is_approved',)
+    # FIX: Changed 'is_approved' to 'status'
+    list_display = ('business_name', 'owner_name', 'email', 'status', 'created_at')
+    list_filter = ('status',)
     search_fields = ('business_name', 'owner_name', 'email')
 
 

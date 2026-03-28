@@ -3,10 +3,10 @@ import { Search, Eye, Check, X, Loader2, Building, Shield, CheckCircle, AlertCir
 import api from '../../api/api';
 import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
-const getStatusColor = (isApproved) => {
-    return isApproved
-        ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/30'
-        : 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/30';
+const getStatusColor = (status) => {
+    if (status === 'Approved') return 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/30';
+    if (status === 'Rejected') return 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/30';
+    return 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/30';
 };
 
 export default function AgencyManagement() {
@@ -17,6 +17,7 @@ export default function AgencyManagement() {
 
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [reviewingItem, setReviewingItem] = useState(null);
+    const [isProcessing, setIsProcessing] = useState(false); // New Loading state for buttons
 
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
@@ -55,14 +56,14 @@ export default function AgencyManagement() {
                 a.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
             let matchesStatus = true;
-            if (statusFilter === 'Approved') matchesStatus = a.is_approved === true;
-            if (statusFilter === 'Pending') matchesStatus = a.is_approved === false;
+            if (statusFilter !== 'All') {
+                matchesStatus = a.status === statusFilter;
+            }
 
             return matchesSearch && matchesStatus;
         });
     }, [agencies, searchTerm, statusFilter]);
 
-    // Reset to first page when search or filter changes
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, statusFilter]);
@@ -72,24 +73,26 @@ export default function AgencyManagement() {
         setIsReviewModalOpen(true);
     };
 
-    const handleApproval = async (status) => {
+    const handleApproval = async (newStatus) => {
         if (!reviewingItem) return;
-        try {
-            const isApproved = status === 'approved';
+        setIsProcessing(true); // Disable buttons
 
+        try {
             await api.patch(`api/agency/${reviewingItem.id}/approve/`, {
-                is_approved: isApproved
+                status: newStatus
             });
 
             setAgencies(prev => prev.map(a =>
-                a.id === reviewingItem.id ? { ...a, is_approved: isApproved } : a
+                a.id === reviewingItem.id ? { ...a, status: newStatus } : a
             ));
 
             setIsReviewModalOpen(false);
-            showToast(`Agency ${isApproved ? 'approved' : 'rejected'} successfully.`, "success");
+            showToast(`Agency ${newStatus.toLowerCase()} successfully.`, "success");
         } catch (error) {
             console.error("Failed to update agency status:", error);
             showToast("Failed to update status.", "error");
+        } finally {
+            setIsProcessing(false); // Turn buttons back on
         }
     };
 
@@ -138,6 +141,7 @@ export default function AgencyManagement() {
                             <option value="All">All Statuses</option>
                             <option value="Pending">Pending</option>
                             <option value="Approved">Approved</option>
+                            <option value="Rejected">Rejected</option>
                         </select>
                     </div>
                 </div>
@@ -176,8 +180,8 @@ export default function AgencyManagement() {
                                             <td className="px-4 py-3">{agency.owner_name}</td>
                                             <td className="px-4 py-3">{agency.email}</td>
                                             <td className="px-4 py-3">
-                                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(agency.is_approved)}`}>
-                                                    {agency.is_approved ? "Approved" : "Pending"}
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(agency.status || 'Pending')}`}>
+                                                    {agency.status || 'Pending'}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3">
@@ -272,20 +276,22 @@ export default function AgencyManagement() {
                         </div>
 
                         {
-                            !reviewingItem.is_approved && (
+                            (reviewingItem.status === 'Pending' || !reviewingItem.status) && (
                                 <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
                                     <button
-                                        onClick={() => handleApproval('rejected')}
-                                        className="px-5 py-2.5 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 rounded-xl transition-colors font-semibold"
+                                        disabled={isProcessing}
+                                        onClick={() => handleApproval('Rejected')}
+                                        className="px-5 py-2.5 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 rounded-xl transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        Reject
+                                        {isProcessing ? 'Processing...' : 'Reject'}
                                     </button>
                                     <button
-                                        onClick={() => handleApproval('approved')}
-                                        className="px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-colors font-semibold shadow-lg shadow-green-500/20 flex items-center gap-2"
+                                        disabled={isProcessing}
+                                        onClick={() => handleApproval('Approved')}
+                                        className="px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-colors font-semibold shadow-lg shadow-green-500/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <CheckCircle className="w-4 h-4" />
-                                        Approve Agency
+                                        {isProcessing ? 'Processing...' : 'Approve Agency'}
                                     </button>
                                 </div>
                             )

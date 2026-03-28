@@ -17,14 +17,14 @@ class AgencySerializer(serializers.ModelSerializer):
             'email', 
             'phone', 
             'business_license', 
-            'is_approved', 
+            'status', 
             'created_at', 
             'profile_picture',
             'rating',     
             'review_count',
             'down_payment_percentage' 
         ]
-        read_only_fields = ("is_approved", "created_at")
+        read_only_fields = ("status", "created_at")
 
     def validate_phone(self, value):
         return normalize_ph_phone(value, "phone")
@@ -41,4 +41,4 @@ class TouristGuideSerializer(serializers.ModelSerializer):
 class AgencyApprovalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Agency
-        fields = ("is_approved",)
+        fields = ("status",)
