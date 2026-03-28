@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Building2, User, Lock, ArrowRight, Loader2, Globe, CheckCircle, RefreshCcw } from 'lucide-react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { jwtDecode } from "jwt-decode";
@@ -52,11 +52,13 @@ const Agencysignin = () => {
         { Icon: Mountain, top: '80%', left: '80%', delay: '1s', size: 24, opacity: 0.1 },
     ];
 
-    const isDeactivatedError = error && (
-        error.toLowerCase().includes('inactive') ||
-        error.toLowerCase().includes('deactivated') ||
-        error.toLowerCase().includes('reactivate')
-    );
+    // Enhanced: Detect deactivated error by code or string
+    const isDeactivatedError = useMemo(() => {
+        if (!error) return false;
+        if (typeof error === 'object' && error.code === 'account_deactivated') return true;
+        const errStr = typeof error === 'string' ? error.toLowerCase() : '';
+        return errStr.includes('inactive') || errStr.includes('deactivated') || errStr.includes('reactivate');
+    }, [error]);
 
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();
@@ -99,11 +101,14 @@ const Agencysignin = () => {
 
         } catch (err) {
             console.error("Agency Login Failed", err);
-
-            // THE FIX: Unpack the object if Django wraps the error in one!
+            // Enhanced: Unpack and preserve error code if present
             if (err.response && err.response.data && err.response.data.detail) {
                 const detailData = err.response.data.detail;
-                setError(typeof detailData === 'object' ? detailData.detail : detailData);
+                if (typeof detailData === 'object' && detailData.code === 'account_deactivated') {
+                    setError(detailData); // preserve object for code check
+                } else {
+                    setError(typeof detailData === 'object' ? detailData.detail : detailData);
+                }
             } else {
                 setError("Invalid credentials. Please verify your agency account.");
             }
