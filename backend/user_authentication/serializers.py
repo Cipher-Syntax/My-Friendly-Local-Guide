@@ -195,32 +195,29 @@ class AgencyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         username = attrs.get(self.username_field)
+        password = attrs.get('password')
+        
         user_exists = User.objects.filter(username=username).first()
 
-        if user_exists:
-            # 1. Intercept Deactivated Accounts FIRST
+        # 1. Intercept Deactivated Accounts ONLY if the password is correct
+        if user_exists and user_exists.check_password(password):
             if user_exists.scheduled_deletion_date is not None:
                 days_left = (user_exists.scheduled_deletion_date - timezone.now()).days
                 msg = f"Account deactivated. Scheduled for deletion in {days_left} days."
                 
-                raise AuthenticationFailed({
-                    "detail": msg, 
-                    "code": "account_deactivated",
-                    "scheduled_date": user_exists.scheduled_deletion_date
-                })
+                # Pass a simple string. The frontend's isDeactivatedError will catch it perfectly.
+                raise AuthenticationFailed(msg)
             
-            # 2. If it's inactive but NOT deactivated, they probably haven't verified their email
+            # 2. If it's inactive but NOT deactivated
             if not user_exists.is_active:
-                raise AuthenticationFailed({
-                    "detail": "User account is not active. Please verify your email."
-                })
+                raise AuthenticationFailed("User account is not active. Please verify your email.")
 
         try:
             data = super().validate(attrs)
         except AuthenticationFailed:
             raise AuthenticationFailed('Invalid Credentials.')
             
-        # 3. Check if they are an Agency or Staff!
+        # 3. Check if they are an Agency or Staff
         if not hasattr(self.user, 'agency_profile') and not self.user.is_staff:
             raise serializers.ValidationError({
                 "detail": "Access Denied. This portal is strictly for registered Agency Partners. Please use the mobile app to log in as a Tourist or Guide."
