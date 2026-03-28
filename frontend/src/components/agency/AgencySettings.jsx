@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Building2, User, Lock, ArrowRight, Loader2, Globe, CheckCircle, RefreshCcw } from 'lucide-react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { jwtDecode } from "jwt-decode";
-import api from '../api/api';
+import api from '../../api/api';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
 
 const Agencysignin = () => {
