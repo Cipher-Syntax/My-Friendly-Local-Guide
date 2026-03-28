@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Building2, User, Lock, ArrowRight, Loader2, Globe, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Building2, User, Lock, ArrowRight, Loader2, Globe, CheckCircle, RefreshCcw } from 'lucide-react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { jwtDecode } from "jwt-decode";
 import api from '../api/api';
@@ -51,6 +51,13 @@ const Agencysignin = () => {
         { Icon: Compass, top: '30%', left: '85%', delay: '4s', size: 32, opacity: 0.15 },
         { Icon: Mountain, top: '80%', left: '80%', delay: '1s', size: 24, opacity: 0.1 },
     ];
+
+    // Check if the current error means we need to reactivate
+    const isDeactivatedError = error && (
+        error.toLowerCase().includes('inactive') ||
+        error.toLowerCase().includes('deactivated') ||
+        error.toLowerCase().includes('reactivate')
+    );
 
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();
@@ -105,20 +112,93 @@ const Agencysignin = () => {
         }
     };
 
+    // NEW: Handle Reactivation Process
+    const handleReactivate = async (e) => {
+        if (e) e.preventDefault();
+
+        setIsLoading(true);
+        setError(null);
+        setSuccessMsg(null);
+
+        try {
+            // Hit the standard reactivation endpoint
+            const res = await api.post('api/auth/reactivate/', {
+                username: formData.username,
+                password: formData.password
+            });
+
+            // Reactivation successful! Get tokens and log them in
+            const access = res.data.access;
+            const refresh = res.data.refresh;
+
+            localStorage.setItem(ACCESS_TOKEN, access);
+            localStorage.setItem(REFRESH_TOKEN, refresh);
+
+            try {
+                const decoded = jwtDecode(access);
+                localStorage.setItem('agency_username', decoded.username || 'Agency Staff');
+                localStorage.setItem('agency_email', decoded.email || formData.email);
+            } catch (decodeError) {
+                console.error("Could not decode token", decodeError);
+            }
+
+            setSuccessMsg("Account reactivated successfully! Logging you in...");
+
+            // Small delay to let them read the success message
+            setTimeout(() => {
+                const pendingData = localStorage.getItem('pending_agency_data');
+                if (pendingData) {
+                    navigate('/agency/complete-profile');
+                } else {
+                    navigate('/agency');
+                }
+            }, 1000);
+
+        } catch (err) {
+            console.error("Reactivation Failed", err);
+            if (err.response && err.response.data && err.response.data.detail) {
+                setError(err.response.data.detail);
+            } else {
+                setError("Invalid credentials. Could not reactivate account.");
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
+        // Instantly clear the error (and reset the button) as soon as they type
         if (error) setError(null);
     };
 
     const handleKeyPress = (e) => {
         if (e.key === 'Enter') {
-            handleSubmit();
+            if (isDeactivatedError) {
+                handleReactivate();
+            } else {
+                handleSubmit();
+            }
         }
     };
+
+    // Determine Button Style and Action
+    let mainButtonAction = handleSubmit;
+    let mainButtonText = "Enter Agency Portal";
+    let mainButtonGradient = "from-cyan-600 to-indigo-600 hover:from-cyan-700 hover:to-indigo-700 dark:hover:from-cyan-500 dark:hover:to-indigo-500";
+    let ButtonIcon = ArrowRight;
+
+    if (isDeactivatedError) {
+        mainButtonAction = handleReactivate;
+        mainButtonText = "Reactivate Account";
+        // Change color to make it obvious they are reactivating
+        mainButtonGradient = "from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 dark:hover:from-orange-400 dark:hover:to-rose-500";
+        ButtonIcon = RefreshCcw;
+    }
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-cyan-500/30 transition-colors duration-300">
@@ -277,26 +357,26 @@ const Agencysignin = () => {
                                     <span className="text-sm font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-300 transition-colors">Remember me</span>
                                 </label>
 
-                                {/* Updated to be a real link pointing to the new page */}
                                 <Link to="/forgot-password" className="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-bold transition-colors">
                                     Forgot Password?
                                 </Link>
                             </div>
 
                             <button
-                                onClick={handleSubmit}
+                                type="button"
+                                onClick={mainButtonAction}
                                 disabled={isLoading}
-                                className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-700 hover:to-indigo-700 dark:hover:from-cyan-500 dark:hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/30 dark:shadow-indigo-500/20 hover:shadow-cyan-500/50 dark:hover:shadow-cyan-500/40 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed group"
+                                className={`w-full bg-gradient-to-r ${mainButtonGradient} text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/30 dark:shadow-indigo-500/20 hover:shadow-cyan-500/50 dark:hover:shadow-cyan-500/40 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed group`}
                             >
                                 {isLoading ? (
                                     <>
                                         <Loader2 className="w-5 h-5 animate-spin" />
-                                        <span>Signing in...</span>
+                                        <span>Please wait...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <span>Enter Agency Portal</span>
-                                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                        <span>{mainButtonText}</span>
+                                        <ButtonIcon className={`w-5 h-5 transition-transform ${isDeactivatedError ? 'group-hover:rotate-180 transition-all duration-500' : 'group-hover:translate-x-1'}`} />
                                     </>
                                 )}
                             </button>
