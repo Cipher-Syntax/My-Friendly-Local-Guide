@@ -84,7 +84,7 @@ export default function AgencyLayout() {
             const userRes = await api.get('api/profile/');
             setUser(userRes.data);
 
-            if (userRes.data.agency_profile?.is_approved) {
+            if (userRes.data.agency_profile?.status) {
                 const guidesRes = await api.get('api/agency/guides/');
                 const bookingsRes = await api.get('api/bookings/');
 
@@ -387,7 +387,7 @@ export default function AgencyLayout() {
         navigate('/agency-signin');
     };
 
-    const isApproved = user?.agency_profile?.is_approved;
+    const isApproved = user?.agency_profile?.status;
 
     const filteredFormLanguages = useMemo(() => availableLanguages.filter(lang =>
         lang.toLowerCase().includes((newGuideForm.languageSearchTerm || '').toLowerCase()) &&
