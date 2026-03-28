@@ -6,6 +6,10 @@ class AgencySerializer(serializers.ModelSerializer):
     profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
     rating = serializers.FloatField(source='user.guide_rating', read_only=True, default=0.0)
     review_count = serializers.IntegerField(source='user.reviews_received.count', read_only=True, default=0)
+    
+    # NEW: Pull these fields from the associated User model to check visibility/status
+    is_active = serializers.BooleanField(source='user.is_active', read_only=True)
+    is_guide_visible = serializers.BooleanField(source='user.is_guide_visible', read_only=True)
 
     class Meta:
         model = Agency
@@ -22,7 +26,9 @@ class AgencySerializer(serializers.ModelSerializer):
             'profile_picture',
             'rating',     
             'review_count',
-            'down_payment_percentage' 
+            'down_payment_percentage',
+            'is_active', 
+            'is_guide_visible'
         ]
         read_only_fields = ("status", "created_at")
 
