@@ -763,7 +763,7 @@ class ReactivateAccountView(APIView):
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
         if not user.check_password(password):
-            return Response({"detail": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"detail": "Invalid credentials."}, status=status.HTTP_400_BAD_REQUEST)
 
         if user.scheduled_deletion_date is None and user.deactivated_at is None:
             return Response({"detail": "Account is not deactivated."}, status=status.HTTP_400_BAD_REQUEST)
@@ -773,17 +773,14 @@ class ReactivateAccountView(APIView):
         user.scheduled_deletion_date = None
         user.save()
 
-        refresh = RefreshToken.for_user(user)
-        
-        # FIXED: Serialize the full user object so the frontend handleNavigation logic works correctly
-        user_data = UserSerializer(user).data
-        
+        refresh = CustomTokenObtainPairSerializer.get_token(user)
         return Response({
             "detail": "Account reactivated successfully.",
             "access": str(refresh.access_token),
             "refresh": str(refresh),
-            "user": user_data 
+            "user": user.username
         }, status=status.HTTP_200_OK)
+
 
 class ArchivedAccountsListView(generics.ListAPIView):
     serializer_class = UserSerializer
