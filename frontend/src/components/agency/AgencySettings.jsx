@@ -3,7 +3,7 @@ import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Building2, User, Lock,
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { jwtDecode } from "jwt-decode";
 import api from '../../api/api';
-import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
+import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
 
 const Agencysignin = () => {
     const navigate = useNavigate();
