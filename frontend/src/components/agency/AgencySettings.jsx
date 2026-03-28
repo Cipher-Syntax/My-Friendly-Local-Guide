@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Phone, Percent, Building, User, Mail, Info, CheckCircle, AlertCircle as AlertIcon, Power, Eye, EyeOff } from 'lucide-react';
+import { Save, Phone, Percent, Building, User, Mail, Info, CheckCircle, AlertCircle as AlertIcon, Power, Eye, EyeOff, X } from 'lucide-react';
 import api from '../../api/api';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
 
 export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
     const [isLoading, setIsLoading] = useState(false);
     const [isDeactivating, setIsDeactivating] = useState(false);
+
+    // NEW: State to control our custom modal instead of window.confirm
+    const [showDeactivateModal, setShowDeactivateModal] = useState(false);
 
     // Feedback State for Custom Notifications
     const [feedback, setFeedback] = useState({ show: false, message: '', type: '' });
@@ -16,10 +19,8 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
     const [phone, setPhone] = useState(formatPHPhoneLocal(profileData.phone || ''));
     const [downPayment, setDownPayment] = useState(profileData.down_payment_percentage || 30);
 
-    // Online/Offline Status (Assuming it comes from user data, default to true if missing)
     const [isOnline, setIsOnline] = useState(profileData.is_guide_visible !== false);
 
-    // Read-only field
     const email = profileData.email || 'Loading...';
 
     useEffect(() => {
@@ -49,7 +50,6 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                 return;
             }
 
-            // 1. Update Agency Profile Data
             await api.patch('api/agency/profile/', {
                 business_name: businessName,
                 owner_name: ownerName,
@@ -57,7 +57,6 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                 down_payment_percentage: downPayment
             });
 
-            // 2. FIXED: Send the Online/Offline Status to the correct User endpoint!
             await api.patch('api/profile/', {
                 is_guide_visible: isOnline
             });
@@ -73,13 +72,9 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
         }
     };
 
-    const handleDeactivate = async () => {
-        const confirmDeactivate = window.confirm(
-            "Are you sure you want to deactivate your agency account? Your agency will immediately become hidden from tourists, and you will be logged out. You have 30 days to log back in to reactivate it."
-        );
-
-        if (!confirmDeactivate) return;
-
+    // NEW: Handle the actual deactivation logic when they click "Yes" in the modal
+    const handleConfirmDeactivate = async () => {
+        setShowDeactivateModal(false);
         setIsDeactivating(true);
         try {
             await api.post('api/auth/deactivate/');
@@ -129,7 +124,6 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                     </p>
                 </div>
 
-                {/* Custom Toggle Switch */}
                 <button
                     onClick={() => setIsOnline(!isOnline)}
                     className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none ${isOnline ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`}
@@ -146,7 +140,6 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-2">
-                    {/* Business Name */}
                     <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             Business Name
@@ -165,7 +158,6 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                         </div>
                     </div>
 
-                    {/* Owner Name */}
                     <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             Owner Name
@@ -184,7 +176,6 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                         </div>
                     </div>
 
-                    {/* Phone Number */}
                     <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             Public Contact Number
@@ -204,7 +195,6 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                         <p className="text-xs text-slate-500 mt-1.5">Displayed to tourists for direct contact.</p>
                     </div>
 
-                    {/* Registered Email (Read-Only) */}
                     <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             Registered Email <span className="text-xs font-normal text-slate-400">(Read-only)</span>
@@ -235,7 +225,6 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    {/* Downpayment Percentage */}
                     <div>
                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             Required Downpayment (%)
@@ -277,13 +266,54 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                     Deactivating your account will instantly hide your agency from the app and log you out. You can reactivate by logging back in within 30 days.
                 </p>
                 <button
-                    onClick={handleDeactivate}
+                    onClick={() => setShowDeactivateModal(true)}
                     disabled={isDeactivating}
-                    className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-colors text-sm disabled:opacity-50"
+                    className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-colors text-sm disabled:opacity-50 shadow-sm shadow-rose-600/20"
                 >
                     {isDeactivating ? 'Deactivating...' : 'Deactivate Account'}
                 </button>
             </div>
+
+            {/* NEW: Custom Deactivation Modal overlay */}
+            {showDeactivateModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-700">
+
+                        <div className="flex justify-between items-center p-4 border-b border-slate-100 dark:border-slate-700">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Confirm Deactivation</h3>
+                            <button onClick={() => setShowDeactivateModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-500">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-6">
+                            <div className="w-14 h-14 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center mb-4 mx-auto">
+                                <Power className="w-7 h-7 text-rose-600 dark:text-rose-400" />
+                            </div>
+
+                            <p className="text-slate-600 dark:text-slate-300 text-center mb-6 leading-relaxed">
+                                Are you absolutely sure you want to deactivate your agency? You will be logged out and your agency will be hidden from all tourists. <br /><br />
+                                <span className="font-bold">You will have 30 days to log back in to restore your account.</span>
+                            </p>
+
+                            <div className="flex gap-3 mt-2">
+                                <button
+                                    onClick={() => setShowDeactivateModal(false)}
+                                    className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleConfirmDeactivate}
+                                    className="flex-1 px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-colors shadow-sm shadow-rose-600/20"
+                                >
+                                    Yes, Deactivate
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

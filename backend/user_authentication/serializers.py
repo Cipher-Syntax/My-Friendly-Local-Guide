@@ -195,18 +195,39 @@ class AgencyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
-        data = super().validate(attrs)
-        
-        if self.user.is_active:
-             return data
-        raise serializers.ValidationError({"detail": "Access Denied. Account is inactive or not recognized as an Agency account."})
+        username = attrs.get(self.username_field)
+        user_exists = User.objects.filter(username=username).first()
 
-class FavoriteGuideSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = FavoriteGuide
-        fields = ['id', 'user', 'guide', 'created_at']
-        read_only_fields = ['user', 'created_at']
+        if user_exists:
+            # 1. Intercept Deactivated Accounts FIRST
+            if user_exists.scheduled_deletion_date is not None:
+                days_left = (user_exists.scheduled_deletion_date - timezone.now()).days
+                msg = f"Account deactivated. Scheduled for deletion in {days_left} days."
+                
+                raise AuthenticationFailed({
+                    "detail": msg, 
+                    "code": "account_deactivated",
+                    "scheduled_date": user_exists.scheduled_deletion_date
+                })
+            
+            # 2. If it's inactive but NOT deactivated, they probably haven't verified their email
+            if not user_exists.is_active:
+                raise AuthenticationFailed({
+                    "detail": "User account is not active. Please verify your email."
+                })
 
+        try:
+            data = super().validate(attrs)
+        except AuthenticationFailed:
+            raise AuthenticationFailed('Invalid Credentials.')
+            
+        # 3. Check if they are an Agency or Staff!
+        if not hasattr(self.user, 'agency_profile') and not self.user.is_staff:
+            raise serializers.ValidationError({
+                "detail": "Access Denied. This portal is strictly for registered Agency Partners. Please use the mobile app to log in as a Tourist or Guide."
+            })
+            
+        return data
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
