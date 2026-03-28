@@ -1,319 +1,402 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Phone, Percent, Building, User, Mail, Info, CheckCircle, AlertCircle as AlertIcon, Power, Eye, EyeOff, X } from 'lucide-react';
-import api from '../../api/api';
-import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
+import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Building2, User, Lock, ArrowRight, Loader2, Globe, CheckCircle, RefreshCcw } from 'lucide-react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { jwtDecode } from "jwt-decode";
+import api from '../api/api';
+import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
 
-export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
+const Agencysignin = () => {
+    const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [isDeactivating, setIsDeactivating] = useState(false);
+    const [error, setError] = useState(null);
+    const [successMsg, setSuccessMsg] = useState(null);
+    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
-    // NEW: State to control our custom modal instead of window.confirm
-    const [showDeactivateModal, setShowDeactivateModal] = useState(false);
-
-    // Feedback State for Custom Notifications
-    const [feedback, setFeedback] = useState({ show: false, message: '', type: '' });
-
-    // Editable Fields
-    const [businessName, setBusinessName] = useState(profileData.business_name || '');
-    const [ownerName, setOwnerName] = useState(profileData.owner_name || '');
-    const [phone, setPhone] = useState(formatPHPhoneLocal(profileData.phone || ''));
-    const [downPayment, setDownPayment] = useState(profileData.down_payment_percentage || 30);
-
-    const [isOnline, setIsOnline] = useState(profileData.is_guide_visible !== false);
-
-    const email = profileData.email || 'Loading...';
+    const [formData, setFormData] = useState({
+        username: '',
+        password: '',
+        rememberMe: false
+    });
 
     useEffect(() => {
-        if (profileData) {
-            setBusinessName(profileData.business_name || '');
-            setOwnerName(profileData.owner_name || '');
-            setPhone(formatPHPhoneLocal(profileData.phone || ''));
-            setDownPayment(profileData.down_payment_percentage || 30);
-            if (profileData.is_guide_visible !== undefined) {
-                setIsOnline(profileData.is_guide_visible);
-            }
+        const status = searchParams.get('status');
+        const message = searchParams.get('message');
+
+        if (status === 'success' && message) {
+            setSuccessMsg(message.replace(/\+/g, ' '));
+            setSearchParams(new URLSearchParams());
+        } else if (status === 'error' && message) {
+            setError(message.replace(/\+/g, ' '));
+            setSearchParams(new URLSearchParams());
         }
-    }, [profileData]);
+    }, [searchParams, setSearchParams]);
 
-    const showFeedback = (msg, type) => {
-        setFeedback({ show: true, message: msg, type: type });
-        setTimeout(() => setFeedback({ show: false, message: '', type: '' }), 4000);
-    };
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+            setMousePosition({
+                x: (e.clientX / window.innerWidth) * 20,
+                y: (e.clientY / window.innerHeight) * 20,
+            });
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => window.removeEventListener('mousemove', handleMouseMove);
+    }, []);
 
-    const handleSaveSettings = async () => {
+    const floatingIcons = [
+        { Icon: Globe, top: '10%', left: '10%', delay: '0s', size: 36, opacity: 0.15 },
+        { Icon: Building2, top: '60%', left: '5%', delay: '2s', size: 28, opacity: 0.1 },
+        { Icon: Compass, top: '30%', left: '85%', delay: '4s', size: 32, opacity: 0.15 },
+        { Icon: Mountain, top: '80%', left: '80%', delay: '1s', size: 24, opacity: 0.1 },
+    ];
+
+    const isDeactivatedError = error && (
+        error.toLowerCase().includes('inactive') ||
+        error.toLowerCase().includes('deactivated') ||
+        error.toLowerCase().includes('reactivate')
+    );
+
+    const handleSubmit = async (e) => {
+        if (e) e.preventDefault();
+
         setIsLoading(true);
+        setError(null);
+        setSuccessMsg(null);
+
         try {
-            const normalizedPhone = normalizePHPhone(phone);
-            if (!normalizedPhone) {
-                showFeedback("Please enter a valid PH mobile number.", "error");
-                setIsLoading(false);
-                return;
+            const res = await api.post('api/auth/agency/login/', {
+                username: formData.username,
+                password: formData.password
+            });
+
+            const access = res.data.access;
+            const refresh = res.data.refresh;
+
+            localStorage.setItem(ACCESS_TOKEN, access);
+            localStorage.setItem(REFRESH_TOKEN, refresh);
+
+            try {
+                const decoded = jwtDecode(access);
+                localStorage.setItem('agency_username', decoded.username || 'Agency Staff');
+                localStorage.setItem('agency_email', decoded.email || formData.email);
+            } catch (decodeError) {
+                console.error("Could not decode token", decodeError);
+                localStorage.setItem('agency_username', 'Agency Staff');
+                localStorage.setItem('agency_email', formData.email);
             }
 
-            await api.patch('api/agency/profile/', {
-                business_name: businessName,
-                owner_name: ownerName,
-                phone: normalizedPhone,
-                down_payment_percentage: downPayment
-            });
+            console.log('Agency Login Successful');
 
-            await api.patch('api/profile/', {
-                is_guide_visible: isOnline
-            });
+            const pendingData = localStorage.getItem('pending_agency_data');
 
-            showFeedback("Settings updated successfully!", "success");
+            if (pendingData) {
+                navigate('/agency/complete-profile');
+            } else {
+                navigate('/agency');
+            }
 
-            if (onUpdateSuccess) onUpdateSuccess();
-        } catch (error) {
-            console.error("Failed to update settings:", error);
-            showFeedback("Failed to save settings. Please try again.", "error");
+        } catch (err) {
+            console.error("Agency Login Failed", err);
+
+            // THE FIX: Unpack the object if Django wraps the error in one!
+            if (err.response && err.response.data && err.response.data.detail) {
+                const detailData = err.response.data.detail;
+                setError(typeof detailData === 'object' ? detailData.detail : detailData);
+            } else {
+                setError("Invalid credentials. Please verify your agency account.");
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
-    // NEW: Handle the actual deactivation logic when they click "Yes" in the modal
-    const handleConfirmDeactivate = async () => {
-        setShowDeactivateModal(false);
-        setIsDeactivating(true);
+    const handleReactivate = async (e) => {
+        if (e) e.preventDefault();
+
+        setIsLoading(true);
+        setError(null);
+        setSuccessMsg(null);
+
         try {
-            await api.post('api/auth/deactivate/');
-            showFeedback("Account deactivated. Logging out...", "success");
+            const res = await api.post('api/auth/reactivate/', {
+                username: formData.username,
+                password: formData.password
+            });
+
+            const access = res.data.access;
+            const refresh = res.data.refresh;
+
+            localStorage.setItem(ACCESS_TOKEN, access);
+            localStorage.setItem(REFRESH_TOKEN, refresh);
+
+            try {
+                const decoded = jwtDecode(access);
+                localStorage.setItem('agency_username', decoded.username || 'Agency Staff');
+                localStorage.setItem('agency_email', decoded.email || formData.email);
+            } catch (decodeError) {
+                console.error("Could not decode token", decodeError);
+            }
+
+            setSuccessMsg("Account reactivated successfully! Logging you in...");
 
             setTimeout(() => {
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('refreshToken');
-                window.location.href = '/agency-signin';
-            }, 1500);
-        } catch (error) {
-            console.error("Failed to deactivate:", error);
-            showFeedback("Failed to deactivate account.", "error");
-            setIsDeactivating(false);
+                const pendingData = localStorage.getItem('pending_agency_data');
+                if (pendingData) {
+                    navigate('/agency/complete-profile');
+                } else {
+                    navigate('/agency');
+                }
+            }, 1000);
+
+        } catch (err) {
+            console.error("Reactivation Failed", err);
+
+            // THE FIX: Unpack the object here too!
+            if (err.response && err.response.data && err.response.data.detail) {
+                const detailData = err.response.data.detail;
+                setError(typeof detailData === 'object' ? detailData.detail : detailData);
+            } else {
+                setError("Invalid credentials. Could not reactivate account.");
+            }
+        } finally {
+            setIsLoading(false);
         }
     };
 
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+        if (error) setError(null);
+    };
+
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            if (isDeactivatedError) {
+                handleReactivate();
+            } else {
+                handleSubmit();
+            }
+        }
+    };
+
+    let mainButtonAction = handleSubmit;
+    let mainButtonText = "Enter Agency Portal";
+    let mainButtonGradient = "from-cyan-600 to-indigo-600 hover:from-cyan-700 hover:to-indigo-700 dark:hover:from-cyan-500 dark:hover:to-indigo-500";
+    let ButtonIcon = ArrowRight;
+
+    if (isDeactivatedError) {
+        mainButtonAction = handleReactivate;
+        mainButtonText = "Reactivate Account";
+        mainButtonGradient = "from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 dark:hover:from-orange-400 dark:hover:to-rose-500";
+        ButtonIcon = RefreshCcw;
+    }
+
     return (
-        <div className="max-w-5xl space-y-6 relative pb-10">
-            {/* In-UI Toast Notification */}
-            {feedback.show && (
-                <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border animate-in slide-in-from-right duration-300 ${feedback.type === 'success'
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-400'
-                    : 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-900/30 dark:border-rose-800 dark:text-rose-400'
-                    }`}>
-                    {feedback.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertIcon className="w-5 h-5" />}
-                    <p className="font-bold text-sm">{feedback.message}</p>
-                </div>
-            )}
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-cyan-500/30 transition-colors duration-300">
 
-            <div>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Agency Settings</h2>
-                <p className="text-slate-500 dark:text-slate-400">Manage your business profile, visibility, and financial configurations.</p>
+            <div className="absolute inset-0 overflow-hidden">
+                <div
+                    className="absolute top-[-10%] right-[-5%] w-[60%] h-[60%] bg-indigo-500/20 dark:bg-indigo-600/20 rounded-full blur-[120px] animate-pulse"
+                    style={{ transform: `translate(${mousePosition.x}px, ${mousePosition.y * -1}px)` }}
+                />
+                <div
+                    className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-500/20 dark:bg-cyan-600/10 rounded-full blur-[100px] animate-pulse"
+                    style={{ animationDelay: '2s', transform: `translate(${mousePosition.x * -1}px, ${mousePosition.y}px)` }}
+                />
+
+                {floatingIcons.map(({ Icon, top, left, delay, size, opacity }, idx) => (
+                    <div
+                        key={idx}
+                        className="absolute text-indigo-600/30 dark:text-indigo-200"
+                        style={{
+                            top,
+                            left,
+                            opacity: opacity * 2,
+                            animation: `float 8s ease-in-out infinite`,
+                            animationDelay: delay,
+                            filter: 'drop-shadow(0 0 10px rgba(99, 102, 241, 0.3))'
+                        }}
+                    >
+                        <Icon size={size} strokeWidth={1.5} />
+                    </div>
+                ))}
             </div>
 
-            {/* Visibility Section */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 flex items-center justify-between">
-                <div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        {isOnline ? <Eye className="w-5 h-5 text-emerald-500" /> : <EyeOff className="w-5 h-5 text-slate-400" />}
-                        Agency Visibility
-                    </h3>
-                    <p className="text-sm text-slate-500 mt-1">
-                        {isOnline
-                            ? "Your agency is ONLINE and visible to tourists for booking."
-                            : "Your agency is OFFLINE. You are hidden from the tourist app."}
-                    </p>
-                </div>
+            <div className="w-full max-w-5xl bg-white/80 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10 hover:shadow-indigo-500/10 dark:hover:shadow-indigo-900/20 transition-all duration-500">
 
-                <button
-                    onClick={() => setIsOnline(!isOnline)}
-                    className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none ${isOnline ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`}
-                >
-                    <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition duration-300 ${isOnline ? 'translate-x-7' : 'translate-x-1'}`} />
-                </button>
-            </div>
+                <div className="w-full md:w-5/12 bg-gradient-to-br from-indigo-50/90 to-slate-100/90 dark:from-indigo-900/80 dark:to-slate-900/80 p-12 text-slate-900 dark:text-white relative flex flex-col justify-between border-r border-slate-200 dark:border-white/5 transition-colors duration-300">
 
-            {/* Business Profile Section */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                    <Building className="w-5 h-5 text-cyan-500" />
-                    Business Profile
-                </h3>
+                    <div className="relative z-10">
+                        <div className="w-16 h-16 bg-gradient-to-tr from-cyan-500 to-indigo-600 dark:from-cyan-400 dark:to-indigo-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-8 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
+                            <Building2 size={32} className="text-white" strokeWidth={2} />
+                        </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-2">
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                            Business Name
-                        </label>
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Building className="w-5 h-5 text-slate-400" />
-                            </div>
-                            <input
-                                type="text"
-                                value={businessName}
-                                onChange={(e) => setBusinessName(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
-                                placeholder="Enter business name"
-                            />
+                        <div className="space-y-2">
+                            <h3 className="text-cyan-600 dark:text-cyan-400 font-bold tracking-widest text-sm uppercase flex items-center gap-2">
+                                <Globe size={14} /> Partner Portal
+                            </h3>
+                            <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
+                                Local<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-indigo-600 dark:from-cyan-400 dark:to-indigo-400">Ynk</span>
+                            </h1>
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                            Owner Name
-                        </label>
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <User className="w-5 h-5 text-slate-400" />
-                            </div>
-                            <input
-                                type="text"
-                                value={ownerName}
-                                onChange={(e) => setOwnerName(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
-                                placeholder="Enter owner name"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                            Public Contact Number
-                        </label>
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Phone className="w-5 h-5 text-slate-400" />
-                            </div>
-                            <input
-                                type="text"
-                                value={phone}
-                                onChange={(e) => setPhone(formatPHPhoneLocal(e.target.value))}
-                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
-                                placeholder="+63 912 345 6789"
-                            />
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1.5">Displayed to tourists for direct contact.</p>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                            Registered Email <span className="text-xs font-normal text-slate-400">(Read-only)</span>
-                        </label>
-                        <div className="relative opacity-70">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Mail className="w-5 h-5 text-slate-400" />
-                            </div>
-                            <input
-                                type="text"
-                                value={email}
-                                readOnly
-                                className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-400 cursor-not-allowed outline-none"
-                            />
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
-                            <Info className="w-3 h-3" /> Contact admin support to change your account email.
+                    <div className="my-12 relative z-10">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500 to-indigo-600 rounded-full"></div>
+                        <p className="pl-6 text-slate-600 dark:text-slate-300 leading-relaxed text-lg font-medium dark:font-light">
+                            Grow your agency. Manage packages, track bookings, and deliver world-class experiences to your clients.
                         </p>
                     </div>
-                </div>
-            </div>
 
-            {/* Financial Configuration Section */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                    <Percent className="w-5 h-5 text-emerald-500" />
-                    Financial Configuration
-                </h3>
+                    <div className="relative z-10 flex gap-4 text-xs font-bold tracking-wide text-slate-500 dark:text-slate-500">
+                        <span>AGENCY PARTNER PROGRAM</span>
+                        <span>•</span>
+                        <span>SECURE LOGIN</span>
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                            Required Downpayment (%)
-                        </label>
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Percent className="w-5 h-5 text-slate-400" />
-                            </div>
-                            <input
-                                type="number"
-                                min="0" max="100"
-                                value={downPayment}
-                                onChange={(e) => setDownPayment(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
-                            />
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1.5">Automatically applied to tourist checkouts for your agency.</p>
+                    <div className="absolute inset-0 opacity-5 dark:opacity-10 pointer-events-none">
+                        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <path d="M0,100 L100,0 L100,100 Z" fill="url(#grad1)" />
+                            <defs>
+                                <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style={{ stopColor: 'rgb(99, 102, 241)', stopOpacity: 1 }} />
+                                    <stop offset="100%" style={{ stopColor: 'rgb(34, 211, 238)', stopOpacity: 1 }} />
+                                </linearGradient>
+                            </defs>
+                        </svg>
                     </div>
                 </div>
 
-                <div className="flex justify-end pt-6 border-t border-slate-100 dark:border-slate-700">
-                    <button
-                        onClick={handleSaveSettings}
-                        disabled={isLoading}
-                        className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-sm disabled:opacity-50"
-                    >
-                        <Save className="w-5 h-5" />
-                        {isLoading ? 'Saving...' : 'Save All Settings'}
-                    </button>
-                </div>
-            </div>
+                <div className="w-full md:w-7/12 p-8 md:p-16 bg-white/50 dark:bg-white/5 flex flex-col justify-center transition-colors duration-300">
 
-            {/* Danger Zone (Deactivate) */}
-            <div className="mt-8 border border-rose-200 bg-rose-50 dark:bg-rose-900/10 dark:border-rose-800 rounded-2xl p-6">
-                <h3 className="text-lg font-bold text-rose-700 dark:text-rose-400 mb-2 flex items-center gap-2">
-                    <Power className="w-5 h-5" /> Danger Zone
-                </h3>
-                <p className="text-rose-600 dark:text-rose-300 mb-4 text-sm">
-                    Deactivating your account will instantly hide your agency from the app and log you out. You can reactivate by logging back in within 30 days.
-                </p>
-                <button
-                    onClick={() => setShowDeactivateModal(true)}
-                    disabled={isDeactivating}
-                    className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-colors text-sm disabled:opacity-50 shadow-sm shadow-rose-600/20"
-                >
-                    {isDeactivating ? 'Deactivating...' : 'Deactivate Account'}
-                </button>
-            </div>
+                    <div className="max-w-md mx-auto w-full">
+                        <div className="mb-10">
+                            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Agency Sign In</h2>
+                            <p className="text-slate-500 dark:text-slate-400 font-medium">Enter your partner credentials to access your dashboard.</p>
+                        </div>
 
-            {/* NEW: Custom Deactivation Modal overlay */}
-            {showDeactivateModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-700">
+                        {successMsg && (
+                            <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl flex items-center gap-3 text-emerald-600 dark:text-emerald-400 animate-in fade-in slide-in-from-top-2">
+                                <div className="p-1 bg-emerald-100 dark:bg-emerald-500/20 rounded-full"><CheckCircle size={14} /></div>
+                                <p className="text-sm font-bold">{successMsg}</p>
+                            </div>
+                        )}
 
-                        <div className="flex justify-between items-center p-4 border-b border-slate-100 dark:border-slate-700">
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Confirm Deactivation</h3>
-                            <button onClick={() => setShowDeactivateModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-500">
-                                <X className="w-5 h-5" />
+                        {error && (
+                            <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl flex flex-col gap-2 text-rose-600 dark:text-rose-400 animate-in fade-in slide-in-from-top-2 shadow-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-1 bg-rose-100 dark:bg-rose-500/20 rounded-full"><EyeOff size={14} /></div>
+                                    <p className="text-sm font-bold leading-tight">{error}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <form className="space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Username</label>
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <User className="h-5 w-5 text-slate-400 dark:text-slate-500 group-focus-within:text-cyan-500 dark:group-focus-within:text-cyan-400 transition-colors" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="username"
+                                        value={formData.username}
+                                        onChange={handleChange}
+                                        onKeyPress={handleKeyPress}
+                                        className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700/50 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300 font-medium"
+                                        placeholder="agency_name"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Password</label>
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <Lock className="h-5 w-5 text-slate-400 dark:text-slate-500 group-focus-within:text-cyan-500 dark:group-focus-within:text-cyan-400 transition-colors" />
+                                    </div>
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        name="password"
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        onKeyPress={handleKeyPress}
+                                        className="w-full pl-12 pr-12 py-4 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700/50 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300 font-medium"
+                                        placeholder="••••••••"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-white transition-colors cursor-pointer"
+                                    >
+                                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2">
+                                <label className="flex items-center space-x-3 cursor-pointer group">
+                                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${formData.rememberMe ? 'bg-cyan-500 border-cyan-500' : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800 group-hover:border-cyan-500/50'}`}>
+                                        {formData.rememberMe && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        name="rememberMe"
+                                        checked={formData.rememberMe}
+                                        onChange={handleChange}
+                                        className="hidden"
+                                    />
+                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-300 transition-colors">Remember me</span>
+                                </label>
+
+                                <Link to="/forgot-password" className="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-bold transition-colors">
+                                    Forgot Password?
+                                </Link>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={mainButtonAction}
+                                disabled={isLoading}
+                                className={`w-full bg-gradient-to-r ${mainButtonGradient} text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/30 dark:shadow-indigo-500/20 hover:shadow-cyan-500/50 dark:hover:shadow-cyan-500/40 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed group`}
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        <span>Please wait...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>{mainButtonText}</span>
+                                        <ButtonIcon className={`w-5 h-5 transition-transform ${isDeactivatedError ? 'group-hover:rotate-180 transition-all duration-500' : 'group-hover:translate-x-1'}`} />
+                                    </>
+                                )}
                             </button>
-                        </div>
 
-                        <div className="p-6">
-                            <div className="w-14 h-14 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center mb-4 mx-auto">
-                                <Power className="w-7 h-7 text-rose-600 dark:text-rose-400" />
+                            <div className="pt-4 text-center">
+                                <p className="text-slate-600 dark:text-slate-500 text-sm font-medium">
+                                    New partner? <Link to="/agency-register" className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-bold transition-colors">Register your agency</Link>
+                                </p>
                             </div>
-
-                            <p className="text-slate-600 dark:text-slate-300 text-center mb-6 leading-relaxed">
-                                Are you absolutely sure you want to deactivate your agency? You will be logged out and your agency will be hidden from all tourists. <br /><br />
-                                <span className="font-bold">You will have 30 days to log back in to restore your account.</span>
-                            </p>
-
-                            <div className="flex gap-3 mt-2">
-                                <button
-                                    onClick={() => setShowDeactivateModal(false)}
-                                    className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleConfirmDeactivate}
-                                    className="flex-1 px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-colors shadow-sm shadow-rose-600/20"
-                                >
-                                    Yes, Deactivate
-                                </button>
-                            </div>
-                        </div>
+                        </form>
                     </div>
                 </div>
-            )}
+            </div>
+
+            <style>{`
+                @keyframes float {
+                    0%, 100% { transform: translateY(0px) rotate(0deg); }
+                    50% { transform: translateY(-20px) rotate(5deg); }
+                }
+            `}</style>
         </div>
     );
-}
+};
+
+export default Agencysignin;
