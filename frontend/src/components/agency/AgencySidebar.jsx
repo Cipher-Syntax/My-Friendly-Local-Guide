@@ -37,9 +37,9 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
     return (
         <aside className="w-70 bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm border-r border-slate-200 dark:border-slate-700/50 flex flex-col h-screen transition-colors duration-300">
 
-            {/* Updated Header Box with Logo as Background */}
+            {/* Added min-h-[220px] and justify-center to make the box as big as before */}
             <div
-                className={`relative py-8 px-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center overflow-hidden ${logo ? 'bg-cover bg-center' : ''}`}
+                className={`relative min-h-[220px] px-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col items-center justify-center text-center overflow-hidden ${logo ? 'bg-cover bg-center' : ''}`}
                 style={logo ? { backgroundImage: `url(${logo})` } : {}}
             >
                 {/* Dark overlay to make sure the text pops out nicely against any logo */}
@@ -58,7 +58,7 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
                 </div>
             </div>
 
-            <nav className="flex-1 p-4 space-y-2">
+            <nav className="flex-1 p-4 space-y-2 mt-2">
                 {menuItems.map(item => (
                     <button
                         key={item.id}
