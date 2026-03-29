@@ -36,17 +36,26 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
 
     return (
         <aside className="w-70 bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm border-r border-slate-200 dark:border-slate-700/50 flex flex-col h-screen transition-colors duration-300">
-            {/* Added logo and centered the text */}
-            <div className="p-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
+
+            {/* Updated Header Box with Logo as Background */}
+            <div
+                className={`relative py-8 px-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center overflow-hidden ${logo ? 'bg-cover bg-center' : ''}`}
+                style={logo ? { backgroundImage: `url(${logo})` } : {}}
+            >
+                {/* Dark overlay to make sure the text pops out nicely against any logo */}
                 {logo && (
-                    <img
-                        src={logo}
-                        alt="Agency Logo"
-                        className="w-20 h-20 object-contain bg-white dark:bg-slate-800 rounded-xl mb-4 shadow-sm border border-slate-200 dark:border-slate-700 p-1"
-                    />
+                    <div className="absolute inset-0 bg-slate-900/80 mix-blend-multiply backdrop-blur-[1px]"></div>
                 )}
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white">Agency Portal</h1>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Management System</p>
+
+                {/* Text content brought to the front */}
+                <div className="relative z-10 w-full">
+                    <h1 className={`text-xl font-black tracking-wide drop-shadow-md ${logo ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                        Agency Portal
+                    </h1>
+                    <p className={`text-sm mt-1 font-medium drop-shadow-md ${logo ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                        Management System
+                    </p>
+                </div>
             </div>
 
             <nav className="flex-1 p-4 space-y-2">
