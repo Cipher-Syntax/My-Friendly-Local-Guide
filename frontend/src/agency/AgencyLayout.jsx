@@ -405,7 +405,7 @@ export default function AgencyLayout() {
     return (
         <div className="flex h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden relative transition-colors duration-300">
 
-            {isApproved === false && (
+            {isApproved === 'Pending' && (
                 <div className="fixed inset-0 z-[9999] bg-slate-900/40 dark:bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6">
                     <div className="bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-3xl max-w-lg w-full p-10 shadow-[0_0_50px_rgba(0,0,0,0.1)] dark:shadow-[0_0_50px_rgba(0,0,0,0.5)] text-center relative overflow-hidden transition-colors duration-300">
                         <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 blur-3xl rounded-full"></div>

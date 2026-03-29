@@ -80,24 +80,28 @@ const Agencysignin = () => {
 
             try {
                 const decoded = jwtDecode(access);
-
                 localStorage.setItem('agency_username', decoded.username || 'Agency Staff');
                 localStorage.setItem('agency_email', decoded.email || formData.email);
-
             } catch (decodeError) {
                 console.error("Could not decode token", decodeError);
-                localStorage.setItem('agency_username', 'Agency Staff');
-                localStorage.setItem('agency_email', formData.email);
             }
 
-            console.log('Agency Login Successful');
+            const profileRes = await api.get('api/profile/');
+            const userProfile = profileRes.data;
 
-            const pendingData = localStorage.getItem('pending_agency_data');
-
-            if (pendingData) {
-                navigate('/agency/complete-profile');
-            } else {
+            if (userProfile.agency_profile) {
+                localStorage.removeItem('pending_agency_data');
                 navigate('/agency');
+            } else {
+                const pendingData = localStorage.getItem('pending_agency_data');
+
+                if (pendingData) {
+                    navigate('/agency/complete-profile');
+                } else {
+                    setError("Pending registration data lost. Please register your agency details again on this device.");
+                    localStorage.removeItem(ACCESS_TOKEN);
+                    localStorage.removeItem(REFRESH_TOKEN);
+                }
             }
 
         } catch (err) {
@@ -112,7 +116,6 @@ const Agencysignin = () => {
         }
     };
 
-    // NEW: Handle Reactivation Process
     const handleReactivate = async (e) => {
         if (e) e.preventDefault();
 
@@ -121,7 +124,6 @@ const Agencysignin = () => {
         setSuccessMsg(null);
 
         try {
-            // Hit the standard reactivation endpoint
             const res = await api.post('api/auth/reactivate/', {
                 username: formData.username,
                 password: formData.password
