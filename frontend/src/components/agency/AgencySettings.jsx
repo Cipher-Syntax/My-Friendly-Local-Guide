@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Phone, Percent, Building, User, Mail, Info, CheckCircle, AlertCircle as AlertIcon, Power, Eye, EyeOff, X } from 'lucide-react';
+import { Save, Phone, Percent, Building, User, Mail, Info, CheckCircle, AlertCircle as AlertIcon, Power, Eye, EyeOff, X, Upload, Image as ImageIcon } from 'lucide-react';
 import api from '../../api/api';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
 
@@ -7,10 +7,7 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
     const [isLoading, setIsLoading] = useState(false);
     const [isDeactivating, setIsDeactivating] = useState(false);
 
-    // NEW: State to control our custom modal instead of window.confirm
     const [showDeactivateModal, setShowDeactivateModal] = useState(false);
-
-    // Feedback State for Custom Notifications
     const [feedback, setFeedback] = useState({ show: false, message: '', type: '' });
 
     // Editable Fields
@@ -18,8 +15,11 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
     const [ownerName, setOwnerName] = useState(profileData.owner_name || '');
     const [phone, setPhone] = useState(formatPHPhoneLocal(profileData.phone || ''));
     const [downPayment, setDownPayment] = useState(profileData.down_payment_percentage || 30);
-
     const [isOnline, setIsOnline] = useState(profileData.is_guide_visible !== false);
+
+    // Logo Upload States
+    const [logoFile, setLogoFile] = useState(null);
+    const [logoPreview, setLogoPreview] = useState(profileData.logo || null);
 
     const email = profileData.email || 'Loading...';
 
@@ -29,6 +29,7 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
             setOwnerName(profileData.owner_name || '');
             setPhone(formatPHPhoneLocal(profileData.phone || ''));
             setDownPayment(profileData.down_payment_percentage || 30);
+            setLogoPreview(profileData.logo || null);
             if (profileData.is_guide_visible !== undefined) {
                 setIsOnline(profileData.is_guide_visible);
             }
@@ -38,6 +39,14 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
     const showFeedback = (msg, type) => {
         setFeedback({ show: true, message: msg, type: type });
         setTimeout(() => setFeedback({ show: false, message: '', type: '' }), 4000);
+    };
+
+    const handleLogoChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setLogoFile(file);
+            setLogoPreview(URL.createObjectURL(file));
+        }
     };
 
     const handleSaveSettings = async () => {
@@ -50,11 +59,21 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                 return;
             }
 
-            await api.patch('api/agency/profile/', {
-                business_name: businessName,
-                owner_name: ownerName,
-                phone: normalizedPhone,
-                down_payment_percentage: downPayment
+            // Use FormData to handle file uploads
+            const formData = new FormData();
+            formData.append('business_name', businessName);
+            formData.append('owner_name', ownerName);
+            formData.append('phone', normalizedPhone);
+            formData.append('down_payment_percentage', downPayment);
+
+            if (logoFile) {
+                formData.append('logo', logoFile);
+            }
+
+            await api.patch('api/agency/profile/', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
             });
 
             await api.patch('api/profile/', {
@@ -72,7 +91,6 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
         }
     };
 
-    // NEW: Handle the actual deactivation logic when they click "Yes" in the modal
     const handleConfirmDeactivate = async () => {
         setShowDeactivateModal(false);
         setIsDeactivating(true);
@@ -94,7 +112,6 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
 
     return (
         <div className="max-w-5xl space-y-6 relative pb-10">
-            {/* In-UI Toast Notification */}
             {feedback.show && (
                 <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border animate-in slide-in-from-right duration-300 ${feedback.type === 'success'
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-400'
@@ -138,6 +155,40 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                     <Building className="w-5 h-5 text-cyan-500" />
                     Business Profile
                 </h3>
+
+                {/* Logo Upload */}
+                <div className="mb-8 pb-8 border-b border-slate-100 dark:border-slate-700">
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">
+                        Agency Logo
+                    </label>
+                    <div className="flex items-center gap-6">
+                        <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center overflow-hidden bg-slate-50 dark:bg-slate-900 relative">
+                            {logoPreview ? (
+                                <img src={logoPreview} alt="Agency Logo Preview" className="w-full h-full object-cover" />
+                            ) : (
+                                <ImageIcon className="w-8 h-8 text-slate-400" />
+                            )}
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 text-sm">
+                                    <Upload className="w-4 h-4" />
+                                    Upload Logo
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+                                </label>
+                                {logoPreview && (
+                                    <button
+                                        onClick={() => { setLogoFile(null); setLogoPreview(null); }}
+                                        className="text-sm text-rose-500 hover:text-rose-600 font-medium"
+                                    >
+                                        Remove
+                                    </button>
+                                )}
+                            </div>
+                            <p className="text-xs text-slate-500 mt-2">Recommended size: 500x500px. Max size: 5MB.</p>
+                        </div>
+                    </div>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-2">
                     <div>
@@ -274,7 +325,6 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                 </button>
             </div>
 
-            {/* NEW: Custom Deactivation Modal overlay */}
             {showDeactivateModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-700">

@@ -9,7 +9,7 @@ import AgencyBookingsTable from '../components/agency/AgencyBookingsTable';
 import AgencyTourGuideManagement from '../components/agency/AgencyTourGuideManagement';
 import AgencyReviews from '../components/agency/AgencyReviews';
 import AgencyEarnings from '../components/agency/AgencyEarnings';
-import AgencySettings from '../components/agency/AgencySettings'; // <--- NEW IMPORT
+import AgencySettings from '../components/agency/AgencySettings';
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
 import { formatPHPhoneLocal, normalizePHPhone } from '../utils/phoneNumber';
@@ -388,6 +388,9 @@ export default function AgencyLayout() {
     };
 
     const isApproved = user?.agency_profile?.status;
+    const agencyProfile = user?.agency_profile || {};
+    const logo = agencyProfile.logo || null;
+    const businessName = agencyProfile.business_name || 'Agency Management';
 
     const filteredFormLanguages = useMemo(() => availableLanguages.filter(lang =>
         lang.toLowerCase().includes((newGuideForm.languageSearchTerm || '').toLowerCase()) &&
@@ -460,37 +463,28 @@ export default function AgencyLayout() {
                 </div>
             )}
 
-            <AgencySidebar activeTab={activeTab} setActiveTab={setActiveTab} handleSignOut={handleSignOut} />
+            <AgencySidebar activeTab={activeTab} setActiveTab={setActiveTab} handleSignOut={handleSignOut} logo={logo} />
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <header className="bg-white/80 dark:bg-slate-800/30 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700/50 sticky top-0 z-10 transition-colors duration-300">
-                    <div className="relative h-48 bg-gradient-to-r from-cyan-600 to-blue-600 overflow-hidden">
-                        <div className="absolute inset-0 opacity-20">
-                            <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-400 rounded-full blur-3xl"></div>
-                            <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl"></div>
+                    <div className={`relative h-48 overflow-hidden ${!logo ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'bg-cover bg-center'}`} style={logo ? { backgroundImage: `url(${logo})` } : {}}>
+
+                        {/* Intelligent Adaptive Overlay - Dims the image dynamically to ensure white text pops */}
+                        <div className={`absolute inset-0 ${logo ? 'bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-900/90 mix-blend-multiply' : 'opacity-20'}`}>
+                            {!logo && (
+                                <>
+                                    <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-400 rounded-full blur-3xl"></div>
+                                    <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl"></div>
+                                </>
+                            )}
                         </div>
-                        <div className="relative px-8 py-6 h-full flex flex-col justify-center">
-                            <div className="flex items-center justify-between w-full">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-white/20 backdrop-blur-sm rounded-lg">
-                                        {activeTab === 'dashboard' && <LayoutDashboard className="w-8 h-8 text-white" />}
-                                        {activeTab === 'bookings' && <BookOpen className="w-8 h-8 text-white" />}
-                                        {activeTab === 'guides' && <UsersRound className="w-8 h-8 text-white" />}
-                                        {activeTab === 'reviews' && <Star className="w-8 h-8 text-white" />}
-                                        {activeTab === 'earnings' && <DollarSign className="w-8 h-8 text-white" />}
-                                        {activeTab === 'settings' && <Settings className="w-8 h-8 text-white" />}
-                                    </div>
-                                    <div>
-                                        <h2 className="text-3xl font-bold text-white">
-                                            {activeTab === 'dashboard' ? 'Dashboard Overview' :
-                                                activeTab === 'bookings' ? 'Bookings Management' :
-                                                    activeTab === 'guides' ? 'Tour Guide Management' :
-                                                        activeTab === 'reviews' ? 'Reviews & Ratings' :
-                                                            activeTab === 'settings' ? 'Agency Settings' :
-                                                                'Earnings & Payments'}
-                                        </h2>
-                                    </div>
-                                </div>
+
+                        <div className="relative px-8 py-6 h-full flex flex-col justify-between">
+                            <div className="flex items-start justify-between w-full">
+                                {/* Adjusted top section containing Business Name */}
+                                <h1 className="text-2xl md:text-3xl font-black text-white drop-shadow-lg tracking-tight">
+                                    {businessName}
+                                </h1>
 
                                 {user?.guide_tier === 'free' ? (
                                     <div className="flex flex-col items-end">
@@ -535,6 +529,28 @@ export default function AgencyLayout() {
                                         </div>
                                     </div>
                                 )}
+                            </div>
+
+                            {/* Moved original active tab title here, smaller and cleanly mapped to the bottom left */}
+                            <div className="flex items-end justify-start w-full mt-auto">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
+                                        {activeTab === 'dashboard' && <LayoutDashboard className="w-5 h-5 text-white" />}
+                                        {activeTab === 'bookings' && <BookOpen className="w-5 h-5 text-white" />}
+                                        {activeTab === 'guides' && <UsersRound className="w-5 h-5 text-white" />}
+                                        {activeTab === 'reviews' && <Star className="w-5 h-5 text-white" />}
+                                        {activeTab === 'earnings' && <DollarSign className="w-5 h-5 text-white" />}
+                                        {activeTab === 'settings' && <Settings className="w-5 h-5 text-white" />}
+                                    </div>
+                                    <h2 className="text-lg md:text-xl font-bold text-white/90 drop-shadow-md">
+                                        {activeTab === 'dashboard' ? 'Dashboard Overview' :
+                                            activeTab === 'bookings' ? 'Bookings Management' :
+                                                activeTab === 'guides' ? 'Tour Guide Management' :
+                                                    activeTab === 'reviews' ? 'Reviews & Ratings' :
+                                                        activeTab === 'settings' ? 'Agency Settings' :
+                                                            'Earnings & Payments'}
+                                    </h2>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -639,7 +655,6 @@ export default function AgencyLayout() {
                 isEditMode={!!editingGuideId}
             />
 
-            {/* z-[10000] to ensure it shows over the pending application UI! */}
             {confirmModal.isOpen && (
                 <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 transition-colors duration-300">
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full shadow-2xl transition-colors duration-300">

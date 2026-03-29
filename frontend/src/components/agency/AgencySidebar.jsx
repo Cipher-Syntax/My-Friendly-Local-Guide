@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// --- FIX 1: Import the Settings icon ---
 import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, Wallet, Settings } from 'lucide-react';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
 import { useTheme } from '../../context/ThemeContext';
 
-export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }) {
+export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, logo }) {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
 
@@ -26,19 +25,26 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
         }
     }, []);
 
-    // --- FIX 2: Add Settings to the Menu Items ---
     const menuItems = [
         { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { id: 'bookings', icon: BookOpen, label: 'Bookings Management' },
         { id: 'guides', icon: UsersRound, label: 'Tour Guide Management' },
         { id: 'reviews', icon: Star, label: 'Reviews & Ratings' },
         { id: 'earnings', icon: Wallet, label: 'Earnings & Payments' },
-        { id: 'settings', icon: Settings, label: 'Agency Settings' }, // NEW ITEM
+        { id: 'settings', icon: Settings, label: 'Agency Settings' },
     ];
 
     return (
         <aside className="w-70 bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm border-r border-slate-200 dark:border-slate-700/50 flex flex-col h-screen transition-colors duration-300">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-700/50">
+            {/* Added logo and centered the text */}
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col items-center text-center">
+                {logo && (
+                    <img
+                        src={logo}
+                        alt="Agency Logo"
+                        className="w-20 h-20 object-contain bg-white dark:bg-slate-800 rounded-xl mb-4 shadow-sm border border-slate-200 dark:border-slate-700 p-1"
+                    />
+                )}
                 <h1 className="text-xl font-bold text-slate-900 dark:text-white">Agency Portal</h1>
                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Management System</p>
             </div>
