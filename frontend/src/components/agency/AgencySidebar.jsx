@@ -37,7 +37,6 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
     return (
         <aside className="w-70 bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm border-r border-slate-200 dark:border-slate-700/50 flex flex-col h-screen transition-colors duration-300">
 
-            {/* Clean, simple header without the logo or background image */}
             <div className="p-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col justify-center">
                 <h1 className="text-xl font-bold text-slate-900 dark:text-white">
                     Agency Portal

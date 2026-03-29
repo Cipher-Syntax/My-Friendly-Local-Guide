@@ -21,6 +21,9 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
     const [logoFile, setLogoFile] = useState(null);
     const [logoPreview, setLogoPreview] = useState(profileData.logo || null);
 
+    // NEW: Track if the user explicitly clicked "Remove"
+    const [logoRemoved, setLogoRemoved] = useState(false);
+
     const email = profileData.email || 'Loading...';
 
     useEffect(() => {
@@ -46,6 +49,7 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
         if (file) {
             setLogoFile(file);
             setLogoPreview(URL.createObjectURL(file));
+            setLogoRemoved(false); // Reset removal tracker when a new file is chosen
         }
     };
 
@@ -59,15 +63,17 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                 return;
             }
 
-            // Use FormData to handle file uploads
             const formData = new FormData();
             formData.append('business_name', businessName);
             formData.append('owner_name', ownerName);
             formData.append('phone', normalizedPhone);
             formData.append('down_payment_percentage', downPayment);
 
+            // NEW: Logic to handle explicit removal
             if (logoFile) {
                 formData.append('logo', logoFile);
+            } else if (logoRemoved) {
+                formData.append('logo', ''); // Sending an empty string tells Django REST to clear the FileField
             }
 
             await api.patch('api/agency/profile/', formData, {
@@ -83,6 +89,9 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
             showFeedback("Settings updated successfully!", "success");
 
             if (onUpdateSuccess) onUpdateSuccess();
+
+            // Reset the removal tracker after a successful save
+            setLogoRemoved(false);
         } catch (error) {
             console.error("Failed to update settings:", error);
             showFeedback("Failed to save settings. Please try again.", "error");
@@ -178,7 +187,12 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                                 </label>
                                 {logoPreview && (
                                     <button
-                                        onClick={() => { setLogoFile(null); setLogoPreview(null); }}
+                                        type="button"
+                                        onClick={() => {
+                                            setLogoFile(null);
+                                            setLogoPreview(null);
+                                            setLogoRemoved(true); // Flag this for backend removal
+                                        }}
                                         className="text-sm text-rose-500 hover:text-rose-600 font-medium"
                                     >
                                         Remove
