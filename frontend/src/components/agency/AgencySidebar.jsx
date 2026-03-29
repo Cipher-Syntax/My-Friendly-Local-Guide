@@ -4,7 +4,7 @@ import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, W
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
 import { useTheme } from '../../context/ThemeContext';
 
-export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, logo }) {
+export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }) {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
 
@@ -37,25 +37,14 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
     return (
         <aside className="w-70 bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm border-r border-slate-200 dark:border-slate-700/50 flex flex-col h-screen transition-colors duration-300">
 
-            {/* Standard padding (p-6), no fixed height, text left-aligned */}
-            <div
-                className={`relative h-48 border-b border-slate-200 dark:border-slate-700/50 overflow-hidden flex flex-col justify-center ${logo ? 'bg-cover bg-center' : ''}`}
-                style={logo ? { backgroundImage: `url(${logo})` } : {}}
-            >
-                {/* Dark overlay to make sure the text pops out nicely against any logo */}
-                {logo && (
-                    <div className="absolute inset-0 bg-slate-900/80 mix-blend-multiply backdrop-blur-[1px]"></div>
-                )}
-
-                {/* Text content - Left Aligned */}
-                <div className="relative z-10 w-full text-center">
-                    <h1 className={`text-2xl font-bold drop-shadow-md ${logo ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-                        Agency Portal
-                    </h1>
-                    <p className={`text-sm mt-1 font-medium drop-shadow-md ${logo ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}>
-                        Management System
-                    </p>
-                </div>
+            {/* Clean, simple header without the logo or background image */}
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col justify-center">
+                <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+                    Agency Portal
+                </h1>
+                <p className="text-sm mt-1 font-medium text-slate-500 dark:text-slate-400">
+                    Management System
+                </p>
             </div>
 
             <nav className="flex-1 p-4 space-y-2">
