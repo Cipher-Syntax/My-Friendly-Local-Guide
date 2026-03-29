@@ -37,9 +37,9 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
     return (
         <aside className="w-70 bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm border-r border-slate-200 dark:border-slate-700/50 flex flex-col h-screen transition-colors duration-300">
 
-            {/* Added min-h-[220px] and justify-center to make the box as big as before */}
+            {/* Standard padding (p-6), no fixed height, text left-aligned */}
             <div
-                className={`relative min-h-[220px] px-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col items-center justify-center text-center overflow-hidden ${logo ? 'bg-cover bg-center' : ''}`}
+                className={`relative p-6 border-b border-slate-200 dark:border-slate-700/50 overflow-hidden flex flex-col justify-center ${logo ? 'bg-cover bg-center' : ''}`}
                 style={logo ? { backgroundImage: `url(${logo})` } : {}}
             >
                 {/* Dark overlay to make sure the text pops out nicely against any logo */}
@@ -47,9 +47,9 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
                     <div className="absolute inset-0 bg-slate-900/80 mix-blend-multiply backdrop-blur-[1px]"></div>
                 )}
 
-                {/* Text content brought to the front */}
-                <div className="relative z-10 w-full">
-                    <h1 className={`text-xl font-black tracking-wide drop-shadow-md ${logo ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                {/* Text content - Left Aligned */}
+                <div className="relative z-10 w-full text-left">
+                    <h1 className={`text-xl font-bold drop-shadow-md ${logo ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
                         Agency Portal
                     </h1>
                     <p className={`text-sm mt-1 font-medium drop-shadow-md ${logo ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}>
@@ -58,7 +58,7 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
                 </div>
             </div>
 
-            <nav className="flex-1 p-4 space-y-2 mt-2">
+            <nav className="flex-1 p-4 space-y-2">
                 {menuItems.map(item => (
                     <button
                         key={item.id}
