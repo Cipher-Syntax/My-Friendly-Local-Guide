@@ -52,8 +52,8 @@ const Agencysignin = () => {
         { Icon: Mountain, top: '80%', left: '80%', delay: '1s', size: 24, opacity: 0.1 },
     ];
 
-    // Check if the current error means we need to reactivate
-    const isDeactivatedError = error && (
+    // FIX: Only call toLowerCase if error is a string to prevent crashes!
+    const isDeactivatedError = typeof error === 'string' && (
         error.toLowerCase().includes('inactive') ||
         error.toLowerCase().includes('deactivated') ||
         error.toLowerCase().includes('reactivate')
@@ -86,6 +86,7 @@ const Agencysignin = () => {
                 console.error("Could not decode token", decodeError);
             }
 
+            // Fetch the user's profile to see if they actually need to complete registration
             const profileRes = await api.get('api/profile/');
             const userProfile = profileRes.data;
 
@@ -106,11 +107,17 @@ const Agencysignin = () => {
 
         } catch (err) {
             console.error("Agency Login Failed", err);
-            if (err.response && err.response.data && err.response.data.detail) {
-                setError(err.response.data.detail);
-            } else {
-                setError("Invalid credentials. Please verify your agency account.");
+
+            // FIX: Safely grab the error message so the app doesn't crash on Arrays or Objects
+            let errMsg = "Invalid credentials. Please verify your agency account.";
+            if (err.response?.data) {
+                const data = err.response.data;
+                if (typeof data.detail === 'string') errMsg = data.detail;
+                else if (Array.isArray(data.detail)) errMsg = data.detail[0];
+                else if (Array.isArray(data.non_field_errors)) errMsg = data.non_field_errors[0];
+                else if (typeof data === 'string') errMsg = data;
             }
+            setError(errMsg);
         } finally {
             setIsLoading(false);
         }
@@ -129,7 +136,6 @@ const Agencysignin = () => {
                 password: formData.password
             });
 
-            // Reactivation successful! Get tokens and log them in
             const access = res.data.access;
             const refresh = res.data.refresh;
 
@@ -146,7 +152,6 @@ const Agencysignin = () => {
 
             setSuccessMsg("Account reactivated successfully! Logging you in...");
 
-            // Small delay to let them read the success message
             setTimeout(() => {
                 const pendingData = localStorage.getItem('pending_agency_data');
                 if (pendingData) {
@@ -158,11 +163,17 @@ const Agencysignin = () => {
 
         } catch (err) {
             console.error("Reactivation Failed", err);
-            if (err.response && err.response.data && err.response.data.detail) {
-                setError(err.response.data.detail);
-            } else {
-                setError("Invalid credentials. Could not reactivate account.");
+
+            // FIX: Safely grab the error message for reactivation too
+            let errMsg = "Invalid credentials. Could not reactivate account.";
+            if (err.response?.data) {
+                const data = err.response.data;
+                if (typeof data.detail === 'string') errMsg = data.detail;
+                else if (Array.isArray(data.detail)) errMsg = data.detail[0];
+                else if (Array.isArray(data.non_field_errors)) errMsg = data.non_field_errors[0];
+                else if (typeof data === 'string') errMsg = data;
             }
+            setError(errMsg);
         } finally {
             setIsLoading(false);
         }
@@ -174,7 +185,6 @@ const Agencysignin = () => {
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
-        // Instantly clear the error (and reset the button) as soon as they type
         if (error) setError(null);
     };
 
@@ -188,7 +198,6 @@ const Agencysignin = () => {
         }
     };
 
-    // Determine Button Style and Action
     let mainButtonAction = handleSubmit;
     let mainButtonText = "Enter Agency Portal";
     let mainButtonGradient = "from-cyan-600 to-indigo-600 hover:from-cyan-700 hover:to-indigo-700 dark:hover:from-cyan-500 dark:hover:to-indigo-500";
@@ -197,7 +206,6 @@ const Agencysignin = () => {
     if (isDeactivatedError) {
         mainButtonAction = handleReactivate;
         mainButtonText = "Reactivate Account";
-        // Change color to make it obvious they are reactivating
         mainButtonGradient = "from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 dark:hover:from-orange-400 dark:hover:to-rose-500";
         ButtonIcon = RefreshCcw;
     }
