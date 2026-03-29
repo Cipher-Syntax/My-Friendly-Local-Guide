@@ -21,6 +21,7 @@ class AgencySerializer(serializers.ModelSerializer):
             'email', 
             'phone', 
             'business_license', 
+            'logo', # NEW: Added logo here so API can receive and send it
             'status', 
             'created_at', 
             'profile_picture',
