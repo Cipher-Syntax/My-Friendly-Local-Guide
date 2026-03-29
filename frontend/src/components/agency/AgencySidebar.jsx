@@ -48,8 +48,8 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
                 )}
 
                 {/* Text content - Left Aligned */}
-                <div className="relative z-10 w-full text-left">
-                    <h1 className={`text-xl font-bold drop-shadow-md ${logo ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                <div className="relative z-10 w-full text-center">
+                    <h1 className={`text-2xl font-bold drop-shadow-md ${logo ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
                         Agency Portal
                     </h1>
                     <p className={`text-sm mt-1 font-medium drop-shadow-md ${logo ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}>
