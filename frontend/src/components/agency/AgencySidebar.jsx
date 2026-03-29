@@ -39,7 +39,7 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
 
             {/* Standard padding (p-6), no fixed height, text left-aligned */}
             <div
-                className={`relative p-6 border-b border-slate-200 dark:border-slate-700/50 overflow-hidden flex flex-col justify-center ${logo ? 'bg-cover bg-center' : ''}`}
+                className={`relative h-48 border-b border-slate-200 dark:border-slate-700/50 overflow-hidden flex flex-col justify-center ${logo ? 'bg-cover bg-center' : ''}`}
                 style={logo ? { backgroundImage: `url(${logo})` } : {}}
             >
                 {/* Dark overlay to make sure the text pops out nicely against any logo */}
