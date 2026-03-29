@@ -217,11 +217,9 @@ class AgencyTokenObtainPairSerializer(TokenObtainPairSerializer):
         except AuthenticationFailed:
             raise AuthenticationFailed('Invalid Credentials.')
             
-        # 3. Check if they are an Agency or Staff
-        if not hasattr(self.user, 'agency_profile') and not self.user.is_staff:
-            raise serializers.ValidationError({
-                "detail": "Access Denied. This portal is strictly for registered Agency Partners. Please use the mobile app to log in as a Tourist or Guide."
-            })
+        # FIX: Removed the strict "Access Denied" block here. 
+        # The frontend AgencySignin.jsx now handles kicking out normal users, 
+        # allowing incomplete agencies to access the "Complete Profile" page.
             
         return data
 
