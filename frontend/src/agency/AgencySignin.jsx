@@ -52,7 +52,6 @@ const Agencysignin = () => {
         { Icon: Mountain, top: '80%', left: '80%', delay: '1s', size: 24, opacity: 0.1 },
     ];
 
-    // FIX: Only call toLowerCase if error is a string to prevent crashes!
     const isDeactivatedError = typeof error === 'string' && (
         error.toLowerCase().includes('inactive') ||
         error.toLowerCase().includes('deactivated') ||
@@ -86,7 +85,6 @@ const Agencysignin = () => {
                 console.error("Could not decode token", decodeError);
             }
 
-            // Fetch the user's profile to see if they actually need to complete registration
             const profileRes = await api.get('api/profile/');
             const userProfile = profileRes.data;
 
@@ -94,21 +92,14 @@ const Agencysignin = () => {
                 localStorage.removeItem('pending_agency_data');
                 navigate('/agency');
             } else {
-                const pendingData = localStorage.getItem('pending_agency_data');
-
-                if (pendingData) {
-                    navigate('/agency/complete-profile');
-                } else {
-                    setError("Pending registration data lost. Please register your agency details again on this device.");
-                    localStorage.removeItem(ACCESS_TOKEN);
-                    localStorage.removeItem(REFRESH_TOKEN);
-                }
+                // FIX: Removed the strict check! We don't care if local storage is empty anymore.
+                // If they have an account but no agency profile, ALWAYS send them here to finish uploading.
+                navigate('/agency/complete-profile');
             }
 
         } catch (err) {
             console.error("Agency Login Failed", err);
 
-            // FIX: Safely grab the error message so the app doesn't crash on Arrays or Objects
             let errMsg = "Invalid credentials. Please verify your agency account.";
             if (err.response?.data) {
                 const data = err.response.data;
@@ -153,18 +144,12 @@ const Agencysignin = () => {
             setSuccessMsg("Account reactivated successfully! Logging you in...");
 
             setTimeout(() => {
-                const pendingData = localStorage.getItem('pending_agency_data');
-                if (pendingData) {
-                    navigate('/agency/complete-profile');
-                } else {
-                    navigate('/agency');
-                }
+                navigate('/agency');
             }, 1000);
 
         } catch (err) {
             console.error("Reactivation Failed", err);
 
-            // FIX: Safely grab the error message for reactivation too
             let errMsg = "Invalid credentials. Could not reactivate account.";
             if (err.response?.data) {
                 const data = err.response.data;
