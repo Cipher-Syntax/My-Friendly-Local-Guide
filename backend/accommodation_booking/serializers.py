@@ -307,7 +307,12 @@ class BookingSerializer(serializers.ModelSerializer):
                     package_qs = package_qs.filter(main_destination=destination)
                 selected_package = package_qs.first()
 
-            if not selected_package and destination and check_in and check_out:
+                if not selected_package:
+                    raise serializers.ValidationError({
+                        'tour_package_id': "Selected tour package is invalid for this guide."
+                    })
+
+            if not selected_package and not requested_tour_id and destination and check_in and check_out:
                 trip_days = max((check_out - check_in).days + 1, 1)
                 selected_package = TourPackage.objects.filter(
                     guide=guide,
@@ -368,7 +373,12 @@ class BookingSerializer(serializers.ModelSerializer):
                     package_qs = package_qs.filter(main_destination=destination)
                 selected_package = package_qs.first()
 
-            if not selected_package and destination and check_in and check_out:
+                if not selected_package:
+                    raise serializers.ValidationError({
+                        'tour_package_id': "Selected tour package is invalid for this agency."
+                    })
+
+            if not selected_package and not requested_tour_id and destination and check_in and check_out:
                 trip_days = max((check_out - check_in).days + 1, 1)
                 selected_package = TourPackage.objects.filter(
                     agency__user=agency,
@@ -376,13 +386,6 @@ class BookingSerializer(serializers.ModelSerializer):
                     is_active=True,
                     duration_days=trip_days,
                 ).order_by('-created_at', '-id').first()
-
-            if not selected_package and destination:
-                selected_package = TourPackage.objects.filter(
-                    agency__user=agency,
-                    main_destination=destination,
-                    is_active=True,
-                ).order_by('-duration_days', '-created_at', '-id').first()
 
             if selected_package and guests_count > selected_package.max_group_size:
                 raise serializers.ValidationError({
