@@ -18,13 +18,12 @@ from system_management_module.services.push_notifications import send_push_to_us
 from destinations_and_attractions.models import TourPackage  
 
 from rest_framework.views import APIView
-from .models import Booking
+
 
 def format_booking_date_display(check_in, check_out):
     if not check_in:
         return "N/A"
     
-    # Extract date objects to safely compare them
     start_date = check_in.date() if hasattr(check_in, 'date') else check_in
     
     if not check_out:
@@ -33,7 +32,6 @@ def format_booking_date_display(check_in, check_out):
     end_date = check_out.date() if hasattr(check_out, 'date') else check_out
     
     try:
-        # Format beautifully like "March 24, 2026 to March 25, 2026"
         start_str = start_date.strftime('%B %d, %Y')
         end_str = end_date.strftime('%B %d, %Y')
         
@@ -41,7 +39,6 @@ def format_booking_date_display(check_in, check_out):
             return start_str
         return f"{start_str} to {end_str}"
     except Exception:
-        # Fallback if there is an issue parsing strings
         if start_date == end_date:
             return str(start_date)
         return f"{start_date} to {end_date}"
@@ -53,18 +50,23 @@ def generate_itinerary_html_and_plain(instance):
     
     selected_package = instance.tour_package
     
-    # 1. AUTO-DETECT: Find the package dynamically if not explicitly linked!
-    if not selected_package and instance.guide and not instance.agency and instance.destination:
-        trip_days = max((instance.check_out - instance.check_in).days + 1, 1)
-        candidates = TourPackage.objects.filter(
-            guide=instance.guide,
-            main_destination=instance.destination,
-            is_active=True,
-            duration_days__in=[trip_days, max(trip_days - 1, 1)]
-        ).order_by('-created_at', '-id')
-        
-        if candidates.exists():
-            selected_package = candidates.first()
+    if not selected_package and instance.destination:
+        provider = instance.guide or instance.agency
+        if provider:
+            trip_days = max((instance.check_out - instance.check_in).days + 1, 1)
+            candidates = TourPackage.objects.filter(
+                main_destination=instance.destination,
+                is_active=True,
+                duration_days__in=[trip_days, max(trip_days - 1, 1)]
+            )
+            if instance.guide:
+                candidates = candidates.filter(guide=instance.guide)
+            elif instance.agency:
+                candidates = candidates.filter(agency__user=instance.agency)
+                
+            candidates = candidates.order_by('-created_at', '-id')
+            if candidates.exists():
+                selected_package = candidates.first()
             
     if selected_package and selected_package.itinerary_timeline:
         timeline = selected_package.itinerary_timeline
@@ -95,7 +97,6 @@ def generate_itinerary_html_and_plain(instance):
                 trip_days = max((instance.check_out - instance.check_in).days + 1, 1)
                 
                 for day in sorted_days:
-                    # Respect the user's booking length
                     if int(day) > trip_days:
                         continue
                         
@@ -126,15 +127,17 @@ class IsHostOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return (
-            request.user.is_authenticated and
-            request.user.is_local_guide and
-            request.user.guide_approved
-        )
+        if not request.user.is_authenticated:
+            return False
+        is_guide = request.user.is_local_guide and request.user.guide_approved
+        is_agency = hasattr(request.user, 'agency_profile')
+        return is_guide or is_agency
 
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
+        if obj.agency and hasattr(request.user, 'agency_profile'):
+            return obj.agency == request.user.agency_profile
         return obj.host == request.user
 
 
@@ -144,27 +147,53 @@ class AccommodationViewSet(viewsets.ModelViewSet):
     parser_classes = (MultiPartParser, FormParser, JSONParser) 
 
     def get_queryset(self):
-        qs = Accommodation.objects.all().select_related('host')
+        qs = Accommodation.objects.all().select_related('host', 'agency')
         target_host_id = self.request.query_params.get('host_id')
+        target_agency_id = self.request.query_params.get('agency_id')
+        
         if target_host_id:
             return qs.filter(host_id=target_host_id, is_approved=True).order_by('-created_at')
+        if target_agency_id:
+            return qs.filter(agency_id=target_agency_id, is_approved=True).order_by('-created_at')
 
-        if self.request.user.is_staff:
+        user = self.request.user
+        
+        if not user.is_authenticated:
+            return qs.filter(is_approved=True).order_by('-created_at')
+        
+        # Admin can see everything
+        if user.is_staff and not hasattr(user, 'agency_profile'):
             return qs.order_by('-created_at')
 
-        if self.action in ['list', 'retrieve', 'update', 'destroy']:
-             return qs.filter(host=self.request.user).order_by('-created_at')
-        
-        return qs.filter(host=self.request.user).order_by('-created_at')
+        # FIX: Agencies should ONLY see their own accommodations
+        if hasattr(user, 'agency_profile'):
+            return qs.filter(agency=user.agency_profile).order_by('-created_at')
+            
+        # FIX: Guides should ONLY see their own accommodations
+        if user.is_local_guide:
+            return qs.filter(host=user).order_by('-created_at')
+
+        # For Tourists: They should see ALL approved accommodations.
+        return qs.filter(is_approved=True).order_by('-created_at')
 
     def perform_create(self, serializer):
         user = self.request.user
-        serializer.save(host=user, is_approved=True)
+        if hasattr(user, 'agency_profile'):
+            serializer.save(agency=user.agency_profile, is_approved=True)
+        else:
+            serializer.save(host=user, is_approved=True)
 
     def perform_update(self, serializer):
         instance = serializer.instance
-        if instance.host != self.request.user:
-            raise PermissionDenied("You cannot edit this listing.")
+        user = self.request.user
+        
+        if instance.agency:
+            if not hasattr(user, 'agency_profile') or instance.agency != user.agency_profile:
+                 raise PermissionDenied("You cannot edit this agency's listing.")
+        elif instance.host:
+             if instance.host != user:
+                 raise PermissionDenied("You cannot edit this listing.")
+                 
         serializer.save()
 
 
@@ -173,7 +202,10 @@ class AccommodationDropdownListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Accommodation.objects.filter(host=self.request.user).order_by('title')
+        user = self.request.user
+        if hasattr(user, 'agency_profile'):
+            return Accommodation.objects.filter(agency=user.agency_profile).order_by('title')
+        return Accommodation.objects.filter(host=user).order_by('title')
 
 
 class BookingViewSet(viewsets.ModelViewSet):
@@ -208,10 +240,33 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = self.request.user
-        uploaded_id_image = self.request.data.get('tourist_valid_id_image')
-        if uploaded_id_image and not user.valid_id_image:
+
+        uploaded_id_image = serializer.validated_data.get('tourist_valid_id_image')
+        uploaded_selfie_image = serializer.validated_data.get('tourist_selfie_image')
+
+        # Guard against malformed multipart payloads that produce empty/non-file values.
+        def sanitize_uploaded_file(field_name, candidate):
+            if not candidate:
+                return None
+
+            is_file_like = hasattr(candidate, 'read') and hasattr(candidate, 'name')
+            if not is_file_like:
+                serializer.validated_data.pop(field_name, None)
+                return None
+
+            size = getattr(candidate, 'size', None)
+            if size is not None and size <= 0:
+                serializer.validated_data.pop(field_name, None)
+                return None
+
+            return candidate
+
+        uploaded_id_image = sanitize_uploaded_file('tourist_valid_id_image', uploaded_id_image)
+        sanitize_uploaded_file('tourist_selfie_image', uploaded_selfie_image)
+
+        if uploaded_id_image:
             user.valid_id_image = uploaded_id_image
-            user.save() 
+            user.save(update_fields=['valid_id_image'])
 
         passed_total = self.request.data.get('total_price')
         passed_down_payment = self.request.data.get('down_payment')
@@ -221,12 +276,14 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         requested_tour_id = self.request.data.get('tour_package_id')
         
-        if requested_tour_id and requested_tour_id != 'null' and instance.guide:
-            selected_tour = TourPackage.objects.filter(
-                id=requested_tour_id,
-                guide=instance.guide,
-                main_destination=instance.destination,
-            ).first()
+        if requested_tour_id and requested_tour_id != 'null':
+            candidates = TourPackage.objects.filter(id=requested_tour_id, main_destination=instance.destination)
+            if instance.guide:
+                candidates = candidates.filter(guide=instance.guide)
+            elif instance.agency:
+                candidates = candidates.filter(agency__user=instance.agency)
+            
+            selected_tour = candidates.first()
             if selected_tour:
                 instance.tour_package = selected_tour
         
@@ -258,7 +315,6 @@ class BookingViewSet(viewsets.ModelViewSet):
             try:
                 booking_date_display = format_booking_date_display(instance.check_in, instance.check_out)
                 
-                # Fetch the dynamically generated HTML and Plain Text Itinerary
                 itin_html, itin_plain = generate_itinerary_html_and_plain(instance)
 
                 subject = "New Booking Request Received - LocaLynk"
@@ -434,7 +490,6 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         booking_date_display = format_booking_date_display(booking.check_in, booking.check_out)
         
-        # Fetch the dynamically generated HTML and Plain Text Itinerary
         itin_html, itin_plain = generate_itinerary_html_and_plain(booking)
 
         plain_text_receipt = (
@@ -552,9 +607,21 @@ class BookingViewSet(viewsets.ModelViewSet):
                 raise ValidationError("Target is not an approved guide.")
         
         if instance.accommodation:
-            target = instance.accommodation.host
-            if not target or not (target.is_local_guide and target.guide_approved):
-                raise ValidationError("Target is not an approved guide/host.")
+            host_user = instance.accommodation.host
+            agency_profile = instance.accommodation.agency
+
+            has_approved_host = bool(
+                host_user and host_user.is_local_guide and host_user.guide_approved
+            )
+            has_approved_agency_owner = bool(
+                agency_profile and
+                getattr(agency_profile, 'status', None) == 'Approved' and
+                getattr(agency_profile, 'user', None) and
+                agency_profile.user.is_staff
+            )
+
+            if not (has_approved_host or has_approved_agency_owner):
+                raise ValidationError("Target accommodation is not owned by an approved guide/host/agency.")
         if instance.agency:
             target = instance.agency
             if not target or not target.is_staff:
@@ -581,7 +648,6 @@ class BookingViewSet(viewsets.ModelViewSet):
         if not instance.check_in or not instance.check_out:
             return 0
         
-        # Ensure days math is accurate for price calculation
         days = max((instance.check_out - instance.check_in).days + 1, 1)
         total_price = 0
 
@@ -589,8 +655,9 @@ class BookingViewSet(viewsets.ModelViewSet):
             acc_cost = instance.accommodation.price * days
             total_price += acc_cost
         
-        if instance.guide:
-            guide = instance.guide
+        provider = instance.guide or instance.agency
+        
+        if provider:
             tour_package = instance.tour_package
             requested_tour_id = self.request.data.get('tour_package_id')
             
@@ -598,16 +665,21 @@ class BookingViewSet(viewsets.ModelViewSet):
                 tour_package = TourPackage.objects.filter(id=requested_tour_id).first()
             
             if not tour_package and instance.destination:
-                tour_package = TourPackage.objects.filter(
-                    guide=guide,
+                candidates = TourPackage.objects.filter(
                     main_destination=instance.destination,
                     duration_days__in=[days, max(days - 1, 1)],
                     is_active=True,
-                ).order_by('-created_at').first()
+                )
+                if instance.guide:
+                    candidates = candidates.filter(guide=instance.guide)
+                elif instance.agency:
+                    candidates = candidates.filter(agency__user=instance.agency)
+                
+                tour_package = candidates.order_by('-created_at').first()
             
-            base_group_price = guide.price_per_day or 0
-            solo_price = guide.solo_price_per_day or base_group_price
-            extra_fee = guide.multiple_additional_fee_per_head or 0
+            base_group_price = getattr(provider, 'price_per_day', 0) or 0
+            solo_price = getattr(provider, 'solo_price_per_day', base_group_price) or base_group_price
+            extra_fee = getattr(provider, 'multiple_additional_fee_per_head', 0) or 0
             
             if tour_package:
                 base_group_price = tour_package.price_per_day or base_group_price
@@ -620,11 +692,8 @@ class BookingViewSet(viewsets.ModelViewSet):
                 extra_pax = max(0, instance.num_guests - 1)
                 daily_rate = solo_price + (extra_pax * extra_fee) 
             
-            guide_total = daily_rate * days
-            total_price += guide_total
-
-        if instance.agency:
-            total_price += 1000 * days * instance.num_guests
+            tour_total = daily_rate * days
+            total_price += tour_total
 
         return float(total_price)
 

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Phone, Percent, Building, User, Mail, Info, CheckCircle, AlertCircle as AlertIcon, Power, Eye, EyeOff, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { Save, Phone, Percent, Building, User, Mail, Info, CheckCircle, AlertCircle as AlertIcon, Power, Eye, EyeOff, X, Upload, Image as ImageIcon, Calendar, Clock } from 'lucide-react';
 import api from '../../api/api';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
+
+const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
     const [isLoading, setIsLoading] = useState(false);
@@ -11,17 +13,20 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
     const [feedback, setFeedback] = useState({ show: false, message: '', type: '' });
 
     // Editable Fields
-    const [businessName, setBusinessName] = useState(profileData.business_name || '');
-    const [ownerName, setOwnerName] = useState(profileData.owner_name || '');
-    const [phone, setPhone] = useState(formatPHPhoneLocal(profileData.phone || ''));
-    const [downPayment, setDownPayment] = useState(profileData.down_payment_percentage || 30);
-    const [isOnline, setIsOnline] = useState(profileData.is_guide_visible !== false);
+    const [businessName, setBusinessName] = useState('');
+    const [ownerName, setOwnerName] = useState('');
+    const [phone, setPhone] = useState('');
+    const [downPayment, setDownPayment] = useState(30);
+    const [isOnline, setIsOnline] = useState(true);
+
+    // NEW: Availability Schedule Fields
+    const [availableDays, setAvailableDays] = useState([]);
+    const [openingTime, setOpeningTime] = useState('');
+    const [closingTime, setClosingTime] = useState('');
 
     // Logo Upload States
     const [logoFile, setLogoFile] = useState(null);
-    const [logoPreview, setLogoPreview] = useState(profileData.logo || null);
-
-    // NEW: Track if the user explicitly clicked "Remove"
+    const [logoPreview, setLogoPreview] = useState(null);
     const [logoRemoved, setLogoRemoved] = useState(false);
 
     const email = profileData.email || 'Loading...';
@@ -33,6 +38,12 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
             setPhone(formatPHPhoneLocal(profileData.phone || ''));
             setDownPayment(profileData.down_payment_percentage || 30);
             setLogoPreview(profileData.logo || null);
+
+            // Populate Availability
+            setAvailableDays(profileData.available_days || []);
+            setOpeningTime(profileData.opening_time || '');
+            setClosingTime(profileData.closing_time || '');
+
             if (profileData.is_guide_visible !== undefined) {
                 setIsOnline(profileData.is_guide_visible);
             }
@@ -49,7 +60,15 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
         if (file) {
             setLogoFile(file);
             setLogoPreview(URL.createObjectURL(file));
-            setLogoRemoved(false); // Reset removal tracker when a new file is chosen
+            setLogoRemoved(false);
+        }
+    };
+
+    const toggleDay = (day) => {
+        if (availableDays.includes(day)) {
+            setAvailableDays(availableDays.filter(d => d !== day));
+        } else {
+            setAvailableDays([...availableDays, day]);
         }
     };
 
@@ -69,11 +88,15 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
             formData.append('phone', normalizedPhone);
             formData.append('down_payment_percentage', downPayment);
 
-            // NEW: Logic to handle explicit removal
+            // NEW: Append Availability Data
+            formData.append('available_days', JSON.stringify(availableDays));
+            if (openingTime) formData.append('opening_time', openingTime);
+            if (closingTime) formData.append('closing_time', closingTime);
+
             if (logoFile) {
                 formData.append('logo', logoFile);
             } else if (logoRemoved) {
-                formData.append('logo', ''); // Sending an empty string tells Django REST to clear the FileField
+                formData.append('logo', '');
             }
 
             await api.patch('api/agency/profile/', formData, {
@@ -89,8 +112,6 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
             showFeedback("Settings updated successfully!", "success");
 
             if (onUpdateSuccess) onUpdateSuccess();
-
-            // Reset the removal tracker after a successful save
             setLogoRemoved(false);
         } catch (error) {
             console.error("Failed to update settings:", error);
@@ -133,7 +154,7 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
 
             <div>
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Agency Settings</h2>
-                <p className="text-slate-500 dark:text-slate-400">Manage your business profile, visibility, and financial configurations.</p>
+                <p className="text-slate-500 dark:text-slate-400">Manage your business profile, schedule, and financial configurations.</p>
             </div>
 
             {/* Visibility Section */}
@@ -191,7 +212,7 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                                         onClick={() => {
                                             setLogoFile(null);
                                             setLogoPreview(null);
-                                            setLogoRemoved(true); // Flag this for backend removal
+                                            setLogoRemoved(true);
                                         }}
                                         className="text-sm text-rose-500 hover:text-rose-600 font-medium"
                                     >
@@ -278,6 +299,70 @@ export default function AgencySettings({ profileData = {}, onUpdateSuccess }) {
                         <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
                             <Info className="w-3 h-3" /> Contact admin support to change your account email.
                         </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* NEW: Operating Schedule Section */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-blue-500" />
+                    Operating Schedule
+                </h3>
+
+                <div className="mb-6">
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">
+                        Days Available
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                        {DAYS_OF_WEEK.map(day => (
+                            <button
+                                key={day}
+                                type="button"
+                                onClick={() => toggleDay(day)}
+                                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border ${availableDays.includes(day)
+                                        ? 'bg-cyan-50 border-cyan-500 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-400 dark:border-cyan-500 shadow-sm'
+                                        : 'bg-white border-slate-200 text-slate-600 hover:border-cyan-300 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400'
+                                    }`}
+                            >
+                                {day}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                            Opening Time
+                        </label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Clock className="w-5 h-5 text-slate-400" />
+                            </div>
+                            <input
+                                type="time"
+                                value={openingTime}
+                                onChange={(e) => setOpeningTime(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                            Closing Time
+                        </label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Clock className="w-5 h-5 text-slate-400" />
+                            </div>
+                            <input
+                                type="time"
+                                value={closingTime}
+                                onChange={(e) => setClosingTime(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>

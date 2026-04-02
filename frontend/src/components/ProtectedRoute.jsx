@@ -4,17 +4,89 @@ import { jwtDecode } from "jwt-decode";
 import api from '../api/api';
 import { REFRESH_TOKEN, ACCESS_TOKEN } from '../constants/constants'; 
 
-const ProtectedRoute = ({ children }) => {
+const hasRequiredRole = (requiredRole, profile, decodedToken) => {
+    if (!requiredRole) return true;
+
+    if (requiredRole === 'admin') {
+        return Boolean(profile?.is_superuser || decodedToken?.is_superuser);
+    }
+
+    if (requiredRole === 'agency') {
+        return Boolean(profile?.agency_profile) && !profile?.is_superuser && !profile?.is_local_guide;
+    }
+
+    if (requiredRole === 'agency-onboarding') {
+        return !profile?.is_superuser && !profile?.is_local_guide;
+    }
+
+    return true;
+};
+
+const resolveUnauthorizedRedirect = (requiredRole, profile, fallbackPath) => {
+    if (requiredRole === 'admin') {
+        if (profile?.agency_profile) return '/agency';
+        return '/admin-signin';
+    }
+
+    if (requiredRole === 'agency') {
+        if (profile?.is_superuser) return '/admin';
+        if (profile?.is_local_guide) return '/portal';
+        if (!profile?.agency_profile) return '/agency/complete-profile';
+    }
+
+    if (requiredRole === 'agency-onboarding') {
+        if (profile?.is_superuser) return '/admin';
+        if (profile?.is_local_guide) return '/portal';
+    }
+
+    return fallbackPath;
+};
+
+const ProtectedRoute = ({ children, requiredRole = null, redirectTo = '/' }) => {
     const [isAuthorized, setIsAuthorized] = useState(null);
+    const [redirectPath, setRedirectPath] = useState(redirectTo);
 
     useEffect(() => {
-        auth().catch(() => setIsAuthorized(false))
-    }, [])
+        auth().catch(() => {
+            setRedirectPath(redirectTo);
+            setIsAuthorized(false);
+        });
+    }, [requiredRole, redirectTo]);
+
+    const fetchProfile = async () => {
+        try {
+            const res = await api.get('api/profile/');
+            return res.data;
+        } catch {
+            return null;
+        }
+    };
+
+    const finalizeAuthorization = async (token) => {
+        let decoded = null;
+        try {
+            decoded = jwtDecode(token);
+        } catch {
+            decoded = null;
+        }
+
+        const profile = await fetchProfile();
+        const allowed = hasRequiredRole(requiredRole, profile, decoded);
+
+        if (!allowed) {
+            setRedirectPath(resolveUnauthorizedRedirect(requiredRole, profile, redirectTo));
+            setIsAuthorized(false);
+            return;
+        }
+
+        setIsAuthorized(true);
+    };
 
     const refreshToken = async () => {
         const refreshTokenValue = localStorage.getItem(REFRESH_TOKEN);
         
         if (!refreshTokenValue) {
+            setRedirectPath(redirectTo);
             setIsAuthorized(false);
             return;
         }
@@ -27,12 +99,14 @@ const ProtectedRoute = ({ children }) => {
 
             if (res.status === 200) {
                 localStorage.setItem(ACCESS_TOKEN, res.data.access);
-                setIsAuthorized(true);
+                await finalizeAuthorization(res.data.access);
             } else {
+                setRedirectPath(redirectTo);
                 setIsAuthorized(false);
             }
         } catch (error) {
             console.log('Failed to refresh token: ', error);
+            setRedirectPath(redirectTo);
             setIsAuthorized(false);
         }
     }
@@ -41,6 +115,7 @@ const ProtectedRoute = ({ children }) => {
         const token = localStorage.getItem(ACCESS_TOKEN);
         
         if (!token) {
+            setRedirectPath(redirectTo);
             setIsAuthorized(false);
             return;
         }
@@ -53,7 +128,7 @@ const ProtectedRoute = ({ children }) => {
             if (tokenExpiration < now) {
                 await refreshToken();
             } else {
-                setIsAuthorized(true);
+                await finalizeAuthorization(token);
             }
         } catch (error) {
             await refreshToken();
@@ -68,7 +143,7 @@ const ProtectedRoute = ({ children }) => {
         )
     }
 
-    return isAuthorized ? children : <Navigate to="/" /> 
+    return isAuthorized ? children : <Navigate to={redirectPath} replace /> 
 }
 
 export default ProtectedRoute;

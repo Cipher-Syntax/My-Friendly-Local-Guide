@@ -34,8 +34,22 @@ const App = () => {
                 <Routes>
                     <Route path='*' element={<NotFound></NotFound>}></Route>
 
-                    <Route path='/agency' element={<AgencyLayout />} />
-                    <Route path='/agency/complete-profile' element={<ProtectedRoute><AgencyProfileCompletion /></ProtectedRoute>} />
+                    <Route
+                        path='/agency'
+                        element={
+                            <ProtectedRoute requiredRole="agency" redirectTo="/agency-signin">
+                                <AgencyLayout />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path='/agency/complete-profile'
+                        element={
+                            <ProtectedRoute requiredRole="agency-onboarding" redirectTo="/agency-signin">
+                                <AgencyProfileCompletion />
+                            </ProtectedRoute>
+                        }
+                    />
 
                     {/* New Promotional Landing Page is now the root */}
                     <Route path='/' element={<LandingPage />} />
@@ -49,7 +63,7 @@ const App = () => {
 
                     {/* Admin Routes */}
                     <Route path='/admin' element={
-                        <ProtectedRoute>
+                        <ProtectedRoute requiredRole="admin" redirectTo="/admin-signin">
                             <AdminLayout />
                         </ProtectedRoute>
                     }>

@@ -23,7 +23,7 @@ class AgencyListView(generics.ListAPIView):
 
 
 class AgencyProfileView(generics.RetrieveUpdateAPIView):
-    """Allows an Agency to view and update their profile (including downpayment settings)"""
+    """Allows an Agency to view and update their profile (including availability settings)"""
     serializer_class = AgencySerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -110,7 +110,6 @@ class TouristGuideCreateView(generics.CreateAPIView):
             
         agency = user.agency_profile
         
-        # Check against the new string status instead of boolean
         if agency.status != 'Approved':
             raise PermissionDenied("Your agency must be approved before adding guides.")
         

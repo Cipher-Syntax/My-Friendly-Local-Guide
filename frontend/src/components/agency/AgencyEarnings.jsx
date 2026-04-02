@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Banknote, Clock, CheckCircle, Receipt, ArrowRight } from 'lucide-react';
+import { PhilippinePeso, Clock, CheckCircle, Receipt, ArrowRight } from 'lucide-react';
 
 export default function AgencyEarnings({ bookings }) {
     const stats = useMemo(() => {
@@ -58,7 +58,7 @@ export default function AgencyEarnings({ bookings }) {
                     <div className="flex items-center justify-between">
                         <h3 className="text-white/90 font-medium">Total Lifetime Earnings</h3>
                         <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                            <Banknote className="w-5 h-5" />
+                            <PhilippinePeso className="w-5 h-5" />
                         </div>
                     </div>
                     <p className="text-3xl font-black mt-4">

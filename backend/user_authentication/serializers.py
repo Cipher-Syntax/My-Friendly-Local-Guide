@@ -54,6 +54,8 @@ class UserSerializer(serializers.ModelSerializer):
     personalization_profile = PersonalizationSerializer(read_only=True)
     
     agency_profile = AgencySerializer(read_only=True)
+    is_staff = serializers.BooleanField(read_only=True)
+    is_superuser = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = User
@@ -61,6 +63,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'password', 'confirm_password', 'agency_profile',
             'first_name', 'middle_name', 'last_name', 'date_joined',
             'profile_picture', 'bio', 'phone_number', 'location', 'valid_id_image', 'personalization_profile', 'is_active',
+            'is_staff', 'is_superuser',
             
             'is_tourist', 'is_local_guide', 'guide_approved', 'has_accepted_terms',
             'is_guide_visible', 
@@ -216,6 +219,12 @@ class AgencyTokenObtainPairSerializer(TokenObtainPairSerializer):
             data = super().validate(attrs)
         except AuthenticationFailed:
             raise AuthenticationFailed('Invalid Credentials.')
+
+        if self.user.is_superuser:
+            raise AuthenticationFailed('Admin accounts must sign in through the Admin Portal.')
+
+        if self.user.is_local_guide and not hasattr(self.user, 'agency_profile'):
+            raise AuthenticationFailed('Tour guide accounts cannot sign in through the Agency Portal.')
             
         # FIX: Removed the strict "Access Denied" block here. 
         # The frontend AgencySignin.jsx now handles kicking out normal users, 
@@ -263,5 +272,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             data = super().validate(attrs)
         except AuthenticationFailed:
             raise AuthenticationFailed('Invalid Credentials.')
+
+        if self.user.is_superuser:
+            raise AuthenticationFailed('Admin accounts must sign in through the Admin Portal.')
+
+        if self.user.is_staff or hasattr(self.user, 'agency_profile'):
+            raise AuthenticationFailed('Agency accounts must sign in through the Agency Portal.')
             
         return data

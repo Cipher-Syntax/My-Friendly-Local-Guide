@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, Wallet, Settings } from 'lucide-react';
-import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants/constants';
+import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, Wallet, Settings, Map, Home } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }) {
@@ -28,6 +27,8 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
     const menuItems = [
         { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { id: 'bookings', icon: BookOpen, label: 'Bookings Management' },
+        { id: 'tours', icon: Map, label: 'My Tour Packages' }, // NEW TAB
+        { id: 'accommodations', icon: Home, label: 'My Accommodations' }, // NEW TAB
         { id: 'guides', icon: UsersRound, label: 'Tour Guide Management' },
         { id: 'reviews', icon: Star, label: 'Reviews & Ratings' },
         { id: 'earnings', icon: Wallet, label: 'Earnings & Payments' },
@@ -46,7 +47,7 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
                 </p>
             </div>
 
-            <nav className="flex-1 p-4 space-y-2">
+            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
                 {menuItems.map(item => (
                     <button
                         key={item.id}

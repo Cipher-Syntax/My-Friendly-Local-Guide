@@ -3,7 +3,10 @@ import { Search, Loader2, Users, ShieldCheck, Filter } from 'lucide-react';
 import api from '../../api/api';
 
 const getRoleBadge = (user) => {
-    if (user.is_staff) {
+    if (user.is_superuser) {
+        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">Admin</span>;
+    }
+    if (user.agency_profile || user.is_staff) {
         return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30">Agency</span>;
     }
     if (user.is_local_guide) {
@@ -53,11 +56,11 @@ export default function UsersManagement() {
             // Role Filtering
             let matchesRole = true;
             if (roleFilter === 'Agency') {
-                matchesRole = u.is_staff === true;
+                matchesRole = Boolean(u.agency_profile) || u.is_staff === true;
             } else if (roleFilter === 'Tour Guide') {
-                matchesRole = u.is_local_guide === true;
+                matchesRole = u.is_local_guide === true && !(Boolean(u.agency_profile) || u.is_staff === true);
             } else if (roleFilter === 'Tourist') {
-                matchesRole = !u.is_staff && !u.is_local_guide;
+                matchesRole = !u.is_superuser && !u.is_staff && !Boolean(u.agency_profile) && !u.is_local_guide;
             }
 
             // Status Filtering

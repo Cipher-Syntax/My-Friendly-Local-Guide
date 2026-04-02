@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Accommodation, Booking
 from destinations_and_attractions.models import Destination, TourPackage
 from django.contrib.auth import get_user_model
-from datetime import date
+from datetime import date, timedelta
 import json
 
 from agency_management_module.models import TouristGuide
@@ -40,12 +40,18 @@ class AccommodationSerializer(serializers.ModelSerializer):
     host_id = serializers.PrimaryKeyRelatedField(source='host', read_only=True)
     host_username = serializers.CharField(source='host.username', read_only=True)
     host_full_name = serializers.CharField(source='host.get_full_name', read_only=True)
+    
+    agency_id = serializers.PrimaryKeyRelatedField(source='agency', read_only=True)
+    agency_name = serializers.CharField(source='agency.business_name', read_only=True)
+    agency_user_id = serializers.IntegerField(source='agency.user.id', read_only=True) 
+    
     destination_detail = SimpleDestinationSerializer(source='destination', read_only=True)
 
     class Meta:
         model = Accommodation
         fields = [
             'id', 'host_id', 'host_username', 'host_full_name',
+            'agency_id', 'agency_name', 'agency_user_id', 
             'title', 'description', 'location', 'price', 'photo',
             'accommodation_type', 'room_type', 'amenities',
             'offer_transportation', 'vehicle_type', 'transport_capacity',
@@ -70,6 +76,9 @@ class AccommodationSerializer(serializers.ModelSerializer):
 class BookingSerializer(serializers.ModelSerializer):
     tourist_id = serializers.PrimaryKeyRelatedField(source='tourist', read_only=True)
     tourist_username = serializers.CharField(source='tourist.username', read_only=True)
+    
+    # NEW: Expose the full tourist details
+    tourist_detail = serializers.SerializerMethodField(read_only=True)
 
     accommodation_detail = AccommodationSerializer(source='accommodation', read_only=True)
     guide_detail = serializers.SerializerMethodField(read_only=True)
@@ -83,7 +92,7 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = [
-            'id', 'tourist_id', 'tourist_username',
+            'id', 'tourist_id', 'tourist_username', 'tourist_detail', # ADDED tourist_detail
             'accommodation', 'guide', 'agency', 'destination', 'tour_package',
             'accommodation_detail', 'guide_detail', 'agency_detail', 'destination_detail', 'tour_package_detail',
             'assigned_guides', 'assigned_guides_detail',
@@ -119,6 +128,12 @@ class BookingSerializer(serializers.ModelSerializer):
                 return []
         return value
 
+    # NEW: Fetch the tourist details using the SimpleUserSerializer
+    def get_tourist_detail(self, obj):
+        if obj.tourist:
+            return SimpleUserSerializer(obj.tourist, context=self.context).data
+        return None
+
     def get_guide_detail(self, obj):
         if obj.guide:
             return SimpleUserSerializer(obj.guide, context=self.context).data
@@ -126,11 +141,22 @@ class BookingSerializer(serializers.ModelSerializer):
 
     def get_agency_detail(self, obj):
         if obj.agency:
-            return SimpleUserSerializer(obj.agency, context=self.context).data
+            data = SimpleUserSerializer(obj.agency, context=self.context).data
+            agency_profile = getattr(obj.agency, 'agency_profile', None)
+            if agency_profile:
+                data['business_name'] = agency_profile.business_name
+                logo_url = None
+                if agency_profile.logo:
+                    logo_url = agency_profile.logo.url
+                    request = self.context.get('request')
+                    if request:
+                        logo_url = request.build_absolute_uri(logo_url)
+                data['logo'] = logo_url
+            return data
         return None
 
     def get_tour_package_detail(self, obj):
-        if obj.agency or not obj.guide:
+        if not obj.guide and not obj.agency:
             return None
 
         selected = None
@@ -139,18 +165,21 @@ class BookingSerializer(serializers.ModelSerializer):
         elif obj.tour_package_id:
             selected = TourPackage.objects.filter(id=obj.tour_package_id).first()
 
-        # Inclusive trip-day math: Mar 23 to Mar 24 is 2 days.
         trip_days = max((obj.check_out - obj.check_in).days + 1, 1)
 
         if not selected and obj.destination:
             candidates = TourPackage.objects.filter(
-                guide=obj.guide,
                 main_destination=obj.destination,
                 is_active=True,
                 duration_days=trip_days,
-            ).order_by('-created_at', '-id')
+            )
+            if obj.guide:
+                candidates = candidates.filter(guide=obj.guide)
+            elif obj.agency:
+                candidates = candidates.filter(agency__user=obj.agency)
 
-            # Only auto-select when there is exactly one unambiguous match.
+            candidates = candidates.order_by('-created_at', '-id')
+
             if candidates.count() == 1:
                 selected = candidates.first()
 
@@ -166,7 +195,6 @@ class BookingSerializer(serializers.ModelSerializer):
         elif not isinstance(timeline, list):
             timeline = []
 
-        # Safe and clean clipping based on ACTUAL trip_days
         clipped_timeline = []
         for stop in timeline:
             if not isinstance(stop, dict):
@@ -244,7 +272,6 @@ class BookingSerializer(serializers.ModelSerializer):
             selected_package = data.get('tour_package')
 
         if check_in and check_out:
-            # FIX: Only raise an error if checkout is BEFORE checkin. Same-day (1-day tour) is now perfectly legal!
             if check_out < check_in:
                 raise serializers.ValidationError({"check_out": "Check-out cannot be before check-in."})
             
@@ -259,7 +286,6 @@ class BookingSerializer(serializers.ModelSerializer):
         if not (is_guide or is_accommodation or is_agency):
             raise serializers.ValidationError("A booking must target a Guide, Accommodation, or Agency.")
 
-        # Enforce max pax from selected tour package when booking a guide.
         if guide:
             request = self.context.get('request')
             requested_tour_id = None
@@ -297,5 +323,38 @@ class BookingSerializer(serializers.ModelSerializer):
                         f"{selected_package.max_group_size}."
                     )
                 })
+
+            if check_in and check_out:
+                specific_dates = {
+                    str(item) for item in (guide.specific_available_dates or []) if item
+                }
+                recurring_days = {
+                    str(item) for item in (guide.available_days or []) if item
+                }
+                day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+                current_date = check_in
+                first_unavailable_date = None
+
+                while current_date <= check_out:
+                    current_date_str = current_date.isoformat()
+                    day_name = day_names[current_date.weekday()]
+                    is_specific = current_date_str in specific_dates
+                    is_recurring = 'All' in recurring_days or day_name in recurring_days
+                    is_available = is_specific if len(specific_dates) > 0 else is_recurring
+
+                    if not is_available:
+                        first_unavailable_date = current_date_str
+                        break
+
+                    current_date += timedelta(days=1)
+
+                if first_unavailable_date:
+                    raise serializers.ValidationError({
+                        'check_in': (
+                            f"Guide is unavailable on {first_unavailable_date}. "
+                            "Please choose available dates."
+                        )
+                    })
 
         return data

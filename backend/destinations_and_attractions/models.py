@@ -1,8 +1,8 @@
 from django.db import models #type: ignore
 from django.conf import settings 
+from django.core.exceptions import ValidationError #type: ignore
 
 User = settings.AUTH_USER_MODEL 
-
 
 class Destination(models.Model):
     CATEGORY_CHOICES = [
@@ -48,16 +48,17 @@ class Attraction(models.Model):
     def __str__(self):
         return f"{self.name} ({self.destination.name})"
 
-
 class TourPackage(models.Model):
-    guide = models.ForeignKey(User, related_name='tours', on_delete=models.CASCADE)
+    # The owner can be a local guide OR an agency
+    guide = models.ForeignKey(User, related_name='tours', on_delete=models.CASCADE, null=True, blank=True)
+    agency = models.ForeignKey('agency_management_module.Agency', related_name='tour_packages', on_delete=models.CASCADE, null=True, blank=True)
+    
     main_destination = models.ForeignKey(Destination, related_name='tour_packages', on_delete=models.SET_NULL, null=True, blank=True)
     
     name = models.CharField(max_length=255)
     description = models.TextField()
     
     duration = models.CharField(max_length=100)
-    # NEW EXTENSION: Multi-day support flag to dictate auto-calculating dates in the frontend
     duration_days = models.PositiveIntegerField(default=1) 
     max_group_size = models.PositiveIntegerField()
     what_to_bring = models.TextField(blank=True, null=True)
@@ -71,8 +72,20 @@ class TourPackage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
+    def clean(self):
+        """Ensures the package belongs to exactly one owner type."""
+        if not self.guide and not self.agency:
+            raise ValidationError("A Tour Package must belong to either a guide or an agency.")
+        if self.guide and self.agency:
+            raise ValidationError("A Tour Package cannot belong to both a guide and an agency.")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.name} by {self.guide.username}"
+        owner = self.agency.business_name if self.agency else self.guide.username
+        return f"{self.name} by {owner}"
 
 class TourStop(models.Model):
     tour = models.ForeignKey(TourPackage, related_name='stops', on_delete=models.CASCADE)

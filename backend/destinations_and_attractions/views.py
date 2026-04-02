@@ -15,6 +15,8 @@ from .serializers import (
     TourPackageSerializer,
     GuideSerializer
 )
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser # Add this at the top of your file if not there
 
 User = get_user_model()
 
@@ -24,19 +26,20 @@ class IsAdminOrReadOnly(permissions.BasePermission):
             return True
         return request.user.is_staff
 
-class IsGuide(permissions.BasePermission):
+# NEW: Permission for both Guides and Agencies
+class IsGuideOrAgency(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and getattr(request.user, 'is_local_guide', False)
+        if not request.user.is_authenticated:
+            return False
+        is_guide = getattr(request.user, 'is_local_guide', False)
+        is_agency = hasattr(request.user, 'agency_profile')
+        return is_guide or is_agency
 
 
 @api_view(['GET'])
 def get_category_choices(request):
-    """
-    Returns the list of available categories for destinations.
-    """
     categories = [choice[0] for choice in Destination.CATEGORY_CHOICES]
     return Response(categories)
-
 
 class DestinationViewSet(viewsets.ModelViewSet):
     queryset = Destination.objects.all().prefetch_related('images', 'attractions')
@@ -67,18 +70,27 @@ class DestinationAttractionListView(generics.ListAPIView):
 class CreateTourView(generics.CreateAPIView):
     queryset = TourPackage.objects.all()
     serializer_class = TourPackageSerializer
-    permission_classes = [IsGuide]
+    permission_classes = [IsGuideOrAgency] # CHANGED
     parser_classes = (MultiPartParser, FormParser)
 
     def perform_create(self, serializer):
-        serializer.save(guide=self.request.user)
+        # SMART LOGIC: Assign to agency if they are an agency, otherwise assign to guide
+        user = self.request.user
+        if hasattr(user, 'agency_profile'):
+            serializer.save(agency=user.agency_profile)
+        else:
+            serializer.save(guide=user)
 
 class MyToursListView(generics.ListAPIView):
     serializer_class = TourPackageSerializer
-    permission_classes = [IsGuide]
+    permission_classes = [IsGuideOrAgency] # CHANGED
 
     def get_queryset(self):
-        return TourPackage.objects.filter(guide=self.request.user)
+        # SMART LOGIC: Fetch tours based on user type
+        user = self.request.user
+        if hasattr(user, 'agency_profile'):
+            return TourPackage.objects.filter(agency=user.agency_profile)
+        return TourPackage.objects.filter(guide=user)
 
 class ToursByDestinationListView(generics.ListAPIView):
     serializer_class = TourPackageSerializer
@@ -86,7 +98,7 @@ class ToursByDestinationListView(generics.ListAPIView):
 
     def get_queryset(self):
         destination_id = self.kwargs['destination_id']
-        return TourPackage.objects.filter(main_destination__id=destination_id)
+        return TourPackage.objects.filter(main_destination__id=destination_id, is_active=True)
 
 class GuideToursListView(generics.ListAPIView):
     serializer_class = TourPackageSerializer
@@ -96,27 +108,45 @@ class GuideToursListView(generics.ListAPIView):
         guide_id = self.kwargs['guide_id']
         return TourPackage.objects.filter(guide__id=guide_id, is_active=True)
 
-# --- NEW VIEW FOR DESTINATIONS ---
 class GuideDestinationsListView(generics.ListAPIView):
-    """
-    Returns unique Destinations that a specific guide has active tour packages for.
-    """
-    serializer_class = DestinationListSerializer # Using List serializer for efficiency
+    serializer_class = DestinationListSerializer 
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
         guide_id = self.kwargs['guide_id']
-        # Filter destinations by joining with TourPackage where guide matches
         return Destination.objects.filter(
             tour_packages__guide__id=guide_id,
             tour_packages__is_active=True
-        ).distinct() # Ensure unique destinations
+        ).distinct()
 
-class TourDetailView(generics.RetrieveAPIView):
+class TourDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = TourPackage.objects.all()
     serializer_class = TourPackageSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    parser_classes = (MultiPartParser, FormParser, JSONParser) 
 
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        
+        # Verify ownership before allowing edit
+        if hasattr(user, 'agency_profile') and instance.agency == user.agency_profile:
+            serializer.save()
+        elif instance.guide == user:
+            serializer.save()
+        else:
+            raise PermissionDenied("You do not have permission to edit this tour.")
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        
+        # Verify ownership before allowing delete
+        if hasattr(user, 'agency_profile') and instance.agency == user.agency_profile:
+            instance.delete()
+        elif instance.guide == user:
+            instance.delete()
+        else:
+            raise PermissionDenied("You do not have permission to delete this tour.")
 
 class GuideListView(generics.ListAPIView):
     serializer_class = GuideSerializer

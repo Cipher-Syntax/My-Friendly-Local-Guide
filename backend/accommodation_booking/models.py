@@ -6,7 +6,10 @@ from django.core.exceptions import ValidationError #type: ignore
 from django.db.models import Q #type: ignore
 
 class Accommodation(models.Model):
-    host = models.ForeignKey(User, on_delete=models.CASCADE, related_name="accommodations")
+    # The owner can be a local host OR an agency
+    host = models.ForeignKey(User, on_delete=models.CASCADE, related_name="accommodations", null=True, blank=True)
+    agency = models.ForeignKey('agency_management_module.Agency', related_name='accommodations', on_delete=models.CASCADE, null=True, blank=True)
+    
     destination = models.ForeignKey(Destination, on_delete=models.SET_NULL, null=True, blank=True, related_name="accommodations")
     
     title = models.CharField(max_length=255)
@@ -29,6 +32,17 @@ class Accommodation(models.Model):
     is_approved = models.BooleanField(default=False)
     average_rating = models.DecimalField(max_digits=2, decimal_places=1, default=0.0)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        """Ensures the accommodation belongs to exactly one owner type."""
+        if not self.host and not self.agency:
+            raise ValidationError("An Accommodation must belong to either a host or an agency.")
+        if self.host and self.agency:
+            raise ValidationError("An Accommodation cannot belong to both a host and an agency.")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title
@@ -61,7 +75,6 @@ class Booking(models.Model):
     check_out = models.DateField()
     num_guests = models.IntegerField(default=1) 
     
-    # --- NEW: JSON Field to store the list of additional guest names ---
     additional_guest_names = models.JSONField(default=list, blank=True, null=True, help_text="List of additional guest names")
     
     tourist_valid_id_image = models.ImageField(upload_to='booking_ids/', blank=True, null=True)
@@ -94,8 +107,9 @@ class Booking(models.Model):
         if not (is_guide or is_accommodation or is_agency):
             raise ValidationError("A booking must target a Guide, Accommodation, or Agency.")
 
-        if is_agency and (is_guide or is_accommodation):
-             raise ValidationError("Agency bookings cannot be combined with independent Guide or Accommodation bookings.")
+        # REMOVED: is_agency combining with is_accommodation restriction so Agencies can book accommodations
+        if is_agency and is_guide:
+             raise ValidationError("Agency bookings cannot be combined with independent Guide bookings.")
 
         if (is_guide or is_agency) and self.destination is None:
             raise ValidationError("A destination is required when booking a guide or agency.")

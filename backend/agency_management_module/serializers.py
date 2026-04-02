@@ -7,7 +7,6 @@ class AgencySerializer(serializers.ModelSerializer):
     rating = serializers.FloatField(source='user.guide_rating', read_only=True, default=0.0)
     review_count = serializers.IntegerField(source='user.reviews_received.count', read_only=True, default=0)
     
-    # NEW: Pull these fields from the associated User model to check visibility/status
     is_active = serializers.BooleanField(source='user.is_active', read_only=True)
     is_guide_visible = serializers.BooleanField(source='user.is_guide_visible', read_only=True)
 
@@ -21,7 +20,7 @@ class AgencySerializer(serializers.ModelSerializer):
             'email', 
             'phone', 
             'business_license', 
-            'logo', # NEW: Added logo here so API can receive and send it
+            'logo',
             'status', 
             'created_at', 
             'profile_picture',
@@ -29,7 +28,12 @@ class AgencySerializer(serializers.ModelSerializer):
             'review_count',
             'down_payment_percentage',
             'is_active', 
-            'is_guide_visible'
+            'is_guide_visible',
+            
+            # NEW: Added availability schedule fields
+            'available_days',
+            'opening_time',
+            'closing_time'
         ]
         read_only_fields = ("status", "created_at")
 

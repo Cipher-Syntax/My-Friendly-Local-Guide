@@ -21,6 +21,13 @@ const Agencysignin = () => {
         rememberMe: false
     });
 
+    const clearAgencySession = () => {
+        localStorage.removeItem(ACCESS_TOKEN);
+        localStorage.removeItem(REFRESH_TOKEN);
+        localStorage.removeItem('agency_username');
+        localStorage.removeItem('agency_email');
+    };
+
     useEffect(() => {
         const status = searchParams.get('status');
         const message = searchParams.get('message');
@@ -88,6 +95,18 @@ const Agencysignin = () => {
             const profileRes = await api.get('api/profile/');
             const userProfile = profileRes.data;
 
+            if (userProfile?.is_superuser) {
+                clearAgencySession();
+                setError('Admin accounts must sign in through the Admin Portal.');
+                return;
+            }
+
+            if (userProfile?.is_local_guide && !userProfile?.agency_profile) {
+                clearAgencySession();
+                setError('Tour guide accounts cannot sign in through the Agency Portal.');
+                return;
+            }
+
             if (userProfile.agency_profile) {
                 localStorage.removeItem('pending_agency_data');
                 navigate('/agency');
@@ -141,10 +160,29 @@ const Agencysignin = () => {
                 console.error("Could not decode token", decodeError);
             }
 
+            const profileRes = await api.get('api/profile/');
+            const userProfile = profileRes.data;
+
+            if (userProfile?.is_superuser) {
+                clearAgencySession();
+                setError('Admin accounts must sign in through the Admin Portal.');
+                return;
+            }
+
+            if (userProfile?.is_local_guide && !userProfile?.agency_profile) {
+                clearAgencySession();
+                setError('Tour guide accounts cannot sign in through the Agency Portal.');
+                return;
+            }
+
             setSuccessMsg("Account reactivated successfully! Logging you in...");
 
             setTimeout(() => {
-                navigate('/agency');
+                if (userProfile?.agency_profile) {
+                    navigate('/agency');
+                } else {
+                    navigate('/agency/complete-profile');
+                }
             }, 1000);
 
         } catch (err) {

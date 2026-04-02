@@ -301,7 +301,7 @@ class AdminUserListView(generics.ListAPIView):
     permission_classes = [permissions.IsAdminUser]
 
     def get_queryset(self):
-        return User.objects.filter(is_superuser=False).order_by('-date_joined')
+        return User.objects.all().order_by('-date_joined')
 
 class PasswordResetAppRedirectView(APIView):
     permission_classes = [permissions.AllowAny]

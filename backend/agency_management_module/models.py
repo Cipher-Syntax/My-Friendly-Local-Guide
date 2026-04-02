@@ -19,11 +19,19 @@ class Agency(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     business_license = models.FileField(upload_to="agency/licenses/", null=True, blank=True)
     
-    # NEW: Logo field added here
     logo = models.ImageField(upload_to="agency/logos/", null=True, blank=True)
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     
+    # Agency Availability Schedule
+    available_days = models.JSONField(
+        default=list, 
+        blank=True, 
+        help_text="e.g., ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']"
+    )
+    opening_time = models.TimeField(null=True, blank=True)
+    closing_time = models.TimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     down_payment_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=30.00, help_text="Required downpayment percentage (e.g., 30 for 30%)")
 

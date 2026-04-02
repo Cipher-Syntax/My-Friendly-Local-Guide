@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert, Settings, PhilippinePeso } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert, Settings, PhilippinePeso, Map, Home } from 'lucide-react';
 import api from '../api/api';
 
 import AgencySidebar from '../components/agency/AgencySidebar';
@@ -12,6 +12,11 @@ import AgencyEarnings from '../components/agency/AgencyEarnings';
 import AgencySettings from '../components/agency/AgencySettings';
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
+
+// NEW IMPORTS
+import AgencyTourPackages from '../components/agency/AgencyTourPackages';
+import AgencyAccommodations from '../components/agency/AgencyAccommodations';
+
 import { formatPHPhoneLocal, normalizePHPhone } from '../utils/phoneNumber';
 
 import { useAgencyDashboardData, availableLanguages } from '../hooks/useAgencyDashboardData';
@@ -537,6 +542,8 @@ export default function AgencyLayout() {
                                     <div className="p-2 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
                                         {activeTab === 'dashboard' && <LayoutDashboard className="w-5 h-5 text-white" />}
                                         {activeTab === 'bookings' && <BookOpen className="w-5 h-5 text-white" />}
+                                        {activeTab === 'tours' && <Map className="w-5 h-5 text-white" />}
+                                        {activeTab === 'accommodations' && <Home className="w-5 h-5 text-white" />}
                                         {activeTab === 'guides' && <UsersRound className="w-5 h-5 text-white" />}
                                         {activeTab === 'reviews' && <Star className="w-5 h-5 text-white" />}
                                         {activeTab === 'earnings' && <DollarSign className="w-5 h-5 text-white" />}
@@ -545,10 +552,12 @@ export default function AgencyLayout() {
                                     <h2 className="text-lg md:text-xl font-bold text-white/90 drop-shadow-md">
                                         {activeTab === 'dashboard' ? 'Dashboard Overview' :
                                             activeTab === 'bookings' ? 'Bookings Management' :
-                                                activeTab === 'guides' ? 'Tour Guide Management' :
-                                                    activeTab === 'reviews' ? 'Reviews & Ratings' :
-                                                        activeTab === 'settings' ? 'Agency Settings' :
-                                                            'Earnings & Payments'}
+                                                activeTab === 'tours' ? 'My Tour Packages' :
+                                                    activeTab === 'accommodations' ? 'My Accommodations' :
+                                                        activeTab === 'guides' ? 'Tour Guide Management' :
+                                                            activeTab === 'reviews' ? 'Reviews & Ratings' :
+                                                                activeTab === 'settings' ? 'Agency Settings' :
+                                                                    'Earnings & Payments'}
                                     </h2>
                                 </div>
                             </div>
@@ -589,6 +598,8 @@ export default function AgencyLayout() {
                                     freeBookingLimit={config.bookingLimit}
                                 />
                             )}
+                            {activeTab === 'tours' && <AgencyTourPackages />}
+                            {activeTab === 'accommodations' && <AgencyAccommodations />}
                             {activeTab === 'guides' && (
                                 <AgencyTourGuideManagement
                                     searchTerm={searchTerm}
