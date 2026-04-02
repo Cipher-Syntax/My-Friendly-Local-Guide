@@ -286,17 +286,12 @@ class BookingSerializer(serializers.ModelSerializer):
         if not (is_guide or is_accommodation or is_agency):
             raise serializers.ValidationError("A booking must target a Guide, Accommodation, or Agency.")
 
-        request = self.context.get('request')
-        requested_tour_id = None
-        if request:
-            requested_tour_id = request.data.get('tour_package_id') or request.data.get('tour_package')
-
-        try:
-            guests_count = int(num_guests or 1)
-        except (TypeError, ValueError):
-            guests_count = 1
-
         if guide:
+            request = self.context.get('request')
+            requested_tour_id = None
+            if request:
+                requested_tour_id = request.data.get('tour_package_id') or request.data.get('tour_package')
+
             if not selected_package and requested_tour_id:
                 package_qs = TourPackage.objects.filter(
                     id=requested_tour_id,
@@ -307,12 +302,7 @@ class BookingSerializer(serializers.ModelSerializer):
                     package_qs = package_qs.filter(main_destination=destination)
                 selected_package = package_qs.first()
 
-                if not selected_package:
-                    raise serializers.ValidationError({
-                        'tour_package_id': "Selected tour package is invalid for this guide."
-                    })
-
-            if not selected_package and not requested_tour_id and destination and check_in and check_out:
+            if not selected_package and destination and check_in and check_out:
                 trip_days = max((check_out - check_in).days + 1, 1)
                 selected_package = TourPackage.objects.filter(
                     guide=guide,
@@ -320,6 +310,11 @@ class BookingSerializer(serializers.ModelSerializer):
                     is_active=True,
                     duration_days=trip_days,
                 ).order_by('-created_at', '-id').first()
+
+            try:
+                guests_count = int(num_guests or 1)
+            except (TypeError, ValueError):
+                guests_count = 1
 
             if selected_package and guests_count > selected_package.max_group_size:
                 raise serializers.ValidationError({
@@ -361,38 +356,5 @@ class BookingSerializer(serializers.ModelSerializer):
                             "Please choose available dates."
                         )
                     })
-
-        if agency:
-            if not selected_package and requested_tour_id:
-                package_qs = TourPackage.objects.filter(
-                    id=requested_tour_id,
-                    agency__user=agency,
-                    is_active=True,
-                )
-                if destination:
-                    package_qs = package_qs.filter(main_destination=destination)
-                selected_package = package_qs.first()
-
-                if not selected_package:
-                    raise serializers.ValidationError({
-                        'tour_package_id': "Selected tour package is invalid for this agency."
-                    })
-
-            if not selected_package and not requested_tour_id and destination and check_in and check_out:
-                trip_days = max((check_out - check_in).days + 1, 1)
-                selected_package = TourPackage.objects.filter(
-                    agency__user=agency,
-                    main_destination=destination,
-                    is_active=True,
-                    duration_days=trip_days,
-                ).order_by('-created_at', '-id').first()
-
-            if selected_package and guests_count > selected_package.max_group_size:
-                raise serializers.ValidationError({
-                    'num_guests': (
-                        f"Maximum guests for '{selected_package.name}' is "
-                        f"{selected_package.max_group_size}."
-                    )
-                })
 
         return data
