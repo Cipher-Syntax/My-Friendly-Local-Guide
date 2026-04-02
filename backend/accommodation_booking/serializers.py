@@ -77,7 +77,6 @@ class BookingSerializer(serializers.ModelSerializer):
     tourist_id = serializers.PrimaryKeyRelatedField(source='tourist', read_only=True)
     tourist_username = serializers.CharField(source='tourist.username', read_only=True)
     
-    # NEW: Expose the full tourist details
     tourist_detail = serializers.SerializerMethodField(read_only=True)
 
     accommodation_detail = AccommodationSerializer(source='accommodation', read_only=True)
@@ -92,7 +91,7 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = [
-            'id', 'tourist_id', 'tourist_username', 'tourist_detail', # ADDED tourist_detail
+            'id', 'tourist_id', 'tourist_username', 'tourist_detail',
             'accommodation', 'guide', 'agency', 'destination', 'tour_package',
             'accommodation_detail', 'guide_detail', 'agency_detail', 'destination_detail', 'tour_package_detail',
             'assigned_guides', 'assigned_guides_detail',
@@ -128,7 +127,6 @@ class BookingSerializer(serializers.ModelSerializer):
                 return []
         return value
 
-    # NEW: Fetch the tourist details using the SimpleUserSerializer
     def get_tourist_detail(self, obj):
         if obj.tourist:
             return SimpleUserSerializer(obj.tourist, context=self.context).data
@@ -286,31 +284,40 @@ class BookingSerializer(serializers.ModelSerializer):
         if not (is_guide or is_accommodation or is_agency):
             raise serializers.ValidationError("A booking must target a Guide, Accommodation, or Agency.")
 
-        if guide:
+        provider = guide or agency
+
+        if provider:
             request = self.context.get('request')
             requested_tour_id = None
             if request:
                 requested_tour_id = request.data.get('tour_package_id') or request.data.get('tour_package')
 
+            # Fetch the selected tour package for EITHER guide or agency
             if not selected_package and requested_tour_id:
                 package_qs = TourPackage.objects.filter(
                     id=requested_tour_id,
-                    guide=guide,
                     is_active=True,
                 )
-                if destination:
-                    package_qs = package_qs.filter(main_destination=destination)
+                if guide:
+                    package_qs = package_qs.filter(guide=guide)
+                elif agency:
+                    package_qs = package_qs.filter(agency__user=agency)
                 selected_package = package_qs.first()
 
             if not selected_package and destination and check_in and check_out:
                 trip_days = max((check_out - check_in).days + 1, 1)
-                selected_package = TourPackage.objects.filter(
-                    guide=guide,
+                candidates = TourPackage.objects.filter(
                     main_destination=destination,
                     is_active=True,
                     duration_days=trip_days,
-                ).order_by('-created_at', '-id').first()
+                )
+                if guide:
+                    candidates = candidates.filter(guide=guide)
+                elif agency:
+                    candidates = candidates.filter(agency__user=agency)
+                selected_package = candidates.order_by('-created_at', '-id').first()
 
+            # Global Max Guest Check for both!
             try:
                 guests_count = int(num_guests or 1)
             except (TypeError, ValueError):
@@ -324,6 +331,8 @@ class BookingSerializer(serializers.ModelSerializer):
                     )
                 })
 
+        # Keep schedule/date checking logic specifically for the guide
+        if guide:
             if check_in and check_out:
                 specific_dates = {
                     str(item) for item in (guide.specific_available_dates or []) if item
