@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Home, DollarSign, MapPin, Bed, Car, Upload, Image as ImageIcon } from 'lucide-react';
+import { X, Home, DollarSign, PhilippinePeso, MapPin, Bed, Car, Upload, Image as ImageIcon } from 'lucide-react';
 import api from '../../api/api';
 
 export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommodationAdded, onAccommodationUpdated, editData }) {
@@ -245,7 +245,7 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1"><DollarSign className="w-4 h-4 text-slate-400" /> Price per Night *</label>
+                                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1"><PhilippinePeso className="w-4 h-4 text-slate-400" /> Price per Night *</label>
                                     <input type="number" min="0" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="0.00" />
                                 </div>
                                 <div className="md:col-span-2">
