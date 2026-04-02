@@ -6,6 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
+from agency_management_module.models import Agency
 from destinations_and_attractions.models import Destination, TourPackage
 
 from .models import Accommodation, Booking
@@ -72,6 +73,17 @@ class AccommodationBookingSerializerTests(TestCase):
 			is_local_guide=True,
 			guide_approved=True,
 		)
+		self.agency_user = User.objects.create_user(
+			username="agency_owner_1",
+			password="Pass12345",
+			is_staff=True,
+		)
+		self.agency_profile = Agency.objects.create(
+			user=self.agency_user,
+			business_name="Island Movers",
+			owner_name="Ana Cruz",
+			email="agency-owner-1@example.com",
+		)
 		self.destination = Destination.objects.create(
 			name="Palawan",
 			description="Island",
@@ -119,6 +131,36 @@ class AccommodationBookingSerializerTests(TestCase):
 				"check_in": str(date.today() + timedelta(days=10)),
 				"check_out": str(date.today() + timedelta(days=11)),
 				"num_guests": 999,
+			},
+			context={"request": DummyRequest()},
+		)
+
+		self.assertFalse(serializer.is_valid())
+		self.assertIn("num_guests", serializer.errors)
+
+	def test_agency_num_guests_above_tour_max_pax_fails(self):
+		package = TourPackage.objects.create(
+			agency=self.agency_profile,
+			main_destination=self.destination,
+			name="Agency Explorer",
+			description="Agency managed tour",
+			duration="2 days",
+			duration_days=2,
+			max_group_size=5,
+			price_per_day="4200.00",
+			solo_price="4500.00",
+		)
+
+		class DummyRequest:
+			data = {"tour_package_id": str(package.id)}
+
+		serializer = BookingSerializer(
+			data={
+				"agency": self.agency_user.id,
+				"destination": self.destination.id,
+				"check_in": str(date.today() + timedelta(days=10)),
+				"check_out": str(date.today() + timedelta(days=11)),
+				"num_guests": 10,
 			},
 			context={"request": DummyRequest()},
 		)
