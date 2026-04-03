@@ -211,6 +211,10 @@ class BookingSerializer(serializers.ModelSerializer):
             'id': selected.id,
             'name': selected.name,
             'duration_days': selected.duration_days,
+            'price_per_day': selected.price_per_day,
+            'solo_price': selected.solo_price,
+            'additional_fee_per_head': selected.additional_fee_per_head,
+            'max_group_size': selected.max_group_size,
             'itinerary_timeline': clipped_timeline,
         }
 
