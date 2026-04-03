@@ -286,7 +286,7 @@ class BookingSerializer(serializers.ModelSerializer):
         if not (is_guide or is_accommodation or is_agency):
             raise serializers.ValidationError("A booking must target a Guide, Accommodation, or Agency.")
 
-        if guide:
+        if guide or agency:
             request = self.context.get('request')
             requested_tour_id = None
             if request:
@@ -295,21 +295,28 @@ class BookingSerializer(serializers.ModelSerializer):
             if not selected_package and requested_tour_id:
                 package_qs = TourPackage.objects.filter(
                     id=requested_tour_id,
-                    guide=guide,
                     is_active=True,
                 )
+                if guide:
+                    package_qs = package_qs.filter(guide=guide)
+                elif agency:
+                    package_qs = package_qs.filter(agency__user=agency)
                 if destination:
                     package_qs = package_qs.filter(main_destination=destination)
                 selected_package = package_qs.first()
 
             if not selected_package and destination and check_in and check_out:
                 trip_days = max((check_out - check_in).days + 1, 1)
-                selected_package = TourPackage.objects.filter(
-                    guide=guide,
+                package_qs = TourPackage.objects.filter(
                     main_destination=destination,
                     is_active=True,
                     duration_days=trip_days,
-                ).order_by('-created_at', '-id').first()
+                )
+                if guide:
+                    package_qs = package_qs.filter(guide=guide)
+                elif agency:
+                    package_qs = package_qs.filter(agency__user=agency)
+                selected_package = package_qs.order_by('-created_at', '-id').first()
 
             try:
                 guests_count = int(num_guests or 1)
@@ -324,7 +331,7 @@ class BookingSerializer(serializers.ModelSerializer):
                     )
                 })
 
-            if check_in and check_out:
+        if guide and check_in and check_out:
                 specific_dates = {
                     str(item) for item in (guide.specific_available_dates or []) if item
                 }

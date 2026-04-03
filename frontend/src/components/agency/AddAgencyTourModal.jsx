@@ -141,9 +141,16 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
 
     const validateStep = (step) => {
         setError('');
-        if (step === 1 && (!formData.destination_id || !formData.name || !formData.description)) {
-            setError("Please fill in the Destination, Tour Name, and Description.");
-            return false;
+        if (step === 1) {
+            const parsedMaxGuests = parseInt(formData.maxGroupSize, 10);
+            if (!formData.destination_id || !formData.name || !formData.description) {
+                setError("Please fill in the Destination, Tour Name, and Description.");
+                return false;
+            }
+            if (!Number.isFinite(parsedMaxGuests) || parsedMaxGuests < 1) {
+                setError("Please set a valid Max Guests value (at least 1).");
+                return false;
+            }
         }
         if (step === 3 && (!formData.pricePerDay || timeline.length === 0)) {
             setError("Please set a base price and add at least one item to the itinerary.");
@@ -161,13 +168,14 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
         setIsLoading(true);
 
         try {
+            const parsedMaxGuests = parseInt(formData.maxGroupSize, 10);
             const submitData = new FormData();
             submitData.append('destination_id', formData.destination_id);
             submitData.append('name', formData.name);
             submitData.append('description', formData.description);
             submitData.append('duration', formData.duration);
             submitData.append('duration_days', parseInt(formData.durationDays) || 1);
-            submitData.append('max_group_size', formData.maxGroupSize);
+            submitData.append('max_group_size', String(parsedMaxGuests));
             submitData.append('what_to_bring', formData.whatToBring);
             submitData.append('price_per_day', formData.pricePerDay);
             submitData.append('solo_price', formData.soloPricePerDay);
@@ -279,8 +287,8 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
                                     <input type="number" min="1" value={formData.durationDays} onChange={e => setFormData({ ...formData, durationDays: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500 dark:text-white" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Max Guests</label>
-                                    <input type="number" min="1" value={formData.maxGroupSize} onChange={e => setFormData({ ...formData, maxGroupSize: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500 dark:text-white" />
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Max Guests *</label>
+                                    <input type="number" min="1" required value={formData.maxGroupSize} onChange={e => setFormData({ ...formData, maxGroupSize: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500 dark:text-white" />
                                 </div>
                             </div>
                         </div>
