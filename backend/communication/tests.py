@@ -85,3 +85,33 @@ class CommunicationApiTests(TestCase):
 
 		partner_ids = [item.get("id") for item in list_response.data]
 		self.assertIn(tourist.id, partner_ids)
+
+	def test_agency_business_name_is_used_as_display_name_in_chat(self):
+		tourist = User.objects.create_user(username="tourist_display", password="Pass12345")
+		agency_user = User.objects.create_user(
+			username="agency_owner_display",
+			password="Pass12345",
+			first_name="Owner",
+			last_name="Display",
+		)
+		Agency.objects.create(
+			user=agency_user,
+			business_name="Blue Harbor Travels",
+			owner_name="Owner Display",
+			email="blueharbor@example.com",
+		)
+
+		Message.objects.create(sender=agency_user, receiver=tourist, content="Welcome to our agency!")
+
+		self.client.force_authenticate(user=tourist)
+		list_response = self.client.get(reverse("conversation-list"))
+		self.assertEqual(list_response.status_code, 200)
+
+		agency_conversation = next((item for item in list_response.data if item.get("id") == agency_user.id), None)
+		self.assertIsNotNone(agency_conversation)
+		self.assertEqual(agency_conversation.get("display_name"), "Blue Harbor Travels")
+
+		thread_response = self.client.get(reverse("message-thread", kwargs={"partner_id": agency_user.id}))
+		self.assertEqual(thread_response.status_code, 200)
+		self.assertTrue(len(thread_response.data) > 0)
+		self.assertEqual(thread_response.data[0].get("sender_display_name"), "Blue Harbor Travels")

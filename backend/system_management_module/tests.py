@@ -3,6 +3,8 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
+from agency_management_module.models import Agency
+from communication.models import Message
 from .models import GuideReviewRequest, PushDeviceToken, SystemAlert
 from .serializers import PushTokenRegisterSerializer
 
@@ -16,6 +18,26 @@ class SystemManagementModelTests(TestCase):
 		self.assertTrue(
 			SystemAlert.objects.filter(recipient=user, title="Application Submitted").exists()
 		)
+
+	def test_new_message_alert_uses_agency_business_name(self):
+		tourist = User.objects.create_user(username="tourist_alerts", password="Pass12345")
+		agency_user = User.objects.create_user(
+			username="agency_owner_alerts",
+			password="Pass12345",
+			first_name="Agency",
+			last_name="Owner",
+		)
+		Agency.objects.create(
+			user=agency_user,
+			business_name="Summit Escape Co.",
+			owner_name="Agency Owner",
+			email="summit-escape@example.com",
+		)
+
+		Message.objects.create(sender=agency_user, receiver=tourist, content="Hello from our agency")
+
+		alert = SystemAlert.objects.filter(recipient=tourist, title="New Message").latest('created_at')
+		self.assertIn("Summit Escape Co.", alert.message)
 
 
 class SystemManagementSerializerTests(TestCase):

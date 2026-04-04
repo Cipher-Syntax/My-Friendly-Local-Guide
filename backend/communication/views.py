@@ -3,6 +3,7 @@ from rest_framework.response import Response #type: ignore
 from rest_framework.exceptions import NotFound, ValidationError #type: ignore
 from django.db.models import Q
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
 from .models import Message
 from .serializers import MessageSerializer
 
@@ -10,6 +11,15 @@ User = get_user_model()
 
 
 def _display_name_for_user(user):
+    # Agency accounts should be identified by business name in chat surfaces.
+    try:
+        agency_profile = user.agency_profile
+        business_name = (getattr(agency_profile, 'business_name', '') or '').strip()
+        if business_name:
+            return business_name
+    except (AttributeError, ObjectDoesNotExist):
+        pass
+
     full_name = (user.get_full_name() or '').strip()
     if full_name:
         return full_name
@@ -60,7 +70,7 @@ class ConversationListView(generics.ListAPIView):
             if r != user.id:
                 partner_ids.add(r)
                 
-        partners = User.objects.filter(id__in=partner_ids)
+        partners = User.objects.filter(id__in=partner_ids).select_related('agency_profile')
 
         data = []
         for partner in partners:

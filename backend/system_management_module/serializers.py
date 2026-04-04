@@ -1,10 +1,19 @@
 from rest_framework import serializers #type: ignore
+from django.core.exceptions import ObjectDoesNotExist
 from .models import GuideReviewRequest, SystemAlert, PushDeviceToken
 from user_authentication.models import User, GuideApplication
 from communication.models import Message
 
 
 def _display_name_for_user(user):
+    try:
+        agency_profile = user.agency_profile
+        business_name = (getattr(agency_profile, 'business_name', '') or '').strip()
+        if business_name:
+            return business_name
+    except (AttributeError, ObjectDoesNotExist):
+        pass
+
     full_name = (user.get_full_name() or '').strip()
     if full_name:
         return full_name

@@ -2,6 +2,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.conf import settings
 from django.core.mail import send_mail
+from django.core.exceptions import ObjectDoesNotExist
 from .models import SystemAlert
 from .services.push_notifications import send_push_to_user, build_alert_push_data
 
@@ -14,6 +15,14 @@ from communication.models import Message
 
 
 def _display_name_for_user(user):
+    try:
+        agency_profile = user.agency_profile
+        business_name = (getattr(agency_profile, 'business_name', '') or '').strip()
+        if business_name:
+            return business_name
+    except (AttributeError, ObjectDoesNotExist):
+        pass
+
     full_name = (user.get_full_name() or '').strip()
     if full_name:
         return full_name
