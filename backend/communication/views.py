@@ -37,7 +37,20 @@ def _display_name_for_user(user):
 
 
 def _safe_profile_picture_value(user):
-    image = getattr(user, 'profile_picture', None)
+    image = None
+
+    # Agencies store their avatar on agency_profile.logo.
+    try:
+        agency_profile = user.agency_profile
+        logo = getattr(agency_profile, 'logo', None)
+        if logo:
+            image = logo
+    except (AttributeError, ObjectDoesNotExist):
+        pass
+
+    if not image:
+        image = getattr(user, 'profile_picture', None)
+
     if not image:
         return None
 

@@ -26,6 +26,36 @@ def _display_name_for_user(user):
 
     return username or 'User'
 
+
+def _safe_profile_picture_value(user):
+    image = None
+
+    try:
+        agency_profile = user.agency_profile
+        logo = getattr(agency_profile, 'logo', None)
+        if logo:
+            image = logo
+    except (AttributeError, ObjectDoesNotExist):
+        pass
+
+    if not image:
+        image = getattr(user, 'profile_picture', None)
+
+    if not image:
+        return None
+
+    try:
+        url = image.url
+        return str(url) if url else None
+    except Exception:
+        pass
+
+    try:
+        name = getattr(image, 'name', None)
+        return str(name) if name else None
+    except Exception:
+        return None
+
 class GuideApplicationSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = GuideReviewRequest
@@ -89,6 +119,7 @@ class AdminGuideReviewSerializer(serializers.ModelSerializer):
 class SystemAlertSerializer(serializers.ModelSerializer):
     partner_id = serializers.SerializerMethodField()
     partner_name = serializers.SerializerMethodField()
+    partner_image = serializers.SerializerMethodField()
 
     def _get_partner_from_message_alert(self, obj):
         if obj.related_model != 'Message' or not obj.related_object_id:
@@ -118,6 +149,10 @@ class SystemAlertSerializer(serializers.ModelSerializer):
         partner = self._get_partner_from_message_alert(obj)
         return _display_name_for_user(partner) if partner else None
 
+    def get_partner_image(self, obj):
+        partner = self._get_partner_from_message_alert(obj)
+        return _safe_profile_picture_value(partner) if partner else None
+
     class Meta:
         model = SystemAlert
         fields = [
@@ -130,6 +165,7 @@ class SystemAlertSerializer(serializers.ModelSerializer):
             'related_object_id',
             'partner_id',
             'partner_name',
+            'partner_image',
         ]
         read_only_fields = ['created_at']
 
