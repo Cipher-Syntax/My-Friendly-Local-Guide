@@ -104,6 +104,68 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
         return namesArray.join(', ');
     };
 
+    const groupTimelineByDay = (timelineInput) => {
+        if (!timelineInput) return [];
+
+        let timeline = timelineInput;
+        if (!Array.isArray(timelineInput)) {
+            try {
+                timeline = JSON.parse(timelineInput);
+            } catch {
+                return [];
+            }
+        }
+
+        if (!Array.isArray(timeline) || timeline.length === 0) return [];
+
+        const dayMap = new Map();
+
+        timeline.forEach((entry) => {
+            const parsedDay = Number.parseInt(entry?.day, 10);
+            const day = Number.isFinite(parsedDay) && parsedDay > 0 ? parsedDay : 1;
+
+            const place =
+                entry?.location ||
+                entry?.activityName ||
+                entry?.title ||
+                entry?.name ||
+                entry?.activity ||
+                'Tour Stop';
+
+            const placeName = String(place).trim();
+            if (!placeName) return;
+
+            if (!dayMap.has(day)) {
+                dayMap.set(day, []);
+            }
+
+            dayMap.get(day).push({
+                place: placeName,
+                description: entry?.description ? String(entry.description).trim() : '',
+            });
+        });
+
+        return Array.from(dayMap.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([day, stops]) => {
+                const uniqueStops = [];
+                const seen = new Set();
+                stops.forEach((stop) => {
+                    const key = `${stop.place}||${stop.description}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        uniqueStops.push(stop);
+                    }
+                });
+
+                return { day, stops: uniqueStops };
+            });
+    };
+
+    const groupedViewTimeline = useMemo(() => {
+        return groupTimelineByDay(selectedBookingForView?.tour_package_detail?.itinerary_timeline);
+    }, [selectedBookingForView]);
+
     const handleAcceptConfirm = () => {
         if (!meetupForm.location || !meetupForm.time) {
             showToast("Location and Time are required to accept a booking.", "error");
@@ -599,16 +661,20 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                             {selectedBookingForView.tour_package_detail?.name || 'Custom/Standard Package'}
                                         </p>
 
-                                        {selectedBookingForView.tour_package_detail?.itinerary_timeline && selectedBookingForView.tour_package_detail.itinerary_timeline.length > 0 && (
+                                        {groupedViewTimeline.length > 0 && (
                                             <div className="mt-3 pl-3 border-l-2 border-cyan-500/40 space-y-3">
                                                 <p className="text-[10px] uppercase font-bold text-cyan-600 dark:text-cyan-400 tracking-wider">Itinerary Stops</p>
-                                                {selectedBookingForView.tour_package_detail.itinerary_timeline.map((stop, idx) => (
-                                                    <div key={idx} className="text-sm">
-                                                        <span className="font-bold text-slate-800 dark:text-slate-200">Day {stop.day}:</span>{' '}
-                                                        <span className="text-slate-700 dark:text-slate-300 font-medium">{stop.location || stop.title || 'Tour Stop'}</span>
-                                                        {stop.description && (
-                                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{stop.description}</p>
-                                                        )}
+                                                {groupedViewTimeline.map((dayGroup) => (
+                                                    <div key={`day-${dayGroup.day}`} className="text-sm">
+                                                        <p className="font-bold text-slate-800 dark:text-slate-200 mb-1">Day {dayGroup.day}</p>
+                                                        {dayGroup.stops.map((stop, idx) => (
+                                                            <div key={`day-${dayGroup.day}-stop-${idx}`} className="pl-2 mb-1">
+                                                                <p className="text-slate-700 dark:text-slate-300 font-medium">- {stop.place}</p>
+                                                                {stop.description && (
+                                                                    <p className="text-xs text-slate-500 dark:text-slate-400 pl-3 mt-0.5">{stop.description}</p>
+                                                                )}
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 ))}
                                             </div>
