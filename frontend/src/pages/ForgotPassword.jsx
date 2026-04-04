@@ -49,30 +49,32 @@ const ForgotPassword = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-teal-500/30 transition-colors duration-300">
+        <div className="min-h-screen zam-shell bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-orange-500/30 transition-colors duration-300">
+
+            <div className="absolute inset-0 zam-vinta-overlay opacity-25 pointer-events-none" />
 
             {/* Animated Background */}
             <div className="absolute inset-0 overflow-hidden">
                 <div
-                    className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-500/20 dark:bg-blue-600/20 rounded-full blur-[120px] animate-pulse"
+                    className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-sky-500/20 dark:bg-sky-600/20 rounded-full blur-[120px] animate-pulse"
                     style={{ transform: `translate(${mousePosition.x * -1}px, ${mousePosition.y * -1}px)` }}
                 />
                 <div
-                    className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-teal-500/20 dark:bg-teal-600/10 rounded-full blur-[120px] animate-pulse"
+                    className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-orange-500/20 dark:bg-orange-600/10 rounded-full blur-[120px] animate-pulse"
                     style={{ animationDelay: '2s', transform: `translate(${mousePosition.x}px, ${mousePosition.y}px)` }}
                 />
 
                 {floatingIcons.map(({ Icon, top, left, delay, size, opacity }, idx) => (
                     <div
                         key={idx}
-                        className="absolute text-teal-600/40 dark:text-teal-200"
+                        className="absolute text-sky-700/40 dark:text-cyan-200"
                         style={{
                             top,
                             left,
                             opacity: opacity * 2,
                             animation: `float 8s ease-in-out infinite`,
                             animationDelay: delay,
-                            filter: 'drop-shadow(0 0 10px rgba(45, 212, 191, 0.3))'
+                            filter: 'drop-shadow(0 0 10px rgba(14, 116, 144, 0.35))'
                         }}
                     >
                         <Icon size={size} strokeWidth={1.5} />
@@ -80,37 +82,38 @@ const ForgotPassword = () => {
                 ))}
             </div>
 
-            <div className="w-full max-w-5xl bg-white/80 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10 hover:shadow-teal-500/10 dark:hover:shadow-teal-900/20 transition-all duration-500">
+            <div className="w-full max-w-5xl bg-white/80 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10 transition-all duration-500">
 
                 {/* Left Side - Branding */}
-                <div className="w-full md:w-5/12 bg-gradient-to-br from-slate-100/90 to-slate-200/90 dark:from-slate-900/80 dark:to-slate-800/80 p-12 text-slate-900 dark:text-white relative flex flex-col justify-between border-r border-slate-200 dark:border-white/5 transition-colors duration-300">
-                    <div className="relative">
-                        <Link to="/portal" className="inline-flex items-center gap-2 text-teal-600 dark:text-teal-400 font-semibold mb-8 hover:text-teal-700 dark:hover:text-teal-300 transition-colors">
+                <div className="w-full md:w-5/12 p-12 text-slate-900 dark:text-white relative flex flex-col justify-between border-r border-slate-200 dark:border-white/5 transition-colors duration-300" style={{ background: 'linear-gradient(140deg, rgba(13,59,102,0.1), rgba(249,115,22,0.12))' }}>
+                    <div className="absolute inset-0 zam-vinta-overlay opacity-15 pointer-events-none" />
+                    <div className="relative z-10">
+                        <Link to="/portal" className="inline-flex items-center gap-2 text-orange-600 dark:text-orange-300 font-semibold mb-8 hover:text-orange-700 dark:hover:text-orange-200 transition-colors">
                             <ArrowLeft size={20} />
                             <span>Back to Login</span>
                         </Link>
 
-                        <div className="w-16 h-16 bg-gradient-to-tr from-teal-500 to-blue-600 dark:from-teal-400 dark:to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-500/20 mb-8 transform rotate-3 hover:rotate-6 transition-transform duration-300">
+                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg mb-8 transform rotate-3 hover:rotate-6 transition-transform duration-300" style={{ background: 'linear-gradient(120deg, var(--zam-sea), var(--zam-coral))' }}>
                             <KeyRound size={32} className="text-white" strokeWidth={2} />
                         </div>
 
                         <div className="space-y-2">
-                            <h3 className="text-teal-600 dark:text-teal-400 font-bold tracking-widest text-sm uppercase">Account Recovery</h3>
-                            <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
-                                Loca<span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 to-blue-600 dark:from-teal-400 dark:to-blue-400">Lynk</span>
+                            <h3 className="text-sky-700 dark:text-cyan-300 font-bold tracking-widest text-sm uppercase">Zamboanga Account Recovery</h3>
+                            <h1 className="text-4xl lg:text-5xl zam-title tracking-tight text-slate-900 dark:text-white">
+                                LocalLynk
                             </h1>
                         </div>
                     </div>
 
-                    <div className="my-12 relative">
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-teal-500 to-transparent rounded-full"></div>
+                    <div className="my-12 relative z-10">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-full" style={{ background: 'linear-gradient(180deg, var(--zam-sunset), transparent)' }}></div>
                         <p className="pl-6 text-slate-600 dark:text-slate-300 leading-relaxed text-lg font-medium dark:font-light">
-                            Lost access? No problem. Enter your email to receive a secure password reset link and get back on track.
+                            Lost access? Enter your email and we will send a secure reset link to restore your account quickly.
                         </p>
                     </div>
 
-                    <div className="text-slate-500 dark:text-slate-500 text-xs font-bold tracking-wide">
-                        &copy; {new Date().getFullYear()} LOCALYNK PLATFORM. SECURE CONNECTION.
+                    <div className="relative z-10 text-slate-500 dark:text-slate-400 text-xs font-bold tracking-wide">
+                        &copy; {new Date().getFullYear()} LOCALYNK ZAMBOANGA SYSTEM. SECURE CONNECTION.
                     </div>
                 </div>
 
@@ -118,7 +121,7 @@ const ForgotPassword = () => {
                 <div className="w-full md:w-7/12 p-8 md:p-16 bg-white/50 dark:bg-white/5 flex flex-col justify-center transition-colors duration-300">
                     <div className="max-w-md mx-auto w-full">
                         <div className="mb-10">
-                            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Forgot Password</h2>
+                            <h2 className="text-3xl zam-title text-slate-900 dark:text-white mb-2">Forgot Password</h2>
                             <p className="text-slate-500 dark:text-slate-400 font-medium">We'll send a recovery link to your inbox.</p>
                         </div>
 
@@ -141,14 +144,14 @@ const ForgotPassword = () => {
                                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Email Address</label>
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <Mail className="h-5 w-5 text-slate-400 dark:text-slate-500 group-focus-within:text-teal-500 dark:group-focus-within:text-teal-400 transition-colors" />
+                                        <Mail className="h-5 w-5 text-slate-400 dark:text-slate-500 group-focus-within:text-orange-500 dark:group-focus-within:text-orange-300 transition-colors" />
                                     </div>
                                     <input
                                         type="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
-                                        className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700/50 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-teal-500 dark:focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20 transition-all duration-300 font-medium"
+                                        className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700/50 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-orange-500 dark:focus:border-orange-400/50 focus:ring-2 focus:ring-orange-500/20 transition-all duration-300 font-medium"
                                         placeholder="Enter your registered email"
                                     />
                                 </div>
@@ -157,7 +160,7 @@ const ForgotPassword = () => {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 dark:hover:from-teal-400 dark:hover:to-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-teal-500/30 dark:shadow-teal-500/20 hover:shadow-teal-500/50 dark:hover:shadow-teal-500/40 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed group mt-8"
+                                className="w-full bg-gradient-to-r from-sky-600 to-orange-500 hover:from-sky-700 hover:to-orange-600 dark:hover:from-sky-500 dark:hover:to-orange-400 text-white font-bold py-4 rounded-xl shadow-lg shadow-sky-500/30 dark:shadow-sky-500/20 hover:shadow-orange-500/40 dark:hover:shadow-orange-500/30 transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed group mt-8"
                             >
                                 {loading ? (
                                     <>

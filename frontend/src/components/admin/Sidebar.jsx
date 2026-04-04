@@ -54,8 +54,8 @@ export default function Sidebar() {
         <>
             <aside className="w-70 bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm border-r border-slate-200 dark:border-slate-700/50 flex flex-col overflow-y-auto h-screen transition-colors duration-300">
                 <div className="p-6 border-b border-slate-200 dark:border-slate-700/50">
-                    <h1 className="text-xl font-bold text-slate-900 dark:text-white">Admin Portal</h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">System Management</p>
+                    <h1 className="text-xl font-bold zam-title text-slate-900 dark:text-white">Admin</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">LocalLynk System Management</p>
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2">
@@ -65,7 +65,7 @@ export default function Sidebar() {
                             to={item.path}
                             className={({ isActive }) =>
                                 `w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
-                                    ? 'bg-cyan-50 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/30'
+                                    ? 'bg-orange-50 dark:bg-orange-500/20 text-orange-600 dark:text-orange-300 border border-orange-200 dark:border-orange-500/30'
                                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/30 hover:text-slate-900 dark:hover:text-white'
                                 }`
                             }
@@ -86,7 +86,7 @@ export default function Sidebar() {
                     </button>
 
                     <div className="flex items-center gap-3 px-4 py-3 mb-3 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-200 dark:border-slate-700/30">
-                        <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(120deg, var(--zam-sea), var(--zam-coral))' }}>
                             <User className="w-5 h-5 text-white" />
                         </div>
                         <div className="overflow-hidden">

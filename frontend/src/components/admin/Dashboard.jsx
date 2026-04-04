@@ -6,7 +6,29 @@ import {
     UserCheck, AlertTriangle, Loader2, Banknote, Calendar, ArrowRight
 } from 'lucide-react';
 
-const StatCard = ({ title, value, subtext, icon: Icon, color }) => (
+const colorClassMap = {
+    blue: {
+        icon: 'bg-blue-500/10 text-blue-500 dark:text-blue-400',
+        glow: 'bg-blue-500/5 group-hover:bg-blue-500/10'
+    },
+    purple: {
+        icon: 'bg-purple-500/10 text-purple-500 dark:text-purple-400',
+        glow: 'bg-purple-500/5 group-hover:bg-purple-500/10'
+    },
+    emerald: {
+        icon: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400',
+        glow: 'bg-emerald-500/5 group-hover:bg-emerald-500/10'
+    },
+    cyan: {
+        icon: 'bg-cyan-500/10 text-cyan-500 dark:text-cyan-400',
+        glow: 'bg-cyan-500/5 group-hover:bg-cyan-500/10'
+    }
+};
+
+const StatCard = ({ title, value, subtext, icon: Icon, color }) => {
+    const palette = colorClassMap[color] || colorClassMap.cyan;
+
+    return (
     <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-6 relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
         <div className="flex justify-between items-start">
             <div>
@@ -14,13 +36,14 @@ const StatCard = ({ title, value, subtext, icon: Icon, color }) => (
                 <h3 className="text-3xl font-bold text-slate-900 dark:text-white mt-2">{value}</h3>
                 {subtext && <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">{subtext}</p>}
             </div>
-            <div className={`p-3 rounded-xl bg-${color}-500/10 text-${color}-500 dark:text-${color}-400 group-hover:scale-110 transition-transform`}>
+            <div className={`p-3 rounded-xl group-hover:scale-110 transition-transform ${palette.icon}`}>
                 <Icon className="w-6 h-6" />
             </div>
         </div>
-        <div className={`absolute -bottom-4 -right-4 w-24 h-24 bg-${color}-500/5 rounded-full blur-2xl group-hover:bg-${color}-500/10 transition-colors pointer-events-none`}></div>
+        <div className={`absolute -bottom-4 -right-4 w-24 h-24 rounded-full blur-2xl transition-colors pointer-events-none ${palette.glow}`}></div>
     </div>
-);
+    );
+};
 
 export default function Dashboard() {
     const [loading, setLoading] = useState(true);
@@ -74,8 +97,8 @@ export default function Dashboard() {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">System Overview</h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-1">Live platform analytics and pending actions.</p>
+                <h1 className="text-2xl zam-title text-slate-900 dark:text-white">System Overview</h1>
+                <p className="text-slate-500 dark:text-slate-400 mt-1">Live local platform analytics and pending partner actions.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

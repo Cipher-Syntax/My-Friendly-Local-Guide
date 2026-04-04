@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&family=Fira+Code:wght@300..700&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Nunito+Sans:opsz,wght@6..12,200..900&display=swap');
 @import 'tailwindcss';
 
 /* Enable manual class-based dark mode for Tailwind CSS v4 */
@@ -8,7 +8,138 @@ body {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Poppins', Verdana, Geneva, Tahoma, sans-serif;
+    font-family: 'Nunito Sans', 'Segoe UI', Tahoma, sans-serif;
     /* Global Dark/Light mode base styles */
     @apply bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300;
+}
+
+:root {
+    --zam-deep-sea: #0d3b66;
+    --zam-sea: #0077b6;
+    --zam-sky: #48cae4;
+    --zam-sand: #fef3c7;
+    --zam-sunset: #f97316;
+    --zam-coral: #ef476f;
+    --zam-white: #f8fafc;
+    --zam-ink: #0f172a;
+    --zam-panel: rgba(255, 255, 255, 0.82);
+}
+
+.dark {
+    --zam-deep-sea: #0b2239;
+    --zam-sea: #0c4a6e;
+    --zam-sky: #22d3ee;
+    --zam-sand: #fcd34d;
+    --zam-sunset: #fb923c;
+    --zam-coral: #fb7185;
+    --zam-white: #e2e8f0;
+    --zam-ink: #e2e8f0;
+    --zam-panel: rgba(15, 23, 42, 0.72);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+.zam-shell {
+    background:
+        radial-gradient(circle at 15% 15%, rgba(72, 202, 228, 0.16), transparent 34%),
+        radial-gradient(circle at 85% 10%, rgba(249, 115, 22, 0.2), transparent 28%),
+        linear-gradient(140deg, rgba(13, 59, 102, 0.05), rgba(0, 119, 182, 0.08));
+}
+
+.zam-vinta-overlay {
+    background-image: repeating-linear-gradient(
+        -18deg,
+        rgba(239, 71, 111, 0.2) 0 26px,
+        rgba(249, 115, 22, 0.2) 26px 52px,
+        rgba(72, 202, 228, 0.2) 52px 78px,
+        rgba(255, 255, 255, 0.2) 78px 104px
+    );
+}
+
+.zam-title {
+    font-family: 'Archivo Black', 'Arial Black', sans-serif;
+    letter-spacing: 0.02em;
+}
+
+.zam-chip {
+    border: 1px solid rgba(14, 116, 144, 0.24);
+    background: var(--zam-panel);
+    backdrop-filter: blur(8px);
+}
+
+.zam-card {
+    border: 1px solid rgba(30, 41, 59, 0.12);
+    background: var(--zam-panel);
+    box-shadow: 0 15px 35px rgba(2, 6, 23, 0.08);
+}
+
+.dark .zam-card {
+    box-shadow: 0 18px 36px rgba(2, 6, 23, 0.35);
+}
+
+.zam-accent-text {
+    background: linear-gradient(95deg, var(--zam-sunset), var(--zam-coral), var(--zam-sea));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.zam-section-wave {
+    position: relative;
+}
+
+.zam-section-wave::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle at 5% 90%, rgba(72, 202, 228, 0.15), transparent 22%),
+        radial-gradient(circle at 88% 0%, rgba(249, 115, 22, 0.18), transparent 22%);
+}
+
+.zam-marquee {
+    overflow: hidden;
+    position: relative;
+}
+
+.zam-marquee-track {
+    display: flex;
+    width: max-content;
+    animation: zam-marquee 28s linear infinite;
+}
+
+.zam-marquee-track:hover {
+    animation-play-state: paused;
+}
+
+.zam-marquee-fast {
+    animation-duration: 19s;
+}
+
+@keyframes zam-marquee {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+@keyframes zam-fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(22px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.zam-fade-up {
+    animation: zam-fade-up 600ms ease both;
 }

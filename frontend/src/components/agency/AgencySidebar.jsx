@@ -39,11 +39,11 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
         <aside className="w-70 bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm border-r border-slate-200 dark:border-slate-700/50 flex flex-col h-screen transition-colors duration-300">
 
             <div className="p-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col justify-center">
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                    Agency Portal
+                <h1 className="text-xl font-bold zam-title text-slate-900 dark:text-white">
+                    Agency
                 </h1>
                 <p className="text-sm mt-1 font-medium text-slate-500 dark:text-slate-400">
-                    Management System
+                    LocaLynk Operations System
                 </p>
             </div>
 
@@ -53,7 +53,7 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
                         key={item.id}
                         onClick={() => setActiveTab(item.id)}
                         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === item.id
-                            ? 'bg-cyan-50 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/30'
+                            ? 'bg-sky-50 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-500/30'
                             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/30 hover:text-slate-900 dark:hover:text-white'
                             }`}
                     >
@@ -73,7 +73,7 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
                 </button>
 
                 <div className="flex items-center gap-3 px-4 py-3 mb-3 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-200 dark:border-slate-700/30">
-                    <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(120deg, var(--zam-sea), var(--zam-coral))' }}>
                         <User className="w-5 h-5 text-white" />
                     </div>
                     <div className="overflow-hidden">

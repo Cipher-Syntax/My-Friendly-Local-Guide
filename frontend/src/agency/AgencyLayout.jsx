@@ -404,14 +404,14 @@ export default function AgencyLayout() {
 
     if (loading) {
         return (
-            <div className="h-screen w-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center transition-colors duration-300">
+            <div className="h-screen w-full zam-shell bg-slate-50 dark:bg-slate-900 flex items-center justify-center transition-colors duration-300">
                 <Loader2 className="w-12 h-12 text-cyan-500 animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="flex h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden relative transition-colors duration-300">
+        <div className="flex h-screen zam-shell bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden relative transition-colors duration-300">
 
             {isApproved === 'Pending' && (
                 <div className="fixed inset-0 z-[9999] bg-slate-900/40 dark:bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6">
@@ -425,7 +425,7 @@ export default function AgencyLayout() {
 
                             <div className="space-y-2">
                                 <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Application Pending</h2>
-                                <p className="text-cyan-600 dark:text-cyan-400 font-semibold uppercase tracking-widest text-xs">Review in Progress</p>
+                                <p className="text-orange-600 dark:text-orange-300 font-semibold uppercase tracking-widest text-xs">Review in Progress</p>
                             </div>
 
                             <div className="bg-slate-50 dark:bg-slate-900/80 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/50 text-slate-600 dark:text-slate-300 leading-relaxed text-sm">
@@ -472,14 +472,16 @@ export default function AgencyLayout() {
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <header className="bg-white/80 dark:bg-slate-800/30 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700/50 sticky top-0 z-10 transition-colors duration-300">
-                    <div className={`relative h-48 overflow-hidden ${!logo ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'bg-cover bg-center'}`} style={logo ? { backgroundImage: `url(${logo})` } : {}}>
+                    <div className={`relative h-48 overflow-hidden ${!logo ? '' : 'bg-cover bg-center'}`} style={logo ? { backgroundImage: `url(${logo})` } : { background: 'linear-gradient(120deg, var(--zam-deep-sea), var(--zam-sea))' }}>
+
+                        {!logo && <div className="absolute inset-0 zam-vinta-overlay opacity-20"></div>}
 
                         {/* Intelligent Adaptive Overlay - Dims the image dynamically to ensure white text pops */}
                         <div className={`absolute inset-0 ${logo ? 'bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-900/90 mix-blend-multiply' : 'opacity-20'}`}>
                             {!logo && (
                                 <>
                                     <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-400 rounded-full blur-3xl"></div>
-                                    <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl"></div>
+                                    <div className="absolute bottom-0 left-0 w-96 h-96 bg-orange-300 rounded-full blur-3xl"></div>
                                 </>
                             )}
                         </div>
@@ -487,7 +489,7 @@ export default function AgencyLayout() {
                         <div className="relative px-8 py-6 h-full flex flex-col justify-between">
                             <div className="flex items-start justify-between w-full">
                                 {/* Adjusted top section containing Business Name */}
-                                <h1 className="text-2xl md:text-3xl font-black text-white drop-shadow-lg tracking-tight">
+                                <h1 className="text-2xl md:text-3xl font-black zam-title text-white drop-shadow-lg tracking-tight">
                                     {businessName}
                                 </h1>
 
