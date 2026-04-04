@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert, Settings, PhilippinePeso, Map, Home } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert, Settings, PhilippinePeso, Map, Home, MessageSquare } from 'lucide-react';
 import api from '../api/api';
 
 import AgencySidebar from '../components/agency/AgencySidebar';
@@ -10,6 +10,7 @@ import AgencyTourGuideManagement from '../components/agency/AgencyTourGuideManag
 import AgencyReviews from '../components/agency/AgencyReviews';
 import AgencyEarnings from '../components/agency/AgencyEarnings';
 import AgencySettings from '../components/agency/AgencySettings';
+import AgencyMessages from '../components/agency/AgencyMessages';
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
 
@@ -51,6 +52,8 @@ export default function AgencyLayout() {
     const [guides, setGuides] = useState([]);
     const [bookings, setBookings] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [unreadMessages, setUnreadMessages] = useState(0);
+    const [messageDraft, setMessageDraft] = useState(null);
 
     const [isAddGuideModalOpen, setIsAddGuideModalOpen] = useState(false);
     const [isManageGuidesModalOpen, setIsManageGuidesModalOpen] = useState(false);
@@ -72,6 +75,29 @@ export default function AgencyLayout() {
     useEffect(() => {
         fetchData();
     }, []);
+
+    const refreshUnreadMessages = useCallback(async () => {
+        try {
+            const response = await api.get('/api/conversations/');
+            const payload = Array.isArray(response.data)
+                ? response.data
+                : Array.isArray(response.data?.results)
+                    ? response.data.results
+                    : [];
+
+            const unread = payload.reduce((sum, item) => sum + Number(item?.unread_count || 0), 0);
+            setUnreadMessages(unread);
+        } catch (error) {
+            setUnreadMessages(0);
+        }
+    }, []);
+
+    useEffect(() => {
+        refreshUnreadMessages();
+
+        const intervalId = setInterval(refreshUnreadMessages, 10000);
+        return () => clearInterval(intervalId);
+    }, [refreshUnreadMessages]);
 
     const fetchData = async () => {
         try {
@@ -386,6 +412,26 @@ export default function AgencyLayout() {
         });
     };
 
+    const openMessageWithTourist = (booking) => {
+        const touristId = Number(booking?.tourist_id || booking?.tourist_detail?.id);
+        if (!Number.isFinite(touristId) || touristId <= 0) {
+            showToast('This booking has no tourist account attached.', 'error');
+            return;
+        }
+
+        const tourist = booking?.tourist_detail || {};
+        const nameFromProfile = [tourist?.first_name, tourist?.last_name].filter(Boolean).join(' ').trim();
+        const displayName = nameFromProfile || booking?.tourist_username || tourist?.username || `Tourist #${touristId}`;
+
+        setMessageDraft({
+            id: touristId,
+            name: displayName,
+            username: tourist?.username || booking?.tourist_username || '',
+            profile_picture: tourist?.profile_picture || null,
+        });
+        setActiveTab('messages');
+    };
+
     const executeSignOut = () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         localStorage.clear();
@@ -468,7 +514,7 @@ export default function AgencyLayout() {
                 </div>
             )}
 
-            <AgencySidebar activeTab={activeTab} setActiveTab={setActiveTab} handleSignOut={handleSignOut} logo={logo} />
+            <AgencySidebar activeTab={activeTab} setActiveTab={setActiveTab} handleSignOut={handleSignOut} logo={logo} unreadMessages={unreadMessages} />
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <header className="bg-white/80 dark:bg-slate-800/30 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700/50 sticky top-0 z-10 transition-colors duration-300">
@@ -547,6 +593,7 @@ export default function AgencyLayout() {
                                         {activeTab === 'tours' && <Map className="w-5 h-5 text-white" />}
                                         {activeTab === 'accommodations' && <Home className="w-5 h-5 text-white" />}
                                         {activeTab === 'guides' && <UsersRound className="w-5 h-5 text-white" />}
+                                        {activeTab === 'messages' && <MessageSquare className="w-5 h-5 text-white" />}
                                         {activeTab === 'reviews' && <Star className="w-5 h-5 text-white" />}
                                         {activeTab === 'earnings' && <DollarSign className="w-5 h-5 text-white" />}
                                         {activeTab === 'settings' && <Settings className="w-5 h-5 text-white" />}
@@ -557,6 +604,7 @@ export default function AgencyLayout() {
                                                 activeTab === 'tours' ? 'My Tour Packages' :
                                                     activeTab === 'accommodations' ? 'My Accommodations' :
                                                         activeTab === 'guides' ? 'Tour Guide Management' :
+                                                            activeTab === 'messages' ? 'Tourist Conversations' :
                                                             activeTab === 'reviews' ? 'Reviews & Ratings' :
                                                                 activeTab === 'settings' ? 'Agency Settings' :
                                                                     'Earnings & Payments'}
@@ -567,7 +615,7 @@ export default function AgencyLayout() {
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-auto p-8">
+                <main className={`flex-1 ${activeTab === 'messages' ? 'overflow-hidden p-0' : 'overflow-auto p-8'}`}>
                     {loading ? (
                         <div className="flex justify-center items-center h-64">
                             <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
@@ -592,6 +640,7 @@ export default function AgencyLayout() {
                                     updateBookingStatus={updateBookingStatus}
                                     confirmPayment={confirmPayment}
                                     deleteBooking={deleteBooking}
+                                    openMessageWithTourist={openMessageWithTourist}
                                     openManageGuidesModal={(id) => {
                                         setSelectedBookingId(id);
                                         setIsManageGuidesModalOpen(true);
@@ -630,6 +679,14 @@ export default function AgencyLayout() {
                                     isPremium={user?.guide_tier !== 'free'}
                                     guideLimit={config.guideLimit}
                                     totalGuidesCount={guides.length}
+                                />
+                            )}
+                            {activeTab === 'messages' && (
+                                <AgencyMessages
+                                    bookings={bookings}
+                                    currentUserId={user?.id}
+                                    preselectedPartner={messageDraft}
+                                    onUnreadCountChange={setUnreadMessages}
                                 />
                             )}
                             {activeTab === 'reviews' && <AgencyReviews />}

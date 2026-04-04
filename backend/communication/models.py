@@ -10,6 +10,16 @@ class Message(models.Model):
 
     class Meta:
         ordering = ['timestamp']
+        indexes = [
+            models.Index(fields=['sender', 'receiver', 'timestamp'], name='message_thread_idx'),
+            models.Index(fields=['receiver', 'is_read', 'timestamp'], name='message_unread_idx'),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=~models.Q(sender=models.F('receiver')),
+                name='message_sender_receiver_different',
+            ),
+        ]
 
     def __str__(self):
         return f"Msg from {self.sender.username}"

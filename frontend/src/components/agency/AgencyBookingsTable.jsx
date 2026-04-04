@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2, Search, ChevronLeft, ChevronRight, Eye, Trash2 } from 'lucide-react';
+import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2, Search, ChevronLeft, ChevronRight, Eye, Trash2, MessageSquare } from 'lucide-react';
 
-export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, confirmPayment, openManageGuidesModal, agencyTier, freeBookingLimit, deleteBooking }) {
+export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, confirmPayment, openManageGuidesModal, agencyTier, freeBookingLimit, deleteBooking, openMessageWithTourist = () => { } }) {
     const [filterStatus, setFilterStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -284,6 +284,17 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                                         className={`px-3 py-1.5 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${isManageDisabled ? 'bg-slate-200 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-600 shadow-lg shadow-cyan-500/20'}`}
                                                     >
                                                         Manage Guides
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => openMessageWithTourist(booking)}
+                                                        disabled={!booking?.tourist_id}
+                                                        className={`flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${booking?.tourist_id
+                                                            ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
+                                                            : 'bg-slate-200 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                                                            }`}
+                                                    >
+                                                        <MessageSquare className="w-3.5 h-3.5" /> Message Tourist
                                                     </button>
                                                 </div>
                                             </td>

@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, Wallet, Settings, Map, Home } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, Wallet, Settings, Map, Home, MessageSquare } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }) {
-    const navigate = useNavigate();
+export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, unreadMessages = 0 }) {
     const { theme, toggleTheme } = useTheme();
 
     const [agencyUser, setAgencyUser] = useState({
@@ -30,13 +28,14 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
         { id: 'tours', icon: Map, label: 'My Tour Packages' }, // NEW TAB
         { id: 'accommodations', icon: Home, label: 'My Accommodations' }, // NEW TAB
         { id: 'guides', icon: UsersRound, label: 'Tour Guide Management' },
+        { id: 'messages', icon: MessageSquare, label: 'Messages' },
         { id: 'reviews', icon: Star, label: 'Reviews & Ratings' },
         { id: 'earnings', icon: Wallet, label: 'Earnings & Payments' },
         { id: 'settings', icon: Settings, label: 'Agency Settings' },
     ];
 
     return (
-        <aside className="w-70 bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm border-r border-slate-200 dark:border-slate-700/50 flex flex-col h-screen transition-colors duration-300">
+        <aside className="w-72 min-w-72 shrink-0 bg-white/90 dark:bg-slate-800/50 backdrop-blur-sm border-r border-slate-200 dark:border-slate-700/50 flex flex-col h-screen transition-colors duration-300">
 
             <div className="p-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col justify-center">
                 <h1 className="text-xl font-bold zam-title text-slate-900 dark:text-white">
@@ -52,13 +51,18 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut }
                     <button
                         key={item.id}
                         onClick={() => setActiveTab(item.id)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === item.id
+                        className={`w-full flex items-center justify-start text-left gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === item.id
                             ? 'bg-sky-50 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-500/30'
                             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/30 hover:text-slate-900 dark:hover:text-white'
                             }`}
                     >
                         <item.icon className="w-5 h-5" />
-                        <span className="font-medium">{item.label}</span>
+                        <span className="font-medium text-left flex-1">{item.label}</span>
+                        {item.id === 'messages' && unreadMessages > 0 && (
+                            <span className="ml-auto inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                                {unreadMessages > 99 ? '99+' : unreadMessages}
+                            </span>
+                        )}
                     </button>
                 ))}
             </nav>

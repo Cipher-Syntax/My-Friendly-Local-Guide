@@ -5,7 +5,8 @@ from rest_framework.parsers import MultiPartParser, FormParser #type: ignore
 from rest_framework.decorators import api_view #type: ignore
 from django_filters.rest_framework import DjangoFilterBackend #type: ignore
 from django.contrib.auth import get_user_model
-from django.db.models import Q
+from django.db.models import Q, Count
+from datetime import date
 
 from .models import Destination, Attraction, TourPackage, TourStop
 from .serializers import (
@@ -157,10 +158,15 @@ class GuideListView(generics.ListAPIView):
             is_local_guide=True,
             is_guide_visible=True,
             guide_approved=True
-        )
-
-        queryset = queryset.filter(
-            Q(guide_tier='paid') | Q(booking_count=0)
+        ).annotate(
+            active_bookings_count=Count(
+                'guide_tours_booked',
+                filter=Q(
+                    guide_tours_booked__status='Confirmed',
+                    guide_tours_booked__check_out__gte=date.today(),
+                ),
+                distinct=True,
+            )
         ).prefetch_related('tours').distinct()
         
         destination_id = self.request.query_params.get('main_destination')

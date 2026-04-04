@@ -3,6 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
+from agency_management_module.models import Agency
 from .models import Message
 from .serializers import MessageSerializer
 
@@ -59,3 +60,28 @@ class CommunicationApiTests(TestCase):
 		response = self.client.get(reverse("message-thread", kwargs={"partner_id": self.partner.id}))
 		self.assertEqual(response.status_code, 200)
 		self.assertTrue(Message.objects.get().is_read)
+
+	def test_tourist_and_agency_can_exchange_messages(self):
+		tourist = User.objects.create_user(username="tourist_user", password="Pass12345")
+		agency_user = User.objects.create_user(username="agency_owner", password="Pass12345")
+		Agency.objects.create(
+			user=agency_user,
+			business_name="Seaside Agency",
+			owner_name="Owner Name",
+			email="agency-owner@example.com",
+		)
+
+		self.client.force_authenticate(user=tourist)
+		send_response = self.client.post(
+			reverse("message-thread", kwargs={"partner_id": agency_user.id}),
+			{"content": "Hello agency"},
+			format="json",
+		)
+		self.assertEqual(send_response.status_code, 201)
+
+		self.client.force_authenticate(user=agency_user)
+		list_response = self.client.get(reverse("conversation-list"))
+		self.assertEqual(list_response.status_code, 200)
+
+		partner_ids = [item.get("id") for item in list_response.data]
+		self.assertIn(tourist.id, partner_ids)

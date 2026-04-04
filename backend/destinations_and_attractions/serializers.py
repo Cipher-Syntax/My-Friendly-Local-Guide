@@ -236,6 +236,8 @@ class TourPackageSerializer(serializers.ModelSerializer):
 class GuideSerializer(serializers.ModelSerializer):
     tours = serializers.SerializerMethodField()
     guide_name = serializers.SerializerMethodField()
+    active_bookings_count = serializers.IntegerField(read_only=True)
+    is_busy = serializers.SerializerMethodField()
     
     class Meta:
         model = User
@@ -244,7 +246,8 @@ class GuideSerializer(serializers.ModelSerializer):
             'location', 'guide_rating', 'available_days', 
             'languages', 'specialty', 'experience_years', 
             'price_per_day', 'profile_picture', 'tours',
-            'is_guide_visible'
+            'is_guide_visible', 'guide_tier', 'booking_count',
+            'active_bookings_count', 'is_busy'
         ]
         read_only_fields = ['id', 'tours', 'guide_rating']
     
@@ -261,3 +264,8 @@ class GuideSerializer(serializers.ModelSerializer):
             tours = obj.tours.all()
         
         return TourPackageSerializer(tours, many=True, context=self.context).data
+
+    def get_is_busy(self, obj):
+        tier = getattr(obj, 'guide_tier', 'free')
+        active_count = getattr(obj, 'active_bookings_count', 0) or 0
+        return tier != 'paid' and active_count >= 1
