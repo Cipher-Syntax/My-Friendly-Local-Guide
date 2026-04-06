@@ -142,7 +142,7 @@ export default function TourGuidesManagement() {
             { key: 'certificate', label: 'Tour Guide Certificate' },
             { key: 'residency', label: 'Proof of Residency' },
             { key: 'validId', label: 'Valid Government ID' },
-            { key: 'nbiClearance', label: 'NBI Clearance' },
+            { key: 'nbiClearance', label: 'Accreditation ID' },
         ];
 
         return documents.map((doc) => {
