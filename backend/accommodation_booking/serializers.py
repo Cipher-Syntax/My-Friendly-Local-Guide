@@ -207,6 +207,22 @@ class BookingSerializer(serializers.ModelSerializer):
             if day_num <= trip_days:
                 clipped_timeline.append(stop)
 
+        # NEW: Fetch the related TourStops so we have the images!
+        stops_data = []
+        request = self.context.get('request')
+        for stop in selected.stops.all().order_by('order'):
+            img_url = None
+            if stop.image:
+                img_url = stop.image.url
+                if request:
+                    img_url = request.build_absolute_uri(img_url)
+            stops_data.append({
+                'id': stop.id,
+                'name': stop.name,
+                'image': img_url,
+                'order': stop.order
+            })
+
         return {
             'id': selected.id,
             'name': selected.name,
@@ -216,6 +232,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'additional_fee_per_head': selected.additional_fee_per_head,
             'max_group_size': selected.max_group_size,
             'itinerary_timeline': clipped_timeline,
+            'stops': stops_data,  # NEW: Added stops array containing images
         }
 
     def get_assigned_guides_detail(self, obj):
