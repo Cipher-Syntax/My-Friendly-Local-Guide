@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2, Search, ChevronLeft, ChevronRight, Eye, Trash2, MessageSquare } from 'lucide-react';
+import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2, Search, ChevronLeft, ChevronRight, Eye, Trash2, MessageSquare, Images } from 'lucide-react';
 
 export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, confirmPayment, openManageGuidesModal, agencyTier, freeBookingLimit, deleteBooking, openMessageWithTourist = () => { } }) {
     const [filterStatus, setFilterStatus] = useState('all');
@@ -20,6 +20,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
     // State for View Details Modal
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedBookingForView, setSelectedBookingForView] = useState(null);
+    const [stopDetailsModalOpen, setStopDetailsModalOpen] = useState(false);
 
     // State for Delete Modal
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -104,7 +105,16 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
         return namesArray.join(', ');
     };
 
-    const groupTimelineByDay = (timelineInput) => {
+    const resolveImageUrl = (imagePath) => {
+        if (!imagePath) return '';
+        const raw = String(imagePath).trim();
+        if (!raw) return '';
+        if (raw.startsWith('http')) return raw;
+        if (raw.startsWith('/')) return raw;
+        return `/${raw.replace(/^\/+/, '')}`;
+    };
+
+    const groupTimelineByDay = (timelineInput, booking) => {
         if (!timelineInput) return [];
 
         let timeline = timelineInput;
@@ -117,6 +127,40 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
         }
 
         if (!Array.isArray(timeline) || timeline.length === 0) return [];
+
+        const stopLibrary = Array.isArray(booking?.tour_package_detail?.stops) ? booking.tour_package_detail.stops : [];
+        const accommodationImage = booking?.accommodation_detail?.photo || booking?.accommodation_detail?.image || '';
+
+        const getEntityImage = (entity) => {
+            if (!entity || typeof entity !== 'object') return '';
+            return entity.image || entity.photo || entity.stop_image || entity.thumbnail || '';
+        };
+
+        const resolveStopImage = (entry) => {
+            const explicitImage = entry?.image || entry?.photo || entry?.stop_image || entry?.activityImage || entry?.activity_image;
+            if (explicitImage) return resolveImageUrl(explicitImage);
+
+            const refId = Number.parseInt(entry?.refId, 10);
+            if (Number.isFinite(refId) && refId > 0) {
+                const byRef = stopLibrary.find((stop) => Number(stop?.id) === refId);
+                if (byRef) return resolveImageUrl(getEntityImage(byRef));
+            }
+
+            const activityName = String(entry?.activityName || entry?.name || '').trim().toLowerCase();
+            if (activityName) {
+                const byName = stopLibrary.find((stop) => {
+                    const stopName = String(stop?.name || stop?.title || '').trim().toLowerCase();
+                    return stopName === activityName;
+                });
+                if (byName) return resolveImageUrl(getEntityImage(byName));
+            }
+
+            if (String(entry?.type || '').toLowerCase() === 'accom' && accommodationImage) {
+                return resolveImageUrl(accommodationImage);
+            }
+
+            return '';
+        };
 
         const dayMap = new Map();
 
@@ -142,6 +186,10 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
             dayMap.get(day).push({
                 place: placeName,
                 description: entry?.description ? String(entry.description).trim() : '',
+                startTime: entry?.startTime ? String(entry.startTime) : '',
+                endTime: entry?.endTime ? String(entry.endTime) : '',
+                type: entry?.type ? String(entry.type) : '',
+                image: resolveStopImage(entry),
             });
         });
 
@@ -151,7 +199,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                 const uniqueStops = [];
                 const seen = new Set();
                 stops.forEach((stop) => {
-                    const key = `${stop.place}||${stop.description}`;
+                    const key = `${stop.place}||${stop.description}||${stop.startTime}||${stop.endTime}||${stop.type}||${stop.image}`;
                     if (!seen.has(key)) {
                         seen.add(key);
                         uniqueStops.push(stop);
@@ -163,7 +211,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
     };
 
     const groupedViewTimeline = useMemo(() => {
-        return groupTimelineByDay(selectedBookingForView?.tour_package_detail?.itinerary_timeline);
+        return groupTimelineByDay(selectedBookingForView?.tour_package_detail?.itinerary_timeline, selectedBookingForView);
     }, [selectedBookingForView]);
 
     const handleAcceptConfirm = () => {
@@ -333,6 +381,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                                     <button
                                                         onClick={() => {
                                                             setSelectedBookingForView(booking);
+                                                            setStopDetailsModalOpen(false);
                                                             setViewModalOpen(true);
                                                         }}
                                                         className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
@@ -594,7 +643,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                             <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                                 <Info className="w-5 h-5 text-cyan-500" /> Booking Details #{selectedBookingForView.id}
                             </h3>
-                            <button onClick={() => setViewModalOpen(false)} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+                            <button onClick={() => { setStopDetailsModalOpen(false); setViewModalOpen(false); }} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
                                 <XCircle className="w-6 h-6" />
                             </button>
                         </div>
@@ -662,7 +711,15 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                         </p>
 
                                         {groupedViewTimeline.length > 0 && (
-                                            <div className="mt-3 pl-3 border-l-2 border-cyan-500/40 space-y-3">
+                                            <div className="mt-3">
+                                                <button
+                                                    onClick={() => setStopDetailsModalOpen(true)}
+                                                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 transition-colors"
+                                                >
+                                                    <Images className="w-3.5 h-3.5" /> View Stop Details
+                                                </button>
+
+                                                <div className="mt-3 pl-3 border-l-2 border-cyan-500/40 space-y-3">
                                                 <p className="text-[10px] uppercase font-bold text-cyan-600 dark:text-cyan-400 tracking-wider">Itinerary Stops</p>
                                                 {groupedViewTimeline.map((dayGroup) => (
                                                     <div key={`day-${dayGroup.day}`} className="text-sm">
@@ -677,6 +734,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                                         ))}
                                                     </div>
                                                 ))}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -713,6 +771,68 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {stopDetailsModalOpen && selectedBookingForView && (
+                <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-3xl w-full max-h-[90vh] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <Images className="w-5 h-5 text-cyan-500" /> Itinerary Stop Details
+                            </h3>
+                            <button onClick={() => setStopDetailsModalOpen(false)} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+                                <XCircle className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto space-y-4">
+                            {groupedViewTimeline.length === 0 && (
+                                <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 p-8 text-center text-slate-500 dark:text-slate-400">
+                                    No itinerary stops available.
+                                </div>
+                            )}
+
+                            {groupedViewTimeline.map((dayGroup) => (
+                                <div key={`details-day-${dayGroup.day}`} className="rounded-xl border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/30 p-4">
+                                    <p className="text-sm font-extrabold text-cyan-700 dark:text-cyan-300 mb-3">Day {dayGroup.day}</p>
+
+                                    <div className="space-y-3">
+                                        {dayGroup.stops.map((stop, idx) => (
+                                            <div key={`details-day-${dayGroup.day}-stop-${idx}`} className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800/70">
+                                                {stop.image ? (
+                                                    <img
+                                                        src={stop.image}
+                                                        alt={stop.place}
+                                                        className="w-full h-40 object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-28 bg-slate-100 dark:bg-slate-700/40 flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm font-semibold">
+                                                        No image available
+                                                    </div>
+                                                )}
+
+                                                <div className="p-3">
+                                                    <p className="font-semibold text-slate-900 dark:text-white">{stop.place}</p>
+                                                    {(stop.startTime || stop.endTime) && (
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                                            {stop.startTime || 'N/A'}{stop.endTime ? ` - ${stop.endTime}` : ''}
+                                                        </p>
+                                                    )}
+                                                    {stop.type && (
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 capitalize">{stop.type}</p>
+                                                    )}
+                                                    {stop.description && (
+                                                        <p className="text-xs text-slate-600 dark:text-slate-300 mt-2">{stop.description}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
