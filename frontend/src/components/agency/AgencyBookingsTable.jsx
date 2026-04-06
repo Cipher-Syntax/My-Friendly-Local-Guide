@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2, Search, ChevronLeft, ChevronRight, Eye, Trash2, MessageSquare, Images } from 'lucide-react';
+import api from '../../api/api';
 
 export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, confirmPayment, openManageGuidesModal, agencyTier, freeBookingLimit, deleteBooking, openMessageWithTourist = () => { } }) {
     const [filterStatus, setFilterStatus] = useState('all');
@@ -109,9 +110,30 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
         if (!imagePath) return '';
         const raw = String(imagePath).trim();
         if (!raw) return '';
-        if (raw.startsWith('http')) return raw;
-        if (raw.startsWith('/')) return raw;
-        return `/${raw.replace(/^\/+/, '')}`;
+        if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
+
+        let apiOrigin = '';
+        try {
+            const base = api?.defaults?.baseURL || import.meta.env.VITE_API_URL || '';
+            if (base) {
+                apiOrigin = new URL(base).origin;
+            }
+        } catch {
+            apiOrigin = '';
+        }
+
+        const normalizedRaw = raw.replace(/^\/+/, '');
+        const mediaIndex = normalizedRaw.toLowerCase().indexOf('media/');
+
+        if (mediaIndex >= 0 && apiOrigin) {
+            return `${apiOrigin}/${normalizedRaw.slice(mediaIndex)}`;
+        }
+
+        if (raw.startsWith('/')) {
+            return apiOrigin ? `${apiOrigin}${raw}` : raw;
+        }
+
+        return apiOrigin ? `${apiOrigin}/${normalizedRaw}` : `/${normalizedRaw}`;
     };
 
     const groupTimelineByDay = (timelineInput, booking) => {
@@ -133,7 +155,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
 
         const getEntityImage = (entity) => {
             if (!entity || typeof entity !== 'object') return '';
-            return entity.image || entity.photo || entity.stop_image || entity.thumbnail || '';
+            return entity.image || entity.photo || entity.stop_image || entity.thumbnail || entity.cover_image || entity.activity_image || '';
         };
 
         const resolveStopImage = (entry) => {
@@ -152,7 +174,15 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                     const stopName = String(stop?.name || stop?.title || '').trim().toLowerCase();
                     return stopName === activityName;
                 });
+
                 if (byName) return resolveImageUrl(getEntityImage(byName));
+
+                const byPartialName = stopLibrary.find((stop) => {
+                    const stopName = String(stop?.name || stop?.title || '').trim().toLowerCase();
+                    return stopName && (stopName.includes(activityName) || activityName.includes(stopName));
+                });
+
+                if (byPartialName) return resolveImageUrl(getEntityImage(byPartialName));
             }
 
             if (String(entry?.type || '').toLowerCase() === 'accom' && accommodationImage) {
