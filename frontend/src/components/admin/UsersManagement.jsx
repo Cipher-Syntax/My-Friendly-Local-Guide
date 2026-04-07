@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Search, Loader2, Users, ShieldCheck, Filter, MoreHorizontal, Eye, UserX, Trash2, X } from 'lucide-react';
+import { Search, Loader2, Users, ShieldCheck, Filter, MoreHorizontal, Eye, UserX, UserCheck, Trash2, X } from 'lucide-react';
 import api from '../../api/api';
 
 const ROLE_TOURIST = 'tourist';
@@ -167,7 +167,7 @@ function RoleFilterButtons({ activeRole, onChange }) {
     );
 }
 
-function UserActionMenu({ user, onView, onDeactivate, onDelete }) {
+function UserActionMenu({ user, onView, onDeactivate, onReactivate, onDelete }) {
     const [open, setOpen] = useState(false);
     const menuRef = useRef(null);
     const role = getUserRole(user);
@@ -229,16 +229,27 @@ function UserActionMenu({ user, onView, onDeactivate, onDelete }) {
                             View Profile / Details
                         </button>
                     )}
-                    <button
-                        type="button"
-                        role="menuitem"
-                        onClick={closeThen(onDeactivate)}
-                        disabled={!user.is_active}
-                        className="w-full px-3 py-2.5 text-left text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <UserX className="w-4 h-4" />
-                        Deactivate Account
-                    </button>
+                    {user.is_active ? (
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={closeThen(onDeactivate)}
+                            className="w-full px-3 py-2.5 text-left text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10 flex items-center gap-2"
+                        >
+                            <UserX className="w-4 h-4" />
+                            Deactivate Account
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={closeThen(onReactivate)}
+                            className="w-full px-3 py-2.5 text-left text-sm text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 flex items-center gap-2"
+                        >
+                            <UserCheck className="w-4 h-4" />
+                            Reactivate Account
+                        </button>
+                    )}
                     <button
                         type="button"
                         role="menuitem"
@@ -559,6 +570,12 @@ export default function UsersManagement() {
 
     // Actions + Feedback
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+    const [confirmModal, setConfirmModal] = useState({
+        open: false,
+        actionType: null,
+        user: null,
+        submitting: false,
+    });
 
     // Detail modal
     const [detailModalUser, setDetailModalUser] = useState(null);
@@ -595,6 +612,10 @@ export default function UsersManagement() {
     const showToast = useCallback((message, type = 'success') => {
         setToast({ show: true, message, type });
         setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 3000);
+    }, []);
+
+    const closeConfirmModal = useCallback(() => {
+        setConfirmModal({ open: false, actionType: null, user: null, submitting: false });
     }, []);
 
     const fetchTourPackagesForUser = useCallback(async (user) => {
@@ -690,41 +711,86 @@ export default function UsersManagement() {
         setDetailLoading(false);
     }, []);
 
-    const deactivateUser = useCallback(async (user) => {
+    const deactivateUser = useCallback((user) => {
         if (!user.is_active) {
             showToast('User is already deactivated.', 'error');
             return;
         }
 
-        const confirmed = window.confirm(`Deactivate ${user.username}'s account?`);
-        if (!confirmed) return;
-
-        try {
-            await api.patch(`api/admin/users/${user.id}/`, { is_active: false });
-            setAllUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, is_active: false } : item)));
-            setDetailModalUser((prev) => (prev?.id === user.id ? { ...prev, is_active: false } : prev));
-            showToast('Account deactivated successfully.', 'success');
-        } catch (error) {
-            console.error('Failed to deactivate account:', error);
-            showToast('Failed to deactivate account.', 'error');
-        }
+        setConfirmModal({
+            open: true,
+            actionType: 'deactivate',
+            user,
+            submitting: false,
+        });
     }, [showToast]);
 
-    const deleteUser = useCallback(async (user) => {
-        const confirmed = window.confirm(`Permanently delete ${user.username}'s account? This cannot be undone.`);
-        if (!confirmed) return;
+    const reactivateUser = useCallback((user) => {
+        if (user.is_active) {
+            showToast('User is already active.', 'error');
+            return;
+        }
+
+        setConfirmModal({
+            open: true,
+            actionType: 'reactivate',
+            user,
+            submitting: false,
+        });
+    }, [showToast]);
+
+    const deleteUser = useCallback((user) => {
+        setConfirmModal({
+            open: true,
+            actionType: 'delete',
+            user,
+            submitting: false,
+        });
+    }, []);
+
+    const confirmUserAction = useCallback(async () => {
+        const { actionType, user } = confirmModal;
+        if (!actionType || !user) return;
+
+        setConfirmModal((prev) => ({ ...prev, submitting: true }));
 
         try {
-            await api.delete(`api/admin/users/${user.id}/`);
-            setAllUsers((prev) => prev.filter((item) => item.id !== user.id));
-            detailCacheRef.current.delete(user.id);
-            if (detailModalUser?.id === user.id) closeDetails();
-            showToast('Account deleted successfully.', 'success');
+            if (actionType === 'deactivate') {
+                await api.patch(`api/admin/users/${user.id}/`, { is_active: false });
+                setAllUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, is_active: false } : item)));
+                setDetailModalUser((prev) => (prev?.id === user.id ? { ...prev, is_active: false } : prev));
+                showToast('Account deactivated successfully.', 'success');
+            }
+
+            if (actionType === 'reactivate') {
+                await api.patch(`api/admin/users/${user.id}/`, { is_active: true });
+                setAllUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, is_active: true } : item)));
+                setDetailModalUser((prev) => (prev?.id === user.id ? { ...prev, is_active: true } : prev));
+                showToast('Account reactivated successfully.', 'success');
+            }
+
+            if (actionType === 'delete') {
+                await api.delete(`api/admin/users/${user.id}/`);
+                setAllUsers((prev) => prev.filter((item) => item.id !== user.id));
+                detailCacheRef.current.delete(user.id);
+                if (detailModalUser?.id === user.id) closeDetails();
+                showToast('Account deleted successfully.', 'success');
+            }
+
+            closeConfirmModal();
         } catch (error) {
-            console.error('Failed to delete account:', error);
-            showToast('Failed to delete account.', 'error');
+            console.error('Failed to apply account action:', error);
+            showToast(
+                actionType === 'delete'
+                    ? 'Failed to delete account.'
+                    : actionType === 'reactivate'
+                        ? 'Failed to reactivate account.'
+                        : 'Failed to deactivate account.',
+                'error'
+            );
+            setConfirmModal((prev) => ({ ...prev, submitting: false }));
         }
-    }, [closeDetails, detailModalUser?.id, showToast]);
+    }, [closeConfirmModal, closeDetails, confirmModal, detailModalUser?.id, showToast]);
 
     const filteredUsers = useMemo(() => {
         return allUsers.filter(u => {
@@ -751,6 +817,19 @@ export default function UsersManagement() {
         setCurrentPage(1);
     }, [searchTerm, roleFilter, statusFilter]);
 
+    useEffect(() => {
+        if (!confirmModal.open) return undefined;
+
+        const handleEscape = (event) => {
+            if (event.key === 'Escape' && !confirmModal.submitting) {
+                closeConfirmModal();
+            }
+        };
+
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [closeConfirmModal, confirmModal.open, confirmModal.submitting]);
+
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedPages = filteredUsers.slice(startIndex, startIndex + itemsPerPage);
     const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
@@ -772,6 +851,65 @@ export default function UsersManagement() {
                     >
                         <X className="w-4 h-4" />
                     </button>
+                </div>
+            )}
+
+            {confirmModal.open && confirmModal.user && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+                    onMouseDown={(event) => {
+                        if (event.target === event.currentTarget && !confirmModal.submitting) {
+                            closeConfirmModal();
+                        }
+                    }}
+                >
+                    <div className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl p-5">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                            {confirmModal.actionType === 'delete'
+                                ? 'Delete Account?'
+                                : confirmModal.actionType === 'reactivate'
+                                    ? 'Reactivate Account?'
+                                    : 'Deactivate Account?'}
+                        </h3>
+                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                            {confirmModal.actionType === 'delete'
+                                ? `This will permanently delete ${confirmModal.user.username}'s account. This action cannot be undone.`
+                                : confirmModal.actionType === 'reactivate'
+                                    ? `This will restore ${confirmModal.user.username}'s account access.`
+                                    : `This will deactivate ${confirmModal.user.username}'s account and disable access.`}
+                        </p>
+
+                        <div className="mt-5 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={closeConfirmModal}
+                                disabled={confirmModal.submitting}
+                                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmUserAction}
+                                disabled={confirmModal.submitting}
+                                className={`px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed ${
+                                    confirmModal.actionType === 'delete'
+                                        ? 'bg-red-600 hover:bg-red-700'
+                                        : confirmModal.actionType === 'reactivate'
+                                            ? 'bg-emerald-600 hover:bg-emerald-700'
+                                            : 'bg-amber-600 hover:bg-amber-700'
+                                }`}
+                            >
+                                {confirmModal.submitting
+                                    ? 'Processing...'
+                                    : confirmModal.actionType === 'delete'
+                                        ? 'Delete Account'
+                                        : confirmModal.actionType === 'reactivate'
+                                            ? 'Reactivate Account'
+                                            : 'Deactivate Account'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -855,6 +993,7 @@ export default function UsersManagement() {
                                                         user={user}
                                                         onView={openDetails}
                                                         onDeactivate={deactivateUser}
+                                                        onReactivate={reactivateUser}
                                                         onDelete={deleteUser}
                                                     />
                                                 )}
