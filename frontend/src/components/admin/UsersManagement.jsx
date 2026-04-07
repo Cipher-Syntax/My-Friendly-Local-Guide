@@ -11,6 +11,18 @@ const ROLE_ADMIN = 'admin';
 const ROLE_ALL = 'all';
 
 const getAgencyStatus = (user) => String(user?.agency_profile?.status || '').toLowerCase();
+const hasPendingGuideApplication = (user) => {
+    if (typeof user?.has_pending_application === 'boolean') {
+        return user.has_pending_application;
+    }
+
+    const isReviewed = user?.guide_application?.is_reviewed;
+    if (typeof isReviewed === 'boolean') {
+        return !isReviewed;
+    }
+
+    return false;
+};
 
 const getUserRole = (user) => {
     if (user.is_superuser) return ROLE_ADMIN;
@@ -19,7 +31,7 @@ const getUserRole = (user) => {
         if (!user.agency_profile || agencyStatus === 'pending') return ROLE_PENDING_AGENCY;
         return ROLE_AGENCY;
     }
-    if (user.is_local_guide && !user.guide_approved) return ROLE_PENDING_GUIDE;
+    if (user.is_local_guide && !user.guide_approved && hasPendingGuideApplication(user)) return ROLE_PENDING_GUIDE;
     if (user.is_local_guide && user.guide_approved) return ROLE_GUIDE;
     return ROLE_TOURIST;
 };
