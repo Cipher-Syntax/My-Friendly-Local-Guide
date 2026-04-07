@@ -27,6 +27,100 @@ const formatPackageType = (tourPackage) => {
     return 'N/A';
 };
 
+const getPackageDurationDays = (tourPackage) => {
+    const explicitDays = Number.parseInt(tourPackage?.duration_days, 10);
+    if (Number.isFinite(explicitDays) && explicitDays > 0) return explicitDays;
+
+    const durationText = String(tourPackage?.duration || '');
+    const matchedDays = durationText.match(/\d+/);
+    if (matchedDays?.[0]) {
+        const parsedDays = Number.parseInt(matchedDays[0], 10);
+        if (Number.isFinite(parsedDays) && parsedDays > 0) return parsedDays;
+    }
+
+    return 1;
+};
+
+const parseTimelineInput = (timelineInput) => {
+    if (Array.isArray(timelineInput)) return timelineInput;
+    if (typeof timelineInput !== 'string') return [];
+
+    try {
+        const parsed = JSON.parse(timelineInput);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
+const extractTimelineLabels = (entry) => {
+    const labels = [];
+    const pushLabel = (value) => {
+        if (typeof value !== 'string') return;
+        const normalized = value.trim();
+        if (normalized) labels.push(normalized);
+    };
+
+    if (typeof entry === 'string') {
+        pushLabel(entry);
+        return labels;
+    }
+
+    if (!entry || typeof entry !== 'object') return labels;
+
+    if (Array.isArray(entry.activities)) {
+        entry.activities.forEach((item) => {
+            if (typeof item === 'string') {
+                pushLabel(item);
+            } else if (item && typeof item === 'object') {
+                pushLabel(item.activityName);
+                pushLabel(item.title);
+                pushLabel(item.name);
+                pushLabel(item.activity);
+                pushLabel(item.location);
+            }
+        });
+    }
+
+    pushLabel(entry.activityName);
+    pushLabel(entry.title);
+    pushLabel(entry.name);
+    pushLabel(entry.activity);
+    pushLabel(entry.location);
+
+    return labels;
+};
+
+const getTimelineByDay = (tourPackage) => {
+    const timelineEntries = parseTimelineInput(tourPackage?.itinerary_timeline);
+    const timelineByDay = new Map();
+
+    timelineEntries.forEach((entry) => {
+        const parsedDay = Number.parseInt(entry?.day, 10);
+        const day = Number.isFinite(parsedDay) && parsedDay > 0 ? parsedDay : 1;
+
+        const labels = extractTimelineLabels(entry);
+        if (!timelineByDay.has(day)) {
+            timelineByDay.set(day, []);
+        }
+
+        labels.forEach((label) => {
+            timelineByDay.get(day).push(label);
+        });
+    });
+
+    timelineByDay.forEach((labels, day) => {
+        timelineByDay.set(day, [...new Set(labels)]);
+    });
+
+    return timelineByDay;
+};
+
+const getTimelineSearchText = (tourPackage) => {
+    const timelineByDay = getTimelineByDay(tourPackage);
+    return Array.from(timelineByDay.values()).flat();
+};
+
 const getRoleBadge = (user) => {
     const role = getUserRole(user);
     if (role === ROLE_ADMIN) {
@@ -165,6 +259,7 @@ function UserDetailModal({ isOpen, user, activeTab, onTabChange, onClose, loadin
     const [tourDestinationFilter, setTourDestinationFilter] = useState('All');
     const [accommodationSearchTerm, setAccommodationSearchTerm] = useState('');
     const [accommodationTypeFilter, setAccommodationTypeFilter] = useState('All');
+    const [selectedTourDays, setSelectedTourDays] = useState({});
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -183,6 +278,7 @@ function UserDetailModal({ isOpen, user, activeTab, onTabChange, onClose, loadin
         setTourDestinationFilter('All');
         setAccommodationSearchTerm('');
         setAccommodationTypeFilter('All');
+        setSelectedTourDays({});
     }, [isOpen, user?.id]);
 
     const roleLabel = user && getUserRole(user) === ROLE_GUIDE ? 'Tour Guide' : 'Agency';
@@ -206,6 +302,7 @@ function UserDetailModal({ isOpen, user, activeTab, onTabChange, onClose, loadin
                 tourPackage.destination_name,
                 formatPackageType(tourPackage),
                 ...(Array.isArray(tourPackage.stops) ? tourPackage.stops.map((stop) => stop?.name) : []),
+                ...getTimelineSearchText(tourPackage),
             ].join(' ').toLowerCase();
 
             const matchesSearch = searchableText.includes(tourSearchTerm.toLowerCase());
@@ -321,9 +418,16 @@ function UserDetailModal({ isOpen, user, activeTab, onTabChange, onClose, loadin
                                         <p className="text-sm text-slate-500 dark:text-slate-400">No tour packages found for this user.</p>
                                     ) : (
                                         filteredTourPackages.map((tourPackage) => {
+                                            const durationDays = getPackageDurationDays(tourPackage);
                                             const sortedStops = Array.isArray(tourPackage.stops)
                                                 ? [...tourPackage.stops].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                                                 : [];
+                                            const timelineByDay = getTimelineByDay(tourPackage);
+                                            const selectedDay = Math.min(
+                                                selectedTourDays[tourPackage.id] || 1,
+                                                durationDays
+                                            );
+                                            const selectedDayTimeline = timelineByDay.get(selectedDay) || [];
 
                                             return (
                                                 <div key={tourPackage.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
@@ -337,7 +441,44 @@ function UserDetailModal({ isOpen, user, activeTab, onTabChange, onClose, loadin
                                                         Destination: <span className="font-medium">{tourPackage.destination_name || 'N/A'}</span>
                                                     </p>
                                                     <div className="mt-3">
-                                                        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Stops / Itinerary Breakdown</p>
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Day Itinerary View</p>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {Array.from({ length: durationDays }, (_, index) => {
+                                                                    const day = index + 1;
+                                                                    const isActive = selectedDay === day;
+                                                                    return (
+                                                                        <button
+                                                                            key={`${tourPackage.id}-day-${day}`}
+                                                                            type="button"
+                                                                            onClick={() => setSelectedTourDays((prev) => ({ ...prev, [tourPackage.id]: day }))}
+                                                                            className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                                                                                isActive
+                                                                                    ? 'bg-cyan-500 text-white border-cyan-500'
+                                                                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                                                            }`}
+                                                                        >
+                                                                            Day {day}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="mt-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30 p-3">
+                                                            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Day {selectedDay} Activities</p>
+                                                            {selectedDayTimeline.length > 0 ? (
+                                                                <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-200 list-disc pl-5">
+                                                                    {selectedDayTimeline.map((activity, index) => (
+                                                                        <li key={`${tourPackage.id}-day-${selectedDay}-activity-${index}`}>{activity}</li>
+                                                                    ))}
+                                                                </ul>
+                                                            ) : (
+                                                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">No activities scheduled for Day {selectedDay}.</p>
+                                                            )}
+                                                        </div>
+
+                                                        <p className="mt-3 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">All Uploaded Stops</p>
                                                         {sortedStops.length > 0 ? (
                                                             <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-200 list-disc pl-5">
                                                                 {sortedStops.map((stop) => (
