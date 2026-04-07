@@ -1,9 +1,10 @@
-from django.db.models.signals import pre_save, post_save #type: ignore
+from django.db.models.signals import pre_save, post_save, post_delete #type: ignore
 from django.dispatch import receiver #type: ignore
 from django.core.mail import send_mail #type: ignore
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
+from .models import GuideApplication
 
 User = get_user_model()
 
@@ -89,3 +90,16 @@ def notify_guide_approval(sender, instance, created, **kwargs):
             ),
             event_key=f"guide-approved:{instance.id}",
         )
+
+@receiver(post_delete, sender=GuideApplication)
+def revert_user_role_on_application_deletion(sender, instance, **kwargs):
+    """
+    If a guide application is deleted (e.g., rejected by admin), 
+    revert the user's is_local_guide status so the frontend goes back to Action.js.
+    """
+    user = instance.user
+    
+    # Only revert if they haven't been fully approved
+    if user.is_local_guide and not user.guide_approved:
+        user.is_local_guide = False
+        user.save()
