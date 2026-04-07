@@ -4,14 +4,23 @@ import api from '../../api/api';
 
 const ROLE_TOURIST = 'tourist';
 const ROLE_GUIDE = 'guide';
+const ROLE_PENDING_GUIDE = 'pending_guide';
 const ROLE_AGENCY = 'agency';
+const ROLE_PENDING_AGENCY = 'pending_agency';
 const ROLE_ADMIN = 'admin';
 const ROLE_ALL = 'all';
 
+const getAgencyStatus = (user) => String(user?.agency_profile?.status || '').toLowerCase();
+
 const getUserRole = (user) => {
     if (user.is_superuser) return ROLE_ADMIN;
-    if (user.agency_profile || user.is_staff) return ROLE_AGENCY;
-    if (user.is_local_guide) return ROLE_GUIDE;
+    if (user.agency_profile || user.is_staff) {
+        const agencyStatus = getAgencyStatus(user);
+        if (!user.agency_profile || agencyStatus === 'pending') return ROLE_PENDING_AGENCY;
+        return ROLE_AGENCY;
+    }
+    if (user.is_local_guide && !user.guide_approved) return ROLE_PENDING_GUIDE;
+    if (user.is_local_guide && user.guide_approved) return ROLE_GUIDE;
     return ROLE_TOURIST;
 };
 
@@ -129,8 +138,14 @@ const getRoleBadge = (user) => {
     if (role === ROLE_AGENCY) {
         return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30">Agency</span>;
     }
+    if (role === ROLE_PENDING_AGENCY) {
+        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-500/30">Pending Agency</span>;
+    }
     if (role === ROLE_GUIDE) {
         return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/30">Tour Guide</span>;
+    }
+    if (role === ROLE_PENDING_GUIDE) {
+        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-500/30">Pending Guide</span>;
     }
     return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-500/20 text-slate-700 dark:text-slate-400 border border-slate-200 dark:border-slate-500/30">Tourist</span>;
 };
@@ -140,7 +155,9 @@ function RoleFilterButtons({ activeRole, onChange }) {
         { key: ROLE_ALL, label: 'All' },
         { key: ROLE_TOURIST, label: 'Tourists' },
         { key: ROLE_GUIDE, label: 'Tour Guides' },
+        { key: ROLE_PENDING_GUIDE, label: 'Pending Guides' },
         { key: ROLE_AGENCY, label: 'Agencies' },
+        { key: ROLE_PENDING_AGENCY, label: 'Pending Agencies' },
     ];
 
     return (
@@ -171,7 +188,7 @@ function UserActionMenu({ user, onView, onDeactivate, onReactivate, onDelete }) 
     const [open, setOpen] = useState(false);
     const menuRef = useRef(null);
     const role = getUserRole(user);
-    const canViewDetails = role === ROLE_GUIDE || role === ROLE_AGENCY;
+    const canViewDetails = role === ROLE_GUIDE || role === ROLE_PENDING_GUIDE || role === ROLE_AGENCY || role === ROLE_PENDING_AGENCY;
 
     useEffect(() => {
         if (!open) return undefined;
@@ -292,7 +309,14 @@ function UserDetailModal({ isOpen, user, activeTab, onTabChange, onClose, loadin
         setSelectedTourDays({});
     }, [isOpen, user?.id]);
 
-    const roleLabel = user && getUserRole(user) === ROLE_GUIDE ? 'Tour Guide' : 'Agency';
+    const role = user ? getUserRole(user) : ROLE_TOURIST;
+    const roleLabel = role === ROLE_GUIDE
+        ? 'Tour Guide'
+        : role === ROLE_PENDING_GUIDE
+            ? 'Pending Tour Guide'
+            : role === ROLE_PENDING_AGENCY
+                ? 'Pending Agency'
+                : 'Agency';
     const tourPackages = details?.tourPackages || [];
     const accommodations = details?.accommodations || [];
 
@@ -621,12 +645,12 @@ export default function UsersManagement() {
     const fetchTourPackagesForUser = useCallback(async (user) => {
         const role = getUserRole(user);
 
-        if (role === ROLE_GUIDE) {
+        if (role === ROLE_GUIDE || role === ROLE_PENDING_GUIDE) {
             const response = await api.get(`api/guides/${user.id}/tours/`);
             return normalizeArrayResponse(response.data);
         }
 
-        if (role === ROLE_AGENCY) {
+        if (role === ROLE_AGENCY || role === ROLE_PENDING_AGENCY) {
             const destinationsResponse = await api.get('api/destinations/');
             const destinations = normalizeArrayResponse(destinationsResponse.data);
             if (destinations.length === 0) return [];
@@ -656,12 +680,12 @@ export default function UsersManagement() {
 
     const fetchAccommodationsForUser = useCallback(async (user) => {
         const role = getUserRole(user);
-        if (role === ROLE_GUIDE) {
+        if (role === ROLE_GUIDE || role === ROLE_PENDING_GUIDE) {
             const response = await api.get(`api/accommodations/?host_id=${user.id}`);
             return normalizeArrayResponse(response.data);
         }
 
-        if (role === ROLE_AGENCY) {
+        if (role === ROLE_AGENCY || role === ROLE_PENDING_AGENCY) {
             const agencyId = user?.agency_profile?.id;
             if (!agencyId) return [];
             const response = await api.get(`api/accommodations/?agency_id=${agencyId}`);
