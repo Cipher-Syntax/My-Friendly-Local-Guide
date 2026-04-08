@@ -210,9 +210,9 @@ def send_support_email(request):
             subject=email_subject,
             message=plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=['programmerjustine@gmail.com'], 
+            recipient_list=[settings.ADMIN_SUPPORT], 
             fail_silently=False,
-            html_message=html_message # Passes the HTML design to the email client
+            html_message=html_message
         )
         return Response({'message': 'Support email sent successfully'}, status=status.HTTP_200_OK)
     except Exception as e:

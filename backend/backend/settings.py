@@ -222,6 +222,7 @@ ANYMAIL = {
 # Hardcoded to force Django to use Anymail API instead of default localhost SMTP
 EMAIL_BACKEND = 'anymail.backends.sendinblue.EmailBackend'
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
+ADMIN_SUPPORT = config('ADMIN_SUPPORT')
 
 CORS_ALLOW_ALL_ORIGINS = True
 
