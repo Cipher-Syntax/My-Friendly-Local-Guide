@@ -2,7 +2,7 @@ from rest_framework import generics, permissions, status #type: ignore
 from rest_framework.response import Response #type: ignore
 from rest_framework.exceptions import NotFound, ValidationError #type: ignore
 from rest_framework.decorators import api_view, permission_classes #type: ignore
-from rest_framework.permissions import IsAuthenticated #type: ignore
+from rest_framework.permissions import IsAuthenticated, AllowAny #type: ignore
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
@@ -15,7 +15,6 @@ User = get_user_model()
 
 
 def _display_name_for_user(user):
-    # Agency accounts should be identified by business name in chat surfaces.
     try:
         agency_profile = user.agency_profile
         business_name = (getattr(agency_profile, 'business_name', '') or '').strip()
@@ -42,8 +41,6 @@ def _display_name_for_user(user):
 
 def _safe_profile_picture_value(user):
     image = None
-
-    # Agencies store their avatar on agency_profile.logo.
     try:
         agency_profile = user.agency_profile
         logo = getattr(agency_profile, 'logo', None)
@@ -156,22 +153,43 @@ class MessageThreadView(generics.ListCreateAPIView):
         serializer.save(sender=user, receiver=receiver)
 
 
+# 🌟 UPDATED: AllowAny so both Web Form & Mobile App can use it
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def send_support_email(request):
-    user = request.user
     message = request.data.get('message')
 
     if not message:
         return Response({'error': 'Message is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Fallback Plain Text Version
-    email_subject = f"Support Request from {user.first_name} {user.last_name}"
-    phone = getattr(user, 'phone_number', 'Not provided')
-    plain_message = f"User: {user.first_name} {user.last_name}\nEmail: {user.email}\nPhone: {phone}\n\nMessage:\n{message}"
+    # 1. SETUP: Define where the admin tickets should go
+    
+    # 2. CHECK SOURCE: Mobile App (Authenticated) vs Web Landing Page (Public)
+    if request.user and request.user.is_authenticated:
+        # User is logged into the mobile app
+        user = request.user
+        first_name = user.first_name
+        last_name = user.last_name
+        sender_email = user.email
+        phone = getattr(user, 'phone_number', 'Not provided')
+        user_type = "Authenticated App User"
+    else:
+        # User is submitting from the public web landing page
+        full_name = request.data.get('name', 'Anonymous Web User')
+        first_name = full_name
+        last_name = ""
+        sender_email = request.data.get('email', '')
+        phone = "N/A (Web Form)"
+        user_type = "Public Web Visitor"
+        
+        if not sender_email:
+            return Response({'error': 'Email is required for web inquiries'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Beautiful HTML Version (Matching LocaLynk Template)
-    html_message = f"""
+    # 3. ADMIN EMAIL: The ticket that goes to YOU
+    admin_subject = f"Support Request from {first_name} {last_name}".strip()
+    admin_plain_message = f"User Type: {user_type}\nName: {first_name} {last_name}\nEmail: {sender_email}\nPhone: {phone}\n\nMessage:\n{message}"
+    
+    admin_html_message = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -189,13 +207,12 @@ def send_support_email(request):
         <div class="container">
             <div class="header">New Support Request</div>
             <div class="content">
-                <p>A user has submitted a new support ticket via the LocaLynk mobile app.</p>
+                <p>A new support ticket has been submitted ({user_type}).</p>
                 <ul>
-                    <li><span class="highlight">Name:</span> {user.first_name} {user.last_name}</li>
-                    <li><span class="highlight">Email:</span> {user.email}</li>
+                    <li><span class="highlight">Name:</span> {first_name} {last_name}</li>
+                    <li><span class="highlight">Email:</span> {sender_email}</li>
                     <li><span class="highlight">Phone:</span> {phone}</li>
                 </ul>
-                
                 <p class="highlight" style="margin-bottom: 5px;">Message Details:</p>
                 <div class="message-box">{message}</div>
             </div>
@@ -205,15 +222,60 @@ def send_support_email(request):
     </html>
     """
 
+    # 4. USER RECEIPT: The auto-reply that goes back to the USER
+    user_subject = "We received your support request!"
+    user_plain_message = f"Hi {first_name},\n\nWe have successfully received your support request regarding:\n\n\"{message}\"\n\nOur team will review this and get back to you shortly.\n\nThanks,\nLocaLynk Support Team"
+    user_html_message = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+            .header {{ background-color: #10B981; padding: 20px; text-align: center; color: #ffffff; font-size: 20px; font-weight: bold; }}
+            .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+            .message-box {{ background-color: #f1f5f9; padding: 15px; border-radius: 8px; border-left: 4px solid #10B981; margin-top: 15px; font-style: italic; color: #64748b; }}
+            .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">We're on it!</div>
+            <div class="content">
+                <p>Hi <b>{first_name}</b>,</p>
+                <p>Thanks for reaching out! We have successfully received your support request. One of our team members will review your message and get back to you as soon as possible.</p>
+                <p>For your records, here is a copy of your message:</p>
+                <div class="message-box">"{message}"</div>
+                <p>Hang tight!</p>
+                <p><b>The Support Team</b></p>
+            </div>
+            <div class="footer">&copy; 2026 LocaLynk. All rights reserved.</div>
+        </div>
+    </body>
+    </html>
+    """
+
     try:
+        # Send to Admin
         send_mail(
-            subject=email_subject,
-            message=plain_message,
+            subject=admin_subject,
+            message=admin_plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[settings.ADMIN_SUPPORT], 
             fail_silently=False,
-            html_message=html_message
+            html_message=admin_html_message
         )
-        return Response({'message': 'Support email sent successfully'}, status=status.HTTP_200_OK)
+        
+        # Send to User (Mobile OR Web)
+        send_mail(
+            subject=user_subject,
+            message=user_plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[sender_email],
+            fail_silently=True, # Fail silently so fake web emails don't crash the server
+            html_message=user_html_message
+        )
+
+        return Response({'message': 'Support emails sent successfully'}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
