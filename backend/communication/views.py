@@ -210,7 +210,7 @@ def send_support_email(request):
             subject=email_subject,
             message=plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=['toongjustine014@gmail.com'], 
+            recipient_list=['programmerjustine@gmail.com'], 
             fail_silently=False,
             html_message=html_message # Passes the HTML design to the email client
         )
