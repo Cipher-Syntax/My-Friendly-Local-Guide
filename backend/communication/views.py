@@ -153,7 +153,6 @@ class MessageThreadView(generics.ListCreateAPIView):
         serializer.save(sender=user, receiver=receiver)
 
 
-# 🌟 UPDATED: AllowAny so both Web Form & Mobile App can use it
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def send_support_email(request):
@@ -162,30 +161,27 @@ def send_support_email(request):
     if not message:
         return Response({'error': 'Message is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # 1. SETUP: Define where the admin tickets should go
-    
-    # 2. CHECK SOURCE: Mobile App (Authenticated) vs Web Landing Page (Public)
-    if request.user and request.user.is_authenticated:
-        # User is logged into the mobile app
+    provided_email = request.data.get('email')
+    provided_name = request.data.get('name')
+
+    if provided_email:
+        first_name = provided_name or "Anonymous Web User"
+        last_name = ""
+        sender_email = provided_email
+        phone = "N/A (Web Form)"
+        user_type = "Public Web Visitor"
+        
+    elif request.user and request.user.is_authenticated:
         user = request.user
         first_name = user.first_name
         last_name = user.last_name
         sender_email = user.email
         phone = getattr(user, 'phone_number', 'Not provided')
         user_type = "Authenticated App User"
-    else:
-        # User is submitting from the public web landing page
-        full_name = request.data.get('name', 'Anonymous Web User')
-        first_name = full_name
-        last_name = ""
-        sender_email = request.data.get('email', '')
-        phone = "N/A (Web Form)"
-        user_type = "Public Web Visitor"
         
-        if not sender_email:
-            return Response({'error': 'Email is required for web inquiries'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        return Response({'error': 'Email is required for web inquiries'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # 3. ADMIN EMAIL: The ticket that goes to YOU
     admin_subject = f"Support Request from {first_name} {last_name}".strip()
     admin_plain_message = f"User Type: {user_type}\nName: {first_name} {last_name}\nEmail: {sender_email}\nPhone: {phone}\n\nMessage:\n{message}"
     
@@ -222,7 +218,7 @@ def send_support_email(request):
     </html>
     """
 
-    # 4. USER RECEIPT: The auto-reply that goes back to the USER
+    # 3. USER RECEIPT: The auto-reply that goes back to the USER
     user_subject = "We received your support request!"
     user_plain_message = f"Hi {first_name},\n\nWe have successfully received your support request regarding:\n\n\"{message}\"\n\nOur team will review this and get back to you shortly.\n\nThanks,\nLocaLynk Support Team"
     user_html_message = f"""
@@ -272,7 +268,7 @@ def send_support_email(request):
             message=user_plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[sender_email],
-            fail_silently=True, # Fail silently so fake web emails don't crash the server
+            fail_silently=True, 
             html_message=user_html_message
         )
 
