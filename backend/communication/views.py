@@ -1,9 +1,13 @@
-from rest_framework import generics, permissions #type: ignore
+from rest_framework import generics, permissions, status #type: ignore
 from rest_framework.response import Response #type: ignore
 from rest_framework.exceptions import NotFound, ValidationError #type: ignore
+from rest_framework.decorators import api_view, permission_classes #type: ignore
+from rest_framework.permissions import IsAuthenticated #type: ignore
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import send_mail
+from django.conf import settings
 from .models import Message
 from .serializers import MessageSerializer
 
@@ -150,3 +154,32 @@ class MessageThreadView(generics.ListCreateAPIView):
             raise ValidationError({"detail": "You cannot send a message to your own account."})
 
         serializer.save(sender=user, receiver=receiver)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_support_email(request):
+    user = request.user
+    message = request.data.get('message')
+
+    if not message:
+        return Response({'error': 'Message is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Format a clean email body so you know who it's from
+    email_subject = f"Support Request from {user.first_name} {user.last_name}"
+    
+    # We use getattr in case phone_number isn't set for some reason
+    phone = getattr(user, 'phone_number', 'Not provided')
+    email_body = f"User: {user.first_name} {user.last_name}\nEmail: {user.email}\nPhone: {phone}\n\nMessage:\n{message}"
+
+    try:
+        send_mail(
+            subject=email_subject,
+            message=email_body,
+            from_email=settings.DEFAULT_FROM_EMAIL, # Uses localynk@my-friendly-local-guide.com
+            recipient_list=['toongjustine014@gmail.com'], # The inbox where you want to receive these tickets
+            fail_silently=False,
+        )
+        return Response({'message': 'Support email sent successfully'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
