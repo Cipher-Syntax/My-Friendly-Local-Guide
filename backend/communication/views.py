@@ -165,20 +165,54 @@ def send_support_email(request):
     if not message:
         return Response({'error': 'Message is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Format a clean email body so you know who it's from
+    # Fallback Plain Text Version
     email_subject = f"Support Request from {user.first_name} {user.last_name}"
-    
-    # We use getattr in case phone_number isn't set for some reason
     phone = getattr(user, 'phone_number', 'Not provided')
-    email_body = f"User: {user.first_name} {user.last_name}\nEmail: {user.email}\nPhone: {phone}\n\nMessage:\n{message}"
+    plain_message = f"User: {user.first_name} {user.last_name}\nEmail: {user.email}\nPhone: {phone}\n\nMessage:\n{message}"
+
+    # Beautiful HTML Version (Matching LocaLynk Template)
+    html_message = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Poppins', Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 40px 20px; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }}
+            .header {{ background-color: #0072FF; padding: 20px; text-align: center; color: #ffffff; font-size: 20px; font-weight: bold; }}
+            .content {{ padding: 30px; line-height: 1.6; font-size: 16px; color: #475569; }}
+            .highlight {{ font-weight: bold; color: #333; }}
+            .message-box {{ background-color: #f1f5f9; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 15px; white-space: pre-wrap; color: #1e293b; }}
+            .footer {{ padding: 20px; text-align: center; color: #94a3b8; font-size: 14px; background-color: #f1f5f9; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">New Support Request</div>
+            <div class="content">
+                <p>A user has submitted a new support ticket via the LocaLynk mobile app.</p>
+                <ul>
+                    <li><span class="highlight">Name:</span> {user.first_name} {user.last_name}</li>
+                    <li><span class="highlight">Email:</span> {user.email}</li>
+                    <li><span class="highlight">Phone:</span> {phone}</li>
+                </ul>
+                
+                <p class="highlight" style="margin-bottom: 5px;">Message Details:</p>
+                <div class="message-box">{message}</div>
+            </div>
+            <div class="footer">&copy; 2026 LocaLynk Support System.</div>
+        </div>
+    </body>
+    </html>
+    """
 
     try:
         send_mail(
             subject=email_subject,
-            message=email_body,
-            from_email=settings.DEFAULT_FROM_EMAIL, # Uses localynk@my-friendly-local-guide.com
-            recipient_list=['toongjustine014@gmail.com'], # The inbox where you want to receive these tickets
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=['toongjustine014@gmail.com'], 
             fail_silently=False,
+            html_message=html_message # Passes the HTML design to the email client
         )
         return Response({'message': 'Support email sent successfully'}, status=status.HTTP_200_OK)
     except Exception as e:
