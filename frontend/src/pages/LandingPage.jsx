@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Smartphone, Map, Star, Shield, ArrowRight, Download, Globe2, Moon, Sun } from 'lucide-react';
+import { Smartphone, Map, Star, Shield, ArrowRight, Download, Globe2, Moon, Sun, Menu, X } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 import AppPreview from '../assets/app_preview.jpg';
 import Vinta from '../assets/vinta.jpg';
 import Coastal from '../assets/coastal.jpg';
-import Cultural from '../assets/cultural.jpg'
-import Island from '../assets/island.jpg'
+import Cultural from '../assets/cultural.jpg';
+import Island from '../assets/island.jpg';
 
 const LandingPage = () => {
     const { theme, toggleTheme } = useTheme();
+    // This switch remembers if our mobile menu is open (true) or closed (false)
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const marqueeImages = [
         {
@@ -45,13 +47,16 @@ const LandingPage = () => {
             <nav className="fixed top-0 w-full z-50 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors duration-300">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center h-16">
+                        {/* Logo Area */}
                         <div className="flex items-center gap-2">
                             <Globe2 className="w-6 h-6 text-sky-700 dark:text-cyan-300" />
                             <span className="text-xl font-bold zam-title zam-accent-text">
                                 LocaLynk
                             </span>
                         </div>
-                        <div className="flex items-center gap-4">
+
+                        {/* Desktop Menu (Hidden on small screens) */}
+                        <div className="hidden md:flex items-center gap-4">
                             <Link
                                 to="/portal"
                                 className="text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-orange-500 dark:hover:text-orange-300 transition-colors"
@@ -80,8 +85,54 @@ const LandingPage = () => {
                                 )}
                             </button>
                         </div>
+
+                        {/* Mobile Menu Controls (Visible only on small screens) */}
+                        <div className="flex md:hidden items-center gap-2">
+                            {/* We keep the theme toggle visible on mobile so it is easy to reach */}
+                            <button
+                                onClick={toggleTheme}
+                                className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors focus:outline-none"
+                                aria-label="Toggle Dark Mode"
+                            >
+                                {theme === 'dark' ? (
+                                    <Sun size={20} className="text-amber-400" />
+                                ) : (
+                                    <Moon size={20} className="text-slate-600" />
+                                )}
+                            </button>
+
+                            {/* Hamburger Button */}
+                            <button
+                                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                                className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                            >
+                                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                            </button>
+                        </div>
                     </div>
                 </div>
+
+                {/* Mobile Dropdown Drawer */}
+                {isMobileMenuOpen && (
+                    <div className="md:hidden absolute top-16 left-0 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-lg px-4 py-4 flex flex-col gap-4">
+                        <Link
+                            to="/portal"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="text-base font-semibold text-slate-700 dark:text-slate-300 text-center py-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
+                        >
+                            Partner Portal
+                        </Link>
+                        <a
+                            href="#download"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-3 text-base font-bold text-white rounded-full transition-all shadow-md"
+                            style={{ background: 'linear-gradient(90deg, var(--zam-sunset), var(--zam-coral))' }}
+                        >
+                            <Download size={20} />
+                            Get the App
+                        </a>
+                    </div>
+                )}
             </nav>
 
             <section className="relative pt-32 pb-20 lg:pt-44 lg:pb-28 overflow-hidden zam-section-wave">
@@ -121,8 +172,9 @@ const LandingPage = () => {
                         </div>
 
                         <div className="lg:col-span-5 relative zam-fade-up" style={{ animationDelay: '120ms' }}>
-                            <div className="relative mx-auto w-[290px] sm:w-[340px] lg:w-[360px]">
-                                <div className="absolute -top-8 -right-7 p-3 text-xs font-bold text-white rounded-xl shadow-xl z-20" style={{ background: 'linear-gradient(90deg, var(--zam-sunset), var(--zam-coral))' }}>
+                            {/* Adjusted widths to be max-width responsive so it shrinks nicely on tiny screens */}
+                            <div className="relative mx-auto w-full max-w-[290px] sm:max-w-[340px] lg:max-w-[360px]">
+                                <div className="absolute -top-8 -right-4 sm:-right-7 p-3 text-xs font-bold text-white rounded-xl shadow-xl z-20" style={{ background: 'linear-gradient(90deg, var(--zam-sunset), var(--zam-coral))' }}>
                                     Vinta Vibes
                                 </div>
 
@@ -130,7 +182,6 @@ const LandingPage = () => {
 
                                 <div className="relative z-10 bg-slate-900 dark:bg-black rounded-[3rem] p-3 shadow-2xl border-[8px] border-slate-900 dark:border-slate-800 transition-colors duration-300">
                                     <div className="overflow-hidden rounded-[2.25rem] bg-white dark:bg-slate-900 aspect-[9/19.5] relative">
-                                        {/* IMAGE HERE: Replace with a real app screenshot featuring Zamboanga homepage UI */}
                                         <img
                                             src={AppPreview}
                                             alt="Zamboanga LocaLynk app preview placeholder"
@@ -156,7 +207,6 @@ const LandingPage = () => {
                         <div className="zam-marquee-track py-4">
                             {[...marqueeImages, ...marqueeImages].map((item, index) => (
                                 <div key={`${item.alt}-${index}`} className="mx-3 w-[260px] sm:w-[320px] shrink-0 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 zam-card">
-                                    {/* IMAGE HERE: Replace each URL with your real Zamboanga photos (Vinta, Fort Pilar, Paseo del Mar, Pink Beach, etc.) */}
                                     <img src={item.src} alt={item.alt} className="h-40 w-full object-cover" />
                                 </div>
                             ))}
