@@ -5,7 +5,7 @@ import BackgroundImage from '../assets/background_image.png';
 
 const Portal = () => {
     return (
-        <div className="relative w-full min-h-screen overflow-hidden transition-colors duration-300 zam-shell">
+        <div className="relative w-full min-h-[100dvh] overflow-hidden transition-colors duration-300 zam-shell">
 
             <div
                 className="absolute inset-0 z-0 w-full h-full bg-cover bg-center scale-105"
@@ -15,7 +15,7 @@ const Portal = () => {
             <div className="absolute inset-0 z-0 zam-vinta-overlay opacity-40" />
             <div className="absolute inset-0 z-0 bg-gradient-to-b from-white/85 via-white/75 to-slate-50/95 dark:from-black/85 dark:via-black/70 dark:to-slate-900/95 transition-colors duration-300" />
 
-            <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 sm:px-6 lg:px-8 text-center">
+            <div className="relative z-10 flex flex-col items-center justify-center min-h-[100dvh] px-4 sm:px-6 lg:px-8 text-center">
 
                 <div className="mb-8 animate-fade-in-down">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full zam-chip border border-slate-200 dark:border-white/20 shadow-lg transition-colors duration-300">
@@ -27,7 +27,6 @@ const Portal = () => {
                 </div>
 
                 <h1 className="max-w-4xl text-5xl zam-title tracking-tight text-slate-900 dark:text-white sm:text-6xl md:text-7xl drop-shadow-xl mb-6 transition-colors duration-300">
-                    {/* <br /> */}
                     <span className="zam-accent-text">
                         Partner Portal
                     </span>
@@ -37,7 +36,8 @@ const Portal = () => {
                     Secure access for admins and partner agencies managing tours, bookings, and local experiences.
                 </p>
 
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 w-full max-w-2xl">
+                {/* Changed to md:grid-cols-2 and max-w-3xl for better breathing room on tablets */}
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 w-full max-w-3xl">
 
                     <Link to="/admin-signin" className="group relative overflow-hidden rounded-2xl zam-card backdrop-blur-md p-6 hover:bg-white/90 dark:hover:bg-slate-800/60 hover:border-cyan-400/50 dark:hover:border-cyan-500/50 transition-all duration-300 hover:-translate-y-1 shadow-xl">
                         <div className="absolute inset-0 bg-gradient-to-r from-cyan-100/50 dark:from-cyan-600/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
