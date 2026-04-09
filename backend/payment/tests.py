@@ -180,6 +180,25 @@ class RefundApiTests(TestCase):
 
 		self.assertEqual(response.status_code, 403)
 
+	def test_refund_request_rejected_when_too_close_to_check_in(self):
+		self.booking.check_in = date.today() + timedelta(days=1)
+		self.booking.save(update_fields=["check_in"])
+
+		self.client.force_authenticate(user=self.tourist)
+		response = self.client.post(
+			reverse("refund-request"),
+			{
+				"booking_id": self.booking.id,
+				"reason": "Unexpected conflict with travel schedule.",
+				"requested_amount": "2400.00",
+				"proof_attachment": self._proof_file("proof-late.png"),
+			},
+			format="multipart",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("booking_id", response.json())
+
 	def test_admin_can_approve_and_complete_refund(self):
 		refund = RefundRequest.objects.create(
 			payment=self.payment,

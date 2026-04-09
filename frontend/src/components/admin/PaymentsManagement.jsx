@@ -242,11 +242,13 @@ export default function PaymentsManagement() {
         if (!refundSearchTerm) return true;
         const term = refundSearchTerm.toLowerCase();
         const requestedBy = String(refund.requested_by_username || '').toLowerCase();
+        const requestedPhone = String(refund.requested_by_phone || '').toLowerCase();
         const reason = String(refund.reason || '').toLowerCase();
         const bookingId = String(refund.booking_id || '');
         const refundId = String(refund.id || '');
         return (
             requestedBy.includes(term) ||
+            requestedPhone.includes(term) ||
             reason.includes(term) ||
             bookingId.includes(term) ||
             refundId.includes(term)
@@ -660,6 +662,7 @@ export default function PaymentsManagement() {
                                 <th className="p-4">Refund ID</th>
                                 <th className="p-4">Booking</th>
                                 <th className="p-4">Tourist</th>
+                                <th className="p-4">Tourist Contact</th>
                                 <th className="p-4">Requested / Approved</th>
                                 <th className="p-4">Status</th>
                                 <th className="p-4 min-w-[280px]">Notes / Amount</th>
@@ -684,6 +687,7 @@ export default function PaymentsManagement() {
                                         <td className="p-4 text-slate-900 dark:text-white font-medium">#{refund.id}</td>
                                         <td className="p-4 text-slate-700 dark:text-slate-200">#{refund.booking_id || 'N/A'}</td>
                                         <td className="p-4 text-slate-700 dark:text-slate-200">{refund.requested_by_username || 'Unknown'}</td>
+                                        <td className="p-4 text-slate-700 dark:text-slate-200">{refund.requested_by_phone || 'Not provided'}</td>
                                         <td className="p-4 text-slate-700 dark:text-slate-200">
                                             <div>Req: {requestedAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</div>
                                             <div className="text-xs text-slate-500 mt-1">

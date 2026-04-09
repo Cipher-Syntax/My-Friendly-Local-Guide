@@ -1,6 +1,7 @@
 import uuid
 import os
 import json
+import html
 from decimal import Decimal
 from datetime import date, timedelta
 from django.conf import settings #type: ignore
@@ -105,6 +106,113 @@ def _booking_provider(booking):
     if booking.accommodation and booking.accommodation.host:
         return booking.accommodation.host
     return None
+
+
+def _format_php(value):
+    try:
+        return f"PHP {Decimal(value):,.2f}"
+    except Exception:
+        return f"PHP {value}"
+
+
+def _refund_status_color(status_value):
+    normalized = str(status_value or '').lower()
+    mapping = {
+        'requested': '#0EA5E9',
+        'under_review': '#1D4ED8',
+        'approved': '#16A34A',
+        'rejected': '#DC2626',
+        'completed': '#0F766E',
+    }
+    return mapping.get(normalized, '#0F766E')
+
+
+def _build_refund_email_html(
+    *,
+    heading,
+    subheading,
+    recipient_name,
+    intro_message,
+    detail_rows,
+    status_label=None,
+    notes=None,
+    accent_color='#0F766E',
+):
+    safe_heading = html.escape(str(heading or 'LocaLynk Refund Center'))
+    safe_subheading = html.escape(str(subheading or 'Refund Update'))
+    safe_recipient = html.escape(str(recipient_name or 'Valued User'))
+    safe_intro = html.escape(str(intro_message or '')).replace('\n', '<br/>')
+
+    rows_html = ''
+    for label, value in detail_rows:
+        safe_label = html.escape(str(label or ''))
+        safe_value = html.escape(str(value if value is not None else 'N/A')).replace('\n', '<br/>')
+        rows_html += (
+            '<tr>'
+            f'<td style="padding: 8px 0; color: #64748b; width: 40%; font-weight: 600;">{safe_label}</td>'
+            f'<td style="padding: 8px 0; color: #0f172a; font-weight: 700; text-align: right;">{safe_value}</td>'
+            '</tr>'
+        )
+
+    status_html = ''
+    if status_label:
+        safe_status = html.escape(str(status_label))
+        status_html = (
+            '<div style="margin: 12px 0 16px 0;">'
+            f'<span style="display: inline-block; padding: 6px 12px; border-radius: 999px; '
+            f'font-size: 11px; font-weight: 700; color: #ffffff; background: {accent_color};">{safe_status}</span>'
+            '</div>'
+        )
+
+    notes_html = ''
+    if notes:
+        safe_notes = html.escape(str(notes)).replace('\n', '<br/>')
+        notes_html = (
+            '<div style="margin-top: 18px; border-top: 1px dashed #cbd5e1; padding-top: 12px;">'
+            '<div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Admin Notes</div>'
+            f'<div style="font-size: 14px; color: #334155; line-height: 1.6;">{safe_notes}</div>'
+            '</div>'
+        )
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset=\"UTF-8\" />
+        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
+        <title>{safe_subheading}</title>
+    </head>
+    <body style=\"margin: 0; padding: 28px 14px; background: #f8fafc; font-family: 'Poppins', Arial, sans-serif; color: #334155;\">
+        <div style=\"max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;\">
+            <div style=\"padding: 22px 22px; background: {accent_color}; color: #ffffff;\">
+                <div style=\"font-size: 13px; opacity: 0.9; letter-spacing: 0.6px; text-transform: uppercase;\">{safe_heading}</div>
+                <div style=\"font-size: 22px; font-weight: 800; margin-top: 6px;\">{safe_subheading}</div>
+            </div>
+
+            <div style=\"padding: 24px 22px;\">
+                <p style=\"margin: 0 0 10px 0; color: #0f172a; font-weight: 700; font-size: 16px;\">Hi {safe_recipient},</p>
+                <p style=\"margin: 0; color: #475569; font-size: 14px; line-height: 1.65;\">{safe_intro}</p>
+
+                {status_html}
+
+                <div style=\"border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; background: #f8fafc;\">
+                    <div style=\"font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;\">Refund Details</div>
+                    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size: 14px; border-collapse: collapse;\">
+                        {rows_html}
+                    </table>
+                </div>
+
+                {notes_html}
+            </div>
+
+            <div style=\"background: #f1f5f9; padding: 14px 18px; color: #64748b; font-size: 12px; text-align: center;\">
+                This is an automated refund update from LocaLynk.<br/>
+                Please do not reply directly to this email.
+            </div>
+        </div>
+    </body>
+    </html>
+    """
 
 
 def _safe_send_mail(subject, plain_message, recipient_list, html_message=None):
@@ -827,6 +935,38 @@ class RefundRequestCreateView(APIView):
             if admin.email:
                 admin_emails.append(admin.email)
 
+        tourist_html_message = _build_refund_email_html(
+            heading='LocaLynk Refund Center',
+            subheading='Refund Request Received',
+            recipient_name=request.user.first_name or request.user.username,
+            intro_message='We received your refund request and it is now waiting for admin review.',
+            detail_rows=[
+                ('Refund ID', f"#{refund_request.id}"),
+                ('Booking ID', f"#{booking.id}"),
+                ('Requested Amount', _format_php(requested_amount)),
+                ('Reason', reason),
+            ],
+            status_label='Requested',
+            accent_color=_refund_status_color('requested'),
+        )
+
+        admin_html_message = _build_refund_email_html(
+            heading='LocaLynk Refund Center',
+            subheading='New Refund Request For Review',
+            recipient_name='Admin Team',
+            intro_message='A tourist submitted a new refund request that needs your review and action.',
+            detail_rows=[
+                ('Refund ID', f"#{refund_request.id}"),
+                ('Booking ID', f"#{booking.id}"),
+                ('Tourist', request.user.username),
+                ('Tourist Email', request.user.email or 'N/A'),
+                ('Requested Amount', _format_php(requested_amount)),
+                ('Reason', reason),
+            ],
+            status_label='Requested',
+            accent_color='#F97316',
+        )
+
         _safe_send_mail(
             subject=f"LocaLynk Refund Request Received - #{refund_request.id}",
             plain_message=(
@@ -837,6 +977,7 @@ class RefundRequestCreateView(APIView):
                 "Our team is now reviewing your request."
             ),
             recipient_list=[request.user.email] if request.user.email else [],
+            html_message=tourist_html_message,
         )
 
         _safe_send_mail(
@@ -850,6 +991,7 @@ class RefundRequestCreateView(APIView):
                 f"Reason: {reason}\n"
             ),
             recipient_list=admin_emails,
+            html_message=admin_html_message,
         )
 
         return Response(
@@ -1042,6 +1184,22 @@ class RefundRequestProcessView(APIView):
                 f"Booking ID: {booking.id if booking else 'N/A'}\n"
             ),
             recipient_list=[refund_request.requested_by.email] if refund_request.requested_by.email else [],
+            html_message=_build_refund_email_html(
+                heading='LocaLynk Refund Center',
+                subheading='Refund Request Update',
+                recipient_name=refund_request.requested_by.first_name or refund_request.requested_by.username,
+                intro_message=tourist_body,
+                detail_rows=[
+                    ('Refund ID', f"#{refund_request.id}"),
+                    ('Booking ID', f"#{booking.id if booking else 'N/A'}"),
+                    ('Requested Amount', _format_php(refund_request.requested_amount)),
+                    ('Approved Amount', _format_php(refund_request.approved_amount) if refund_request.approved_amount is not None else 'Pending'),
+                    ('Status', str(refund_request.status).replace('_', ' ').title()),
+                ],
+                status_label=str(refund_request.status).replace('_', ' ').title(),
+                notes=refund_request.admin_notes,
+                accent_color=_refund_status_color(refund_request.status),
+            ),
         )
 
         response_serializer = RefundRequestSerializer(refund_request, context={'request': request})

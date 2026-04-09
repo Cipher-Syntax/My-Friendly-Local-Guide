@@ -1,5 +1,7 @@
 from rest_framework import serializers 
 from decimal import Decimal
+from django.conf import settings
+from django.utils import timezone
 
 from .models import Payment, RefundRequest
 from accommodation_booking.models import Booking
@@ -114,6 +116,7 @@ class PaymentInitiationSerializer(serializers.Serializer):
 
 class RefundRequestSerializer(serializers.ModelSerializer):
     requested_by_username = serializers.CharField(source='requested_by.username', read_only=True)
+    requested_by_phone = serializers.CharField(source='requested_by.phone_number', read_only=True)
     processed_by_username = serializers.CharField(source='processed_by.username', read_only=True)
     payment_id = serializers.IntegerField(source='payment.id', read_only=True)
     booking_id = serializers.IntegerField(source='booking.id', read_only=True)
@@ -129,6 +132,7 @@ class RefundRequestSerializer(serializers.ModelSerializer):
             'booking_id',
             'requested_by',
             'requested_by_username',
+            'requested_by_phone',
             'processed_by',
             'processed_by_username',
             'reason',
@@ -216,8 +220,23 @@ class RefundRequestCreateSerializer(serializers.Serializer):
         if not booking:
             raise serializers.ValidationError({'payment_id': 'Booking-linked payment is required for refund requests.'})
 
-        if booking.status == 'Completed':
-            raise serializers.ValidationError({'booking_id': 'Completed bookings are not eligible for downpayment refund requests.'})
+        if booking.status in {'Completed', 'Refunded'}:
+            raise serializers.ValidationError({'booking_id': 'This booking is no longer eligible for downpayment refund requests.'})
+
+        min_days_before_check_in = int(getattr(settings, 'REFUND_REQUEST_MIN_DAYS_BEFORE_CHECKIN', 3) or 0)
+        min_days_before_check_in = max(0, min_days_before_check_in)
+
+        if booking.check_in:
+            days_until_check_in = (booking.check_in - timezone.localdate()).days
+            if days_until_check_in < min_days_before_check_in:
+                raise serializers.ValidationError(
+                    {
+                        'booking_id': (
+                            f"Refund requests must be submitted at least {min_days_before_check_in} "
+                            f"day(s) before check-in."
+                        )
+                    }
+                )
 
         active_exists = RefundRequest.objects.filter(
             payment=payment,
