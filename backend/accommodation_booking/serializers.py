@@ -17,7 +17,7 @@ class SimpleUserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'first_name', 'last_name', 'email', 
             'profile_picture', 'is_local_guide', 'is_staff', 
-            'phone_number', 'agency_phone' 
+            'phone_number', 'agency_phone', 'valid_id_image'
         ]
 
 class SimpleDestinationSerializer(serializers.ModelSerializer):
