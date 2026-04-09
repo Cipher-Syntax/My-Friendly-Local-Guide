@@ -34,7 +34,7 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
             if (editData) populateEditData();
             else resetForm();
         }
-    }, [isOpen, editData, destinations]);
+    }, [isOpen, editData, destinations, populateEditData, resetForm]);
 
     const fetchInitialData = async () => {
         try {

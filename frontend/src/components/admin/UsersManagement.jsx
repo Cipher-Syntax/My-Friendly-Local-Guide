@@ -329,8 +329,8 @@ function UserDetailModal({ isOpen, user, activeTab, onTabChange, onClose, loadin
             : role === ROLE_PENDING_AGENCY
                 ? 'Pending Agency'
                 : 'Agency';
-    const tourPackages = details?.tourPackages || [];
-    const accommodations = details?.accommodations || [];
+    const tourPackages = useMemo(() => details?.tourPackages || [], [details?.tourPackages]);
+    const accommodations = useMemo(() => details?.accommodations || [], [details?.accommodations]);
 
     const destinationOptions = useMemo(() => {
         const uniqueDestinations = [...new Set(tourPackages.map((tourPackage) => tourPackage.destination_name).filter(Boolean))];

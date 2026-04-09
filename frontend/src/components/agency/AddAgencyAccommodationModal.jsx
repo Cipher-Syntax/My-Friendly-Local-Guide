@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Home, DollarSign, PhilippinePeso, MapPin, Bed, Car, Upload, Image as ImageIcon } from 'lucide-react';
 import api from '../../api/api';
 
@@ -33,7 +33,7 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
             if (editData) populateEditData();
             else resetForm();
         }
-    }, [isOpen, editData, destinations]);
+    }, [isOpen, editData, destinations, populateEditData, resetForm]);
 
     const fetchDestinations = async () => {
         try {
@@ -45,7 +45,7 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
         }
     };
 
-    const resetForm = () => {
+    const resetForm = useCallback(() => {
         setFormData({
             title: '', description: '', location: '', price: '', accommodation_type: 'Hotel',
             room_type: 'Standard', offer_transportation: false, vehicle_type: '', transport_capacity: '', destination_id: destinations[0]?.id || ''
@@ -55,9 +55,9 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
         setPreviews({ photo: null, room: null, transport: null });
         setCurrentStep(1);
         setError('');
-    };
+    }, [destinations]);
 
-    const populateEditData = () => {
+    const populateEditData = useCallback(() => {
         const destId = editData.destination_detail?.id || editData.destination || destinations[0]?.id || '';
 
         setFormData({
@@ -92,7 +92,28 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
 
         setCurrentStep(1);
         setError('');
-    };
+    }, [
+        destinations,
+        editData?.title,
+        editData?.description,
+        editData?.location,
+        editData?.price,
+        editData?.accommodation_type,
+        editData?.room_type,
+        editData?.offer_transportation,
+        editData?.vehicle_type,
+        editData?.transport_capacity,
+        editData?.destination,
+        editData?.destination_detail?.id,
+        editData?.amenities?.wifi,
+        editData?.amenities?.breakfast,
+        editData?.amenities?.ac,
+        editData?.amenities?.parking,
+        editData?.amenities?.pool,
+        editData?.photo,
+        editData?.room_image,
+        editData?.transport_image
+    ]);
 
 
     const handleImageChange = (type, e) => {

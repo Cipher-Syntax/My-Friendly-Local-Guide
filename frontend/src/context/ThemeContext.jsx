@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 
 const ThemeContext = createContext();
 
@@ -31,4 +31,5 @@ export const ThemeProvider = ({ children }) => {
     );
 };
 
-// Custom hook to use the theme context has been moved to useTheme.js
+// Custom hook to use the theme context
+export const useTheme = () => useContext(ThemeContext);

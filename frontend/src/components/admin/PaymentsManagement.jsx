@@ -45,15 +45,7 @@ export default function PaymentsManagement() {
         }, 3000);
     };
 
-    useEffect(() => {
-        fetchBookings();
-    }, []);
-
-    // Reset pagination when search or filter changes
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, filter]);
-
+    // Move fetchBookings outside so it can be reused
     const fetchBookings = async () => {
         try {
             const response = await api.get('/api/bookings/');
@@ -71,6 +63,17 @@ export default function PaymentsManagement() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchBookings();
+    }, []);
+
+    // Reset pagination when search or filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filter]);
+
+    
 
     const calculateStats = (data) => {
         const platformFees = data

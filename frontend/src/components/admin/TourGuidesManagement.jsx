@@ -39,27 +39,28 @@ export default function TourGuidesManagement() {
         }, 3000);
     };
 
-    const fetchGuides = async () => {
-        try {
-            setLoading(true);
-            const response = await api.get('api/admin/guide-reviews/');
-            if (Array.isArray(response.data)) {
-                setTourGuides(response.data);
-            } else if (response.data && Array.isArray(response.data.results)) {
-                setTourGuides(response.data.results);
-            } else {
-                setTourGuides([]);
-            }
-        } catch (error) {
-            console.error("Failed to fetch guides:", error);
-            showToast("Failed to fetch guides.", "error");
-            setTourGuides([]);
-        } finally {
-            setLoading(false);
-        }
-    };
+    
 
     useEffect(() => {
+        const fetchGuides = async () => {
+            try {
+                setLoading(true);
+                const response = await api.get('api/admin/guide-reviews/');
+                if (Array.isArray(response.data)) {
+                    setTourGuides(response.data);
+                } else if (response.data && Array.isArray(response.data.results)) {
+                    setTourGuides(response.data.results);
+                } else {
+                    setTourGuides([]);
+                }
+            } catch (error) {
+                console.error("Failed to fetch guides:", error);
+                showToast("Failed to fetch guides.", "error");
+                setTourGuides([]);
+            } finally {
+                setLoading(false);
+            }
+        };
         fetchGuides();
     }, []);
 
