@@ -28,12 +28,7 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
         }
     }, [isOpen]);
 
-    useEffect(() => {
-        if (isOpen && destinations.length > 0) {
-            if (editData) populateEditData();
-            else resetForm();
-        }
-    }, [isOpen, editData, destinations, populateEditData, resetForm]);
+
 
     const fetchDestinations = async () => {
         try {
@@ -114,6 +109,13 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
         editData?.room_image,
         editData?.transport_image
     ]);
+
+    useEffect(() => {
+        if (isOpen && destinations.length > 0) {
+            if (editData) populateEditData();
+            else resetForm();
+        }
+    }, [isOpen, editData, destinations, populateEditData, resetForm]);
 
 
     const handleImageChange = (type, e) => {

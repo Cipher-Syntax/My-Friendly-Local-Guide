@@ -23,7 +23,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
         
         # --- NEW LOGIC START ---
         # Allow approved Agencies to see reviews for their bookings
-        if hasattr(user, 'agency_profile') and user.agency_profile.is_approved:
+        if hasattr(user, 'agency_profile') and user.agency_profile.status == "Approved":
             return queryset.filter(booking__agency=user)
         # --- NEW LOGIC END ---
 

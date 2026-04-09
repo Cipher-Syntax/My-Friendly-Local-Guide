@@ -29,9 +29,7 @@ export default function AllBookings() {
         }, 3000);
     };
 
-    useEffect(() => {
-        fetchBookings();
-    }, [fetchBookings]);
+
 
     const fetchBookings = useCallback(async () => {
         try {
@@ -44,6 +42,10 @@ export default function AllBookings() {
             setLoading(false);
         }
     }, []);
+
+    useEffect(() => {
+        fetchBookings();
+    }, [fetchBookings]);
 
     const executeForceUpdate = async (id, newStatus) => {
         try {

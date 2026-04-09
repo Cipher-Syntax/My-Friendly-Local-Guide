@@ -29,12 +29,7 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
         }
     }, [isOpen]);
 
-    useEffect(() => {
-        if (isOpen && destinations.length > 0) {
-            if (editData) populateEditData();
-            else resetForm();
-        }
-    }, [isOpen, editData, destinations, populateEditData, resetForm]);
+
 
     const fetchInitialData = async () => {
         try {
@@ -97,6 +92,13 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
         destinations,
         editData
     ]);
+
+    useEffect(() => {
+        if (isOpen && destinations.length > 0) {
+            if (editData) populateEditData();
+            else resetForm();
+        }
+    }, [isOpen, editData, destinations, populateEditData, resetForm]);
 
     const handleStopImageChange = (index, e) => {
         const file = e.target.files[0];

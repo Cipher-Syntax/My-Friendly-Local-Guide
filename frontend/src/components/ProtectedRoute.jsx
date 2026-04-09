@@ -46,12 +46,7 @@ const ProtectedRoute = ({ children, requiredRole = null, redirectTo = '/' }) => 
     const [isAuthorized, setIsAuthorized] = useState(null);
     const [redirectPath, setRedirectPath] = useState(redirectTo);
 
-    useEffect(() => {
-        auth().catch(() => {
-            setRedirectPath(redirectTo);
-            setIsAuthorized(false);
-        });
-    }, [requiredRole, redirectTo, auth]);
+
 
     const fetchProfile = async () => {
         try {
@@ -134,6 +129,13 @@ const ProtectedRoute = ({ children, requiredRole = null, redirectTo = '/' }) => 
             await refreshToken();
         }
     }, [finalizeAuthorization, redirectTo, refreshToken])
+
+    useEffect(() => {
+        auth().catch(() => {
+            setRedirectPath(redirectTo);
+            setIsAuthorized(false);
+        });
+    }, [requiredRole, redirectTo, auth]);
 
     if (isAuthorized === null) {
         return (

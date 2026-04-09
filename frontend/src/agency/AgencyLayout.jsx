@@ -72,9 +72,6 @@ export default function AgencyLayout() {
         }, 3000);
     };
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
 
     const refreshUnreadMessages = useCallback(async () => {
         try {
@@ -157,6 +154,11 @@ export default function AgencyLayout() {
             setLoading(false);
         }
     }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
 
     const initiateSubscription = () => {
         setConfirmModal({

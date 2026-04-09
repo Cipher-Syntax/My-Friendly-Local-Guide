@@ -23,22 +23,23 @@ export default function AgencyAccommodations() {
     const itemsPerPage = 6;
 
     useEffect(() => {
+        const fetchAccommodations = async () => {
+            try {
+                const response = await api.get('api/accommodations/');
+                const rawData = Array.isArray(response.data) ? response.data : (response.data?.results || []);
+                setAccommodations(rawData);
+                setErrorMsg('');
+            } catch (error) {
+                console.error("Failed to fetch accommodations:", error);
+                setErrorMsg("Failed to load your accommodations.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
         fetchAccommodations();
     }, []);
 
-    const fetchAccommodations = async () => {
-        try {
-            const response = await api.get('api/accommodations/');
-            const rawData = Array.isArray(response.data) ? response.data : (response.data?.results || []);
-            setAccommodations(rawData);
-            setErrorMsg('');
-        } catch (error) {
-            console.error("Failed to fetch accommodations:", error);
-            setErrorMsg("Failed to load your accommodations.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
+
 
     const confirmDelete = async () => {
         if (!accToDelete) return;
