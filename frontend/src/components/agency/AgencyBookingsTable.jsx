@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2, Search, ChevronLeft, ChevronRight, Eye, Trash2, MessageSquare, Images } from 'lucide-react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2, Search, ChevronLeft, ChevronRight, Eye, Trash2, MessageSquare, Images, CreditCard, User } from 'lucide-react';
 import api from '../../api/api';
 
 export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, confirmPayment, openManageGuidesModal, agencyTier, freeBookingLimit, deleteBooking, openMessageWithTourist = () => { } }) {
@@ -136,7 +136,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
         return apiOrigin ? `${apiOrigin}/${normalizedRaw}` : `/${normalizedRaw}`;
     };
 
-    const groupTimelineByDay = (timelineInput, booking) => {
+    const groupTimelineByDay = useCallback((timelineInput, booking) => {
         if (!timelineInput) return [];
 
         let timeline = timelineInput;
@@ -238,11 +238,11 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
 
                 return { day, stops: uniqueStops };
             });
-    };
+    }, []);
 
     const groupedViewTimeline = useMemo(() => {
         return groupTimelineByDay(selectedBookingForView?.tour_package_detail?.itinerary_timeline, selectedBookingForView);
-    }, [selectedBookingForView]);
+    }, [selectedBookingForView, groupTimelineByDay]);
 
     const handleAcceptConfirm = () => {
         if (!meetupForm.location || !meetupForm.time) {
@@ -267,7 +267,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
             await confirmPayment(selectedBookingForPayment.id);
             setPaymentModalOpen(false);
             setSelectedBookingForPayment(null);
-        } catch (error) {
+        } catch {
             showToast("Failed to confirm payment. Please try again.", "error");
         }
     };
@@ -717,6 +717,52 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                         </p>
                                     </div>
                                 </div>
+
+                                {/* --- START VERIFICATION DOCUMENTS --- */}
+                                {(selectedBookingForView.tourist_valid_id_image || selectedBookingForView?.tourist_detail?.valid_id_image || selectedBookingForView.tourist_selfie_image) && (
+                                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700/50">
+                                        <h4 className="text-sm font-bold text-cyan-700 dark:text-cyan-400 mb-3">Verification Documents</h4>
+                                        <div className="flex gap-4">
+                                            {/* ID Box */}
+                                            <div className="flex-1">
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-semibold flex items-center gap-1">
+                                                    <CreditCard className="w-3.5 h-3.5" /> Valid ID
+                                                </p>
+                                                {(selectedBookingForView.tourist_valid_id_image || selectedBookingForView?.tourist_detail?.valid_id_image) ? (
+                                                    <img
+                                                        src={resolveImageUrl(selectedBookingForView.tourist_valid_id_image || selectedBookingForView?.tourist_detail?.valid_id_image)}
+                                                        alt="Valid ID"
+                                                        className="w-full aspect-square object-cover rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full aspect-square flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50">
+                                                        <CreditCard className="w-6 h-6 text-slate-300 dark:text-slate-500 mb-1" />
+                                                        <span className="text-xs text-slate-400">No ID</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Selfie Box */}
+                                            <div className="flex-1">
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-semibold flex items-center gap-1">
+                                                    <User className="w-3.5 h-3.5" /> Selfie
+                                                </p>
+                                                {selectedBookingForView.tourist_selfie_image ? (
+                                                    <img
+                                                        src={resolveImageUrl(selectedBookingForView.tourist_selfie_image)}
+                                                        alt="Selfie"
+                                                        className="w-full aspect-square object-cover rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full aspect-square flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50">
+                                                        <User className="w-6 h-6 text-slate-300 dark:text-slate-500 mb-1" />
+                                                        <span className="text-xs text-slate-400">No Selfie</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                {/* --- END VERIFICATION DOCUMENTS --- */}
                             </div>
 
                             {/* Trip Info */}
@@ -750,20 +796,20 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                                 </button>
 
                                                 <div className="mt-3 pl-3 border-l-2 border-cyan-500/40 space-y-3">
-                                                <p className="text-[10px] uppercase font-bold text-cyan-600 dark:text-cyan-400 tracking-wider">Itinerary Stops</p>
-                                                {groupedViewTimeline.map((dayGroup) => (
-                                                    <div key={`day-${dayGroup.day}`} className="text-sm">
-                                                        <p className="font-bold text-slate-800 dark:text-slate-200 mb-1">Day {dayGroup.day}</p>
-                                                        {dayGroup.stops.map((stop, idx) => (
-                                                            <div key={`day-${dayGroup.day}-stop-${idx}`} className="pl-2 mb-1">
-                                                                <p className="text-slate-700 dark:text-slate-300 font-medium">- {stop.place}</p>
-                                                                {stop.description && (
-                                                                    <p className="text-xs text-slate-500 dark:text-slate-400 pl-3 mt-0.5">{stop.description}</p>
-                                                                )}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ))}
+                                                    <p className="text-[10px] uppercase font-bold text-cyan-600 dark:text-cyan-400 tracking-wider">Itinerary Stops</p>
+                                                    {groupedViewTimeline.map((dayGroup) => (
+                                                        <div key={`day-${dayGroup.day}`} className="text-sm">
+                                                            <p className="font-bold text-slate-800 dark:text-slate-200 mb-1">Day {dayGroup.day}</p>
+                                                            {dayGroup.stops.map((stop, idx) => (
+                                                                <div key={`day-${dayGroup.day}-stop-${idx}`} className="pl-2 mb-1">
+                                                                    <p className="text-slate-700 dark:text-slate-300 font-medium">- {stop.place}</p>
+                                                                    {stop.description && (
+                                                                        <p className="text-xs text-slate-500 dark:text-slate-400 pl-3 mt-0.5">{stop.description}</p>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )}
