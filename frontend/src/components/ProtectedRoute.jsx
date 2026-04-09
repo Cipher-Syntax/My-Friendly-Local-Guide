@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Navigate } from 'react-router-dom'; 
 import { jwtDecode } from "jwt-decode"; 
 import api from '../api/api';
@@ -51,7 +51,7 @@ const ProtectedRoute = ({ children, requiredRole = null, redirectTo = '/' }) => 
             setRedirectPath(redirectTo);
             setIsAuthorized(false);
         });
-    }, [requiredRole, redirectTo]);
+    }, [requiredRole, redirectTo, auth]);
 
     const fetchProfile = async () => {
         try {
@@ -62,7 +62,7 @@ const ProtectedRoute = ({ children, requiredRole = null, redirectTo = '/' }) => 
         }
     };
 
-    const finalizeAuthorization = async (token) => {
+    const finalizeAuthorization = useCallback(async (token) => {
         let decoded = null;
         try {
             decoded = jwtDecode(token);
@@ -80,9 +80,9 @@ const ProtectedRoute = ({ children, requiredRole = null, redirectTo = '/' }) => 
         }
 
         setIsAuthorized(true);
-    };
+    }, [requiredRole, redirectTo]);
 
-    const refreshToken = async () => {
+    const refreshToken = useCallback(async () => {
         const refreshTokenValue = localStorage.getItem(REFRESH_TOKEN);
         
         if (!refreshTokenValue) {
@@ -109,9 +109,9 @@ const ProtectedRoute = ({ children, requiredRole = null, redirectTo = '/' }) => 
             setRedirectPath(redirectTo);
             setIsAuthorized(false);
         }
-    }
+    }, [finalizeAuthorization, redirectTo])
 
-    const auth = async () => {
+    const auth = useCallback(async () => {
         const token = localStorage.getItem(ACCESS_TOKEN);
         
         if (!token) {
@@ -133,7 +133,7 @@ const ProtectedRoute = ({ children, requiredRole = null, redirectTo = '/' }) => 
         } catch {
             await refreshToken();
         }
-    }
+    }, [finalizeAuthorization, redirectTo, refreshToken])
 
     if (isAuthorized === null) {
         return (

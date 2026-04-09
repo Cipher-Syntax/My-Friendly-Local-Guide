@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Map, DollarSign, Users, Clock, Image as ImageIcon, Plus, Trash2 } from 'lucide-react';
 import api from '../../api/api';
 
@@ -50,7 +50,7 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
         }
     };
 
-    const resetForm = () => {
+    const resetForm = useCallback(() => {
         setFormData({
             name: '', description: '', duration: '', durationDays: '1', maxGroupSize: '',
             whatToBring: '', pricePerDay: '', soloPricePerDay: '', additionalPerHeadPerDay: '0', destination_id: destinations[0]?.id || ''
@@ -60,9 +60,9 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
         setCurrentStep(1);
         setCurrentDayTab(1);
         setError('');
-    };
+    },[destinations]);
 
-    const populateEditData = () => {
+    const populateEditData = useCallback(() => {
         setFormData({
             name: editData.name || '',
             description: editData.description || '',
@@ -93,7 +93,10 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
         setCurrentStep(1);
         setCurrentDayTab(1);
         setError('');
-    };
+    }, [
+        destinations,
+        editData
+    ]);
 
     const handleStopImageChange = (index, e) => {
         const file = e.target.files[0];

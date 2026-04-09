@@ -74,7 +74,7 @@ export default function AgencyLayout() {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [fetchData]);
 
     const refreshUnreadMessages = useCallback(async () => {
         try {
@@ -99,7 +99,7 @@ export default function AgencyLayout() {
         return () => clearInterval(intervalId);
     }, [refreshUnreadMessages]);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
 
@@ -156,7 +156,7 @@ export default function AgencyLayout() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     const initiateSubscription = () => {
         setConfirmModal({

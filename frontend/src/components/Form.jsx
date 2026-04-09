@@ -73,7 +73,7 @@ const Form = ({ route, method }) => {
             setRemembered(true);
             setValue("username", savedUsername);
         }
-    }, []);
+    }, [setValue]);
 
     return (
         <div className="flex flex-col min-h-screen">

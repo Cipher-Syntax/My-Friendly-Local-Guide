@@ -46,7 +46,7 @@ export default function PaymentsManagement() {
     };
 
     // Move fetchBookings outside so it can be reused
-    const fetchBookings = async () => {
+    const fetchBookings = React.useCallback(async () => {
         try {
             const response = await api.get('/api/bookings/');
             const relevantBookings = response.data.results || response.data;
@@ -62,11 +62,11 @@ export default function PaymentsManagement() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchBookings();
-    }, []);
+    }, [fetchBookings]);
 
     // Reset pagination when search or filter changes
     useEffect(() => {

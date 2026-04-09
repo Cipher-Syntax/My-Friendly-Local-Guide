@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, Image as ImageIcon, Eye, Trash2, AlertTriangle, MapPin, Star, XCircle, Plus, Filter, Landmark, CheckCircle, AlertCircle, Loader2, Upload, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import api from '../../api/api';
 
@@ -47,7 +47,7 @@ export default function ContentManagement() {
         }, 3000);
     };
 
-    const fetchCategories = async () => {
+    const fetchCategories = useCallback(async () => {
         try {
             const response = await api.get('api/categories/');
             setCategoryChoices(response.data);
@@ -59,9 +59,9 @@ export default function ContentManagement() {
             console.error("Failed to fetch categories:", error);
             showToast("Failed to load categories.", "error");
         }
-    };
+    }, []);
 
-    const fetchDestinations = async () => {
+    const fetchDestinations = useCallback(async () => {
         try {
             setLoading(true);
             const response = await api.get('api/destinations/');
@@ -89,12 +89,12 @@ export default function ContentManagement() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchCategories();
         fetchDestinations();
-    }, []);
+    }, [fetchCategories, fetchDestinations]);
 
     // Reset pagination when filters change
     useEffect(() => {

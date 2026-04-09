@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Filter, AlertTriangle, Trash2, XCircle, CheckCircle, Eye, AlertCircle, X, Download } from 'lucide-react';
 import * as XLSX from 'xlsx'; // IMPORT XLSX FOR EXPORT
 import api from '../../api/api';
@@ -31,9 +31,9 @@ export default function AllBookings() {
 
     useEffect(() => {
         fetchBookings();
-    }, []);
+    }, [fetchBookings]);
 
-    const fetchBookings = async () => {
+    const fetchBookings = useCallback(async () => {
         try {
             const res = await api.get('/api/bookings/');
             setBookings(res.data.results || res.data); // Safely handle pagination format
@@ -43,7 +43,7 @@ export default function AllBookings() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     const executeForceUpdate = async (id, newStatus) => {
         try {

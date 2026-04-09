@@ -29,20 +29,21 @@ export default function Feedback() { // Renamed Component
         }, 3000);
     };
 
-    const fetchReports = async () => {
-        try {
-            setLoading(true);
-            const response = await api.get('api/review/');
-            setReports(response.data);
-        } catch (error) {
-            console.error("Failed to fetch feedback:", error);
-            showToast("Failed to load feedback.", "error");
-        } finally {
-            setLoading(false);
-        }
-    };
+    
 
     useEffect(() => {
+        const fetchReports = async () => {
+            try {
+                setLoading(true);
+                const response = await api.get('api/review/');
+                setReports(response.data);
+            } catch (error) {
+                console.error("Failed to fetch feedback:", error);
+                showToast("Failed to load feedback.", "error");
+            } finally {
+                setLoading(false);
+            }
+        };
         fetchReports();
     }, []);
 
