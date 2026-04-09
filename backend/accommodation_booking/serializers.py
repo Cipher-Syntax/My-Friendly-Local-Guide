@@ -85,6 +85,7 @@ class BookingSerializer(serializers.ModelSerializer):
     agency_detail = serializers.SerializerMethodField(read_only=True)
     destination_detail = SimpleDestinationSerializer(source='destination', read_only=True)
     tour_package_detail = serializers.SerializerMethodField(read_only=True)
+    refund_status = serializers.SerializerMethodField(read_only=True)
     
     assigned_guides_detail = serializers.SerializerMethodField(read_only=True)
     assigned_agency_guides_detail = serializers.SerializerMethodField(read_only=True)
@@ -108,7 +109,7 @@ class BookingSerializer(serializers.ModelSerializer):
             
             'meetup_location', 'meetup_time', 'meetup_instructions',
             
-            'status', 'created_at'
+            'status', 'refund_status', 'created_at'
         ]
         
         read_only_fields = [
@@ -234,6 +235,12 @@ class BookingSerializer(serializers.ModelSerializer):
             'itinerary_timeline': clipped_timeline,
             'stops': stops_data,  # NEW: Added stops array containing images
         }
+
+    def get_refund_status(self, obj):
+        latest_payment = obj.payments.order_by('-timestamp', '-id').first()
+        if not latest_payment:
+            return 'none'
+        return latest_payment.refund_status or 'none'
 
     def get_assigned_guides_detail(self, obj):
         request = self.context.get('request')

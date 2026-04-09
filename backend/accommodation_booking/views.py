@@ -215,7 +215,7 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Booking.objects.select_related('tourist', 'accommodation', 'guide', 'agency')
+        qs = Booking.objects.select_related('tourist', 'accommodation', 'guide', 'agency').prefetch_related('payments')
         
         if user.is_superuser:
             return qs.order_by('-created_at')

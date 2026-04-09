@@ -313,6 +313,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                 <option value="paid">Paid</option>
                                 <option value="confirmed">Confirmed</option>
                                 <option value="completed">Completed</option>
+                                <option value="refunded">Refunded</option>
                                 <option value="declined">Declined</option>
                                 <option value="cancelled">Cancelled</option>
                             </select>
@@ -350,6 +351,9 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                             {paginatedBookings.length > 0 ? (
                                 paginatedBookings.map((booking) => {
                                     const statusString = booking.status?.toLowerCase();
+                                    const refundState = String(booking.refund_status || 'none').toLowerCase();
+                                    const hasOpenRefund = ['requested', 'under_review', 'approved'].includes(refundState);
+                                    const isRefundCompleted = refundState === 'completed' || statusString === 'refunded';
                                     const isManageDisabled = ['accepted', 'paid', 'confirmed', 'completed', 'declined', 'cancelled'].includes(statusString);
                                     const isPendingStatus = statusString === 'pending' || statusString === 'pending_payment';
 
@@ -465,7 +469,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                                     </div>
                                                 )}
 
-                                                {statusString === 'confirmed' && (
+                                                {statusString === 'confirmed' && !hasOpenRefund && !isRefundCompleted && (
                                                     <button
                                                         onClick={() => {
                                                             setSelectedBookingForPayment(booking);
@@ -477,7 +481,21 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                                     </button>
                                                 )}
 
-                                                {['accepted', 'paid', 'completed', 'declined', 'cancelled'].includes(statusString) && (
+                                                {hasOpenRefund && (
+                                                    <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 block mb-2 mt-1">
+                                                        {refundState === 'requested' && 'Refund Requested'}
+                                                        {refundState === 'under_review' && 'Refund Under Review'}
+                                                        {refundState === 'approved' && 'Refund Approved'}
+                                                    </span>
+                                                )}
+
+                                                {isRefundCompleted && (
+                                                    <span className="text-xs font-semibold text-teal-600 dark:text-teal-400 block mb-2 mt-1">
+                                                        Refunded
+                                                    </span>
+                                                )}
+
+                                                {['accepted', 'paid', 'completed', 'declined', 'cancelled', 'refunded'].includes(statusString) && !hasOpenRefund && !isRefundCompleted && (
                                                     <span className="text-xs font-medium text-slate-400 dark:text-slate-500 italic block mb-2 mt-1">
                                                         {statusString === 'completed' ? 'Fully Paid & Completed' :
                                                             statusString === 'accepted' ? 'Waiting for downpayment...' : 'Action Locked'}
@@ -839,6 +857,12 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                     <div className="flex justify-between text-sm pt-2 border-t border-emerald-200 dark:border-emerald-800/50">
                                         <span className="text-slate-600 dark:text-slate-300">Balance Due</span>
                                         <span className="font-bold text-slate-900 dark:text-white">₱ {parseFloat(selectedBookingForView.balance_due || 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm pt-2 border-t border-emerald-200 dark:border-emerald-800/50">
+                                        <span className="text-slate-600 dark:text-slate-300">Refund Status</span>
+                                        <span className="font-bold text-slate-900 dark:text-white capitalize">
+                                            {String(selectedBookingForView.refund_status || 'none').replace('_', ' ')}
+                                        </span>
                                     </div>
                                     <div className="mt-2 text-right">
                                         <span className={`text-xs font-bold px-2 py-1 rounded-full ${selectedBookingForView.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
