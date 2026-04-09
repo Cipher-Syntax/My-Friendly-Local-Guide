@@ -267,6 +267,9 @@ class BookingViewSet(viewsets.ModelViewSet):
         if uploaded_id_image:
             user.valid_id_image = uploaded_id_image
             user.save(update_fields=['valid_id_image'])
+            
+            # FIX: Rewind the file pointer back to the start so it can be read again for the Booking model!
+            uploaded_id_image.seek(0)
 
         passed_total = self.request.data.get('total_price')
         passed_down_payment = self.request.data.get('down_payment')
