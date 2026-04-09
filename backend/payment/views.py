@@ -999,6 +999,7 @@ class RefundRequestCreateView(APIView):
                     ),
                 )
             else:
+                provider_name = provider.first_name or provider.username
                 _notify_user(
                     provider,
                     title='Refund Requested',
@@ -1007,6 +1008,34 @@ class RefundRequestCreateView(APIView):
                     related_object_id=refund_request.id,
                     alert_type='refund_requested',
                     event_key=f"refund-requested:{refund_request.id}:provider",
+                )
+
+                _safe_send_mail(
+                    subject=f"Refund Requested For Booking #{booking.id}",
+                    plain_message=(
+                        f"Hi {provider_name},\n\n"
+                        f"A refund request was submitted for booking #{booking.id} ({booking_label}).\n"
+                        f"Tourist: {tourist_display_name}\n"
+                        f"Requested amount: PHP {requested_amount}\n"
+                        f"Reason: {reason}\n"
+                    ),
+                    recipient_list=[provider.email] if provider.email else [],
+                    html_message=_build_refund_email_html(
+                        heading='LocaLynk Provider Refund Notice',
+                        subheading='New Refund Request From Tourist',
+                        recipient_name=provider_name,
+                        intro_message=provider_message,
+                        detail_rows=[
+                            ('Refund ID', f"#{refund_request.id}"),
+                            ('Booking ID', f"#{booking.id}"),
+                            ('Booking', booking_label),
+                            ('Tourist', tourist_display_name),
+                            ('Requested Amount', _format_php(requested_amount)),
+                            ('Reason', reason),
+                        ],
+                        status_label='Requested',
+                        accent_color=_refund_status_color('requested'),
+                    ),
                 )
 
         admins = User.objects.filter(is_superuser=True).exclude(id=request.user.id)
@@ -1301,6 +1330,7 @@ class RefundRequestProcessView(APIView):
                     ),
                 )
             else:
+                provider_name = provider.first_name or provider.username
                 _notify_user(
                     provider,
                     title=notify_title,
@@ -1309,6 +1339,37 @@ class RefundRequestProcessView(APIView):
                     related_object_id=refund_request.id,
                     alert_type=f"refund_{action}",
                     event_key=f"refund-{action}:{refund_request.id}:provider",
+                )
+
+                _safe_send_mail(
+                    subject=f"Refund Update For Booking #{booking.id if booking else 'N/A'}",
+                    plain_message=(
+                        f"Hi {provider_name},\n\n"
+                        f"{provider_body}\n"
+                        f"Refund ID: {refund_request.id}\n"
+                        f"Booking ID: {booking.id if booking else 'N/A'}\n"
+                        f"Booking: {_booking_label(booking)}\n"
+                        f"Status: {str(refund_request.status).replace('_', ' ').title()}\n"
+                        f"Approved Amount: {final_amount}\n"
+                    ),
+                    recipient_list=[provider.email] if provider.email else [],
+                    html_message=_build_refund_email_html(
+                        heading='LocaLynk Provider Refund Notice',
+                        subheading='Refund Status Update',
+                        recipient_name=provider_name,
+                        intro_message=provider_body,
+                        detail_rows=[
+                            ('Refund ID', f"#{refund_request.id}"),
+                            ('Booking ID', f"#{booking.id if booking else 'N/A'}"),
+                            ('Booking', _booking_label(booking)),
+                            ('Requested Amount', _format_php(refund_request.requested_amount)),
+                            ('Approved Amount', _format_php(final_amount)),
+                            ('Status', str(refund_request.status).replace('_', ' ').title()),
+                        ],
+                        status_label=str(refund_request.status).replace('_', ' ').title(),
+                        notes=refund_request.admin_notes,
+                        accent_color=_refund_status_color(refund_request.status),
+                    ),
                 )
 
         _safe_send_mail(
