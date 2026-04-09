@@ -120,6 +120,7 @@ class RefundRequestSerializer(serializers.ModelSerializer):
     processed_by_username = serializers.CharField(source='processed_by.username', read_only=True)
     payment_id = serializers.IntegerField(source='payment.id', read_only=True)
     booking_id = serializers.IntegerField(source='booking.id', read_only=True)
+    booking_label = serializers.SerializerMethodField()
     payment_amount = serializers.DecimalField(source='payment.amount', max_digits=10, decimal_places=2, read_only=True)
     payment_status = serializers.CharField(source='payment.status', read_only=True)
     proof_attachment_url = serializers.SerializerMethodField()
@@ -130,6 +131,7 @@ class RefundRequestSerializer(serializers.ModelSerializer):
             'id',
             'payment_id',
             'booking_id',
+            'booking_label',
             'requested_by',
             'requested_by_username',
             'requested_by_phone',
@@ -170,6 +172,21 @@ class RefundRequestSerializer(serializers.ModelSerializer):
         if request:
             return request.build_absolute_uri(obj.proof_attachment.url)
         return obj.proof_attachment.url
+
+    def get_booking_label(self, obj):
+        booking = getattr(obj, 'booking', None)
+        if not booking:
+            return None
+
+        destination = getattr(booking, 'destination', None)
+        if destination and getattr(destination, 'name', None):
+            return str(destination.name)
+
+        accommodation = getattr(booking, 'accommodation', None)
+        if accommodation and getattr(accommodation, 'title', None):
+            return str(accommodation.title)
+
+        return f"Booking #{getattr(booking, 'id', 'N/A')}"
 
 
 class RefundRequestCreateSerializer(serializers.Serializer):

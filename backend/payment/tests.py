@@ -233,3 +233,36 @@ class RefundApiTests(TestCase):
 		self.assertEqual(self.payment.status, "refunded")
 		self.assertEqual(self.payment.refund_status, "completed")
 		self.assertEqual(self.booking.status, "Refunded")
+
+	def test_tourist_can_view_own_refund_detail(self):
+		refund = RefundRequest.objects.create(
+			payment=self.payment,
+			booking=self.booking,
+			requested_by=self.tourist,
+			reason="Need refund detail.",
+			requested_amount=Decimal("1400.00"),
+			admin_notes="Reviewed by admin.",
+			proof_attachment=self._proof_file("proof4.png"),
+		)
+
+		self.client.force_authenticate(user=self.tourist)
+		response = self.client.get(reverse("refund-detail", args=[refund.id]))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.json().get("id"), refund.id)
+		self.assertEqual(response.json().get("admin_notes"), "Reviewed by admin.")
+
+	def test_provider_cannot_view_tourist_refund_detail(self):
+		refund = RefundRequest.objects.create(
+			payment=self.payment,
+			booking=self.booking,
+			requested_by=self.tourist,
+			reason="Need refund detail privacy.",
+			requested_amount=Decimal("1200.00"),
+			proof_attachment=self._proof_file("proof5.png"),
+		)
+
+		self.client.force_authenticate(user=self.guide)
+		response = self.client.get(reverse("refund-detail", args=[refund.id]))
+
+		self.assertEqual(response.status_code, 403)

@@ -901,10 +901,8 @@ class RefundRequestDetailView(APIView):
         if user.is_superuser:
             return refund_request
 
-        provider = _booking_provider(refund_request.booking)
-        is_participant = refund_request.requested_by_id == user.id or (provider and provider.id == user.id)
-        if not is_participant:
-            raise PermissionDenied('You are not allowed to view this refund request.')
+        if refund_request.requested_by_id != user.id:
+            raise PermissionDenied('Only the requesting tourist can view refund request details.')
 
         return refund_request
 
@@ -1272,6 +1270,9 @@ class RefundRequestProcessView(APIView):
         else:
             raise DRFValidationError({'action': 'Unsupported action.'})
 
+        admin_notes_text = (refund_request.admin_notes or '').strip()
+        admin_notes_line = f"\nAdmin Notes: {admin_notes_text}" if admin_notes_text else ''
+
         provider = _booking_provider(booking)
         _notify_user(
             refund_request.requested_by,
@@ -1300,7 +1301,8 @@ class RefundRequestProcessView(APIView):
                         f"Booking ID: {booking.id if booking else 'N/A'}\n"
                         f"Booking: {_booking_label(booking)}\n"
                         f"Status: {str(refund_request.status).replace('_', ' ').title()}\n"
-                        f"Approved Amount: {final_amount}\n\n"
+                        f"Approved Amount: {final_amount}"
+                        f"{admin_notes_line}\n\n"
                         f"Open your agency dashboard for details: {provider_dashboard_url}"
                     ),
                     recipient_list=[provider.email] if provider.email else [],
@@ -1350,7 +1352,8 @@ class RefundRequestProcessView(APIView):
                         f"Booking ID: {booking.id if booking else 'N/A'}\n"
                         f"Booking: {_booking_label(booking)}\n"
                         f"Status: {str(refund_request.status).replace('_', ' ').title()}\n"
-                        f"Approved Amount: {final_amount}\n"
+                        f"Approved Amount: {final_amount}"
+                        f"{admin_notes_line}\n"
                     ),
                     recipient_list=[provider.email] if provider.email else [],
                     html_message=_build_refund_email_html(
@@ -1379,6 +1382,8 @@ class RefundRequestProcessView(APIView):
                 f"{tourist_body}\n"
                 f"Status: {refund_request.status}\n"
                 f"Booking ID: {booking.id if booking else 'N/A'}\n"
+                f"Approved Amount: {refund_request.approved_amount if refund_request.approved_amount is not None else 'Pending'}"
+                f"{admin_notes_line}\n"
             ),
             recipient_list=[refund_request.requested_by.email] if refund_request.requested_by.email else [],
             html_message=_build_refund_email_html(
