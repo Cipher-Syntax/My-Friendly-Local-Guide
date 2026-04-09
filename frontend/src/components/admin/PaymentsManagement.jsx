@@ -13,17 +13,24 @@ import {
     AlertTriangle,
     Search,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    RotateCcw,
 } from 'lucide-react';
 
 export default function PaymentsManagement() {
     const navigate = useNavigate();
     const [bookings, setBookings] = useState([]);
+    const [refundRequests, setRefundRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const [refundFilter, setRefundFilter] = useState('all');
+    const [refundSearchTerm, setRefundSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(5);
+    const [refundProcessingId, setRefundProcessingId] = useState(null);
+    const [refundAmountDrafts, setRefundAmountDrafts] = useState({});
+    const [refundNoteDrafts, setRefundNoteDrafts] = useState({});
 
     const [stats, setStats] = useState({
         totalCollected: 0,
@@ -64,14 +71,65 @@ export default function PaymentsManagement() {
         }
     }, []);
 
+    const fetchRefundRequests = React.useCallback(async () => {
+        try {
+            const response = await api.get('/api/payments/refunds/admin/');
+            const incoming = Array.isArray(response.data)
+                ? response.data
+                : Array.isArray(response.data?.results)
+                    ? response.data.results
+                    : [];
+            setRefundRequests(incoming);
+        } catch (error) {
+            console.error('Failed to fetch refund requests:', error);
+            showToast('Failed to fetch refund requests.', 'error');
+        }
+    }, []);
+
     useEffect(() => {
         fetchBookings();
-    }, [fetchBookings]);
+        fetchRefundRequests();
+    }, [fetchBookings, fetchRefundRequests]);
 
     // Reset pagination when search or filter changes
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, filter]);
+
+    const processRefundRequest = async (refund, action) => {
+        if (!refund?.id) return;
+
+        const draftAmountRaw = refundAmountDrafts[refund.id];
+        const fallbackAmount = refund.approved_amount || refund.requested_amount || 0;
+        const approvedAmount = action === 'approve' || action === 'complete'
+            ? Number(draftAmountRaw || fallbackAmount)
+            : undefined;
+
+        if ((action === 'approve' || action === 'complete') && (!approvedAmount || approvedAmount <= 0)) {
+            showToast('Approved amount must be greater than zero.', 'error');
+            return;
+        }
+
+        const payload = {
+            action,
+            admin_notes: refundNoteDrafts[refund.id] || '',
+        };
+        if (approvedAmount) {
+            payload.approved_amount = approvedAmount.toFixed(2);
+        }
+
+        setRefundProcessingId(refund.id);
+        try {
+            await api.post(`/api/payments/refunds/${refund.id}/process/`, payload);
+            showToast(`Refund #${refund.id} updated: ${action}.`, 'success');
+            await Promise.all([fetchRefundRequests(), fetchBookings()]);
+        } catch (error) {
+            console.error('Failed to process refund request:', error);
+            showToast('Failed to process refund request.', 'error');
+        } finally {
+            setRefundProcessingId(null);
+        }
+    };
 
     
 
@@ -175,6 +233,35 @@ export default function PaymentsManagement() {
     const totalPages = Math.ceil(processedBookings.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedBookings = processedBookings.slice(startIndex, startIndex + itemsPerPage);
+
+    const filteredRefundRequests = refundRequests.filter((refund) => {
+        const statusMatch = refundFilter === 'all' ? true : String(refund.status || '').toLowerCase() === refundFilter;
+
+        if (!statusMatch) return false;
+
+        if (!refundSearchTerm) return true;
+        const term = refundSearchTerm.toLowerCase();
+        const requestedBy = String(refund.requested_by_username || '').toLowerCase();
+        const reason = String(refund.reason || '').toLowerCase();
+        const bookingId = String(refund.booking_id || '');
+        const refundId = String(refund.id || '');
+        return (
+            requestedBy.includes(term) ||
+            reason.includes(term) ||
+            bookingId.includes(term) ||
+            refundId.includes(term)
+        );
+    });
+
+    const refundStatusBadge = (statusValue) => {
+        const normalized = String(statusValue || '').toLowerCase();
+        if (normalized === 'requested') return 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20';
+        if (normalized === 'under_review') return 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20';
+        if (normalized === 'approved') return 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20';
+        if (normalized === 'rejected') return 'bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20';
+        if (normalized === 'completed') return 'bg-teal-100 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-500/20';
+        return 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600';
+    };
 
     const handleExport = () => {
         if (processedBookings.length === 0) {
@@ -518,6 +605,171 @@ export default function PaymentsManagement() {
                         </div>
                     </div>
                 )}
+            </div>
+
+            <div className="bg-white dark:bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden shadow-sm">
+                <div className="p-6 border-b border-slate-200 dark:border-slate-700/50 flex flex-col lg:flex-row gap-4 justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Refund Requests</h2>
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs">
+                            {filteredRefundRequests.length}
+                        </span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                        <div className="relative w-full sm:w-64">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-4 w-4 text-slate-400" />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Search refund, booking, tourist..."
+                                value={refundSearchTerm}
+                                onChange={(e) => setRefundSearchTerm(e.target.value)}
+                                className="pl-10 pr-4 py-2 w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                            />
+                        </div>
+
+                        <select
+                            value={refundFilter}
+                            onChange={(e) => setRefundFilter(e.target.value)}
+                            className="px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                        >
+                            <option value="all">All Status</option>
+                            <option value="requested">Requested</option>
+                            <option value="under_review">Under Review</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="completed">Completed</option>
+                        </select>
+
+                        <button
+                            onClick={fetchRefundRequests}
+                            className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/40 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium flex items-center gap-2"
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
+                                <th className="p-4">Refund ID</th>
+                                <th className="p-4">Booking</th>
+                                <th className="p-4">Tourist</th>
+                                <th className="p-4">Requested / Approved</th>
+                                <th className="p-4">Status</th>
+                                <th className="p-4 min-w-[280px]">Notes / Amount</th>
+                                <th className="p-4 min-w-[240px]">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
+                            {filteredRefundRequests.map((refund) => {
+                                const statusValue = String(refund.status || '').toLowerCase();
+                                const requestedAmount = Number(refund.requested_amount || 0);
+                                const approvedAmount = Number(refund.approved_amount || 0);
+                                const isBusy = refundProcessingId === refund.id;
+                                const canReview = statusValue === 'requested';
+                                const canApproveReject = statusValue === 'requested' || statusValue === 'under_review';
+                                const canComplete = statusValue === 'approved';
+
+                                const amountDraft = refundAmountDrafts[refund.id] ?? (refund.approved_amount || refund.requested_amount || '');
+                                const notesDraft = refundNoteDrafts[refund.id] || '';
+
+                                return (
+                                    <tr key={refund.id} className="text-sm align-top hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
+                                        <td className="p-4 text-slate-900 dark:text-white font-medium">#{refund.id}</td>
+                                        <td className="p-4 text-slate-700 dark:text-slate-200">#{refund.booking_id || 'N/A'}</td>
+                                        <td className="p-4 text-slate-700 dark:text-slate-200">{refund.requested_by_username || 'Unknown'}</td>
+                                        <td className="p-4 text-slate-700 dark:text-slate-200">
+                                            <div>Req: {requestedAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</div>
+                                            <div className="text-xs text-slate-500 mt-1">
+                                                App: {approvedAmount > 0
+                                                    ? approvedAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })
+                                                    : 'Pending'}
+                                            </div>
+                                        </td>
+                                        <td className="p-4">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${refundStatusBadge(statusValue)}`}>
+                                                {statusValue.replace('_', ' ')}
+                                            </span>
+                                        </td>
+                                        <td className="p-4">
+                                            <input
+                                                type="text"
+                                                placeholder="Admin notes"
+                                                value={notesDraft}
+                                                onChange={(e) => setRefundNoteDrafts(prev => ({ ...prev, [refund.id]: e.target.value }))}
+                                                className="mb-2 px-3 py-2 w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                                            />
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                placeholder="Approved amount"
+                                                value={amountDraft}
+                                                onChange={(e) => setRefundAmountDrafts(prev => ({ ...prev, [refund.id]: e.target.value }))}
+                                                className="px-3 py-2 w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                                            />
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex flex-wrap gap-2">
+                                                {canReview && (
+                                                    <button
+                                                        disabled={isBusy}
+                                                        onClick={() => processRefundRequest(refund, 'under_review')}
+                                                        className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50"
+                                                    >
+                                                        Under Review
+                                                    </button>
+                                                )}
+                                                {canApproveReject && (
+                                                    <button
+                                                        disabled={isBusy}
+                                                        onClick={() => processRefundRequest(refund, 'approve')}
+                                                        className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
+                                                    >
+                                                        Approve
+                                                    </button>
+                                                )}
+                                                {canApproveReject && (
+                                                    <button
+                                                        disabled={isBusy}
+                                                        onClick={() => processRefundRequest(refund, 'reject')}
+                                                        className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-500 hover:bg-rose-600 text-white disabled:opacity-50"
+                                                    >
+                                                        Reject
+                                                    </button>
+                                                )}
+                                                {canComplete && (
+                                                    <button
+                                                        disabled={isBusy}
+                                                        onClick={() => processRefundRequest(refund, 'complete')}
+                                                        className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-teal-500 hover:bg-teal-600 text-white disabled:opacity-50"
+                                                    >
+                                                        Mark Completed
+                                                    </button>
+                                                )}
+                                                {isBusy && (
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400 self-center">Processing...</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+
+                    {filteredRefundRequests.length === 0 && (
+                        <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+                            No refund requests found for the selected filters.
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

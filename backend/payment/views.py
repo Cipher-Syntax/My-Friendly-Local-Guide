@@ -5,30 +5,149 @@ from decimal import Decimal
 from datetime import date, timedelta
 from django.conf import settings #type: ignore
 from rest_framework import generics, permissions, status, viewsets #type: ignore
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser #type: ignore
 from rest_framework.response import Response #type: ignore
 from rest_framework.views import APIView #type: ignore
-from rest_framework.exceptions import ValidationError as DRFValidationError #type: ignore
+from rest_framework.exceptions import ValidationError as DRFValidationError, PermissionDenied #type: ignore
 from django.core.exceptions import ValidationError as ModelValidationError #type: ignore
 from django.shortcuts import get_object_or_404 #type: ignore
 from django.apps import apps #type: ignore
 from requests.exceptions import RequestException #type: ignore
 from django.core.mail import send_mail #type: ignore
+from django.contrib.auth import get_user_model
+from django.utils import timezone #type: ignore
+from django.db import transaction #type: ignore
+from django.db.models import Q #type: ignore
 
 from django.utils.decorators import method_decorator #type: ignore
 from django.views.decorators.csrf import csrf_exempt #type: ignore
 
-from .models import Payment
-from .serializers import PaymentSerializer, PaymentInitiationSerializer
+from .models import Payment, RefundRequest
+from .serializers import (
+    PaymentSerializer,
+    PaymentInitiationSerializer,
+    RefundRequestSerializer,
+    RefundRequestCreateSerializer,
+    RefundProcessSerializer,
+)
 from system_management_module.models import SystemAlert
 from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
 from user_authentication.phone_utils import normalize_ph_phone
 
-from .paymongo import create_checkout_session, retrieve_checkout_session
+from .paymongo import create_checkout_session, retrieve_checkout_session, create_refund as create_gateway_refund
+
+User = get_user_model()
 
 try:
     Booking = apps.get_model('accommodation_booking', 'Booking')
 except LookupError:
     Booking = None 
+
+
+OPEN_REFUND_STATUSES = {'requested', 'under_review', 'approved'}
+
+
+class IsSuperUser(permissions.BasePermission):
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        return bool(user and user.is_authenticated and user.is_superuser)
+
+
+def _extract_gateway_payment_id(payload):
+    """Extract first payment id from webhook or checkout payload."""
+    if not isinstance(payload, dict):
+        return None
+
+    candidates = []
+
+    top_attrs = payload.get('data', {}).get('attributes', {})
+    if isinstance(top_attrs, dict):
+        candidates.append(top_attrs.get('payments'))
+
+        nested_data = top_attrs.get('data')
+        if isinstance(nested_data, dict):
+            nested_attrs = nested_data.get('attributes', {})
+            if isinstance(nested_attrs, dict):
+                candidates.append(nested_attrs.get('payments'))
+
+    for payments in candidates:
+        if not isinstance(payments, list):
+            continue
+        for payment_obj in payments:
+            if not isinstance(payment_obj, dict):
+                continue
+            payment_id = payment_obj.get('id')
+            if not payment_id:
+                payment_id = payment_obj.get('attributes', {}).get('id')
+            if payment_id:
+                return payment_id
+
+    return None
+
+
+def _target_type_for_user(user):
+    if not user:
+        return 'Tourist'
+    if user.is_superuser:
+        return 'Admin'
+    if user.is_local_guide or hasattr(user, 'agency_profile') or user.is_staff:
+        return 'Guide'
+    return 'Tourist'
+
+
+def _booking_provider(booking):
+    if not booking:
+        return None
+    if booking.guide:
+        return booking.guide
+    if booking.agency:
+        return booking.agency
+    if booking.accommodation and booking.accommodation.host:
+        return booking.accommodation.host
+    return None
+
+
+def _safe_send_mail(subject, plain_message, recipient_list, html_message=None):
+    if not recipient_list:
+        return
+    try:
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=recipient_list,
+            html_message=html_message,
+            fail_silently=True,
+        )
+    except Exception as exc:
+        print(f"Email send failed: {exc}")
+
+
+def _notify_user(user, title, body, related_model=None, related_object_id=None, alert_type='system_update', event_key=None):
+    if not user:
+        return
+
+    SystemAlert.objects.create(
+        target_type=_target_type_for_user(user),
+        recipient=user,
+        title=title,
+        message=body,
+        related_model=related_model,
+        related_object_id=related_object_id,
+        is_read=False,
+    )
+
+    send_push_to_user(
+        user=user,
+        title=title,
+        body=body,
+        data=build_alert_push_data(
+            alert_type=alert_type,
+            related_model=related_model,
+            related_object_id=related_object_id,
+        ),
+        event_key=event_key,
+    )
 
 
 def get_booking_tour_package_payload(booking):
@@ -254,9 +373,15 @@ class PaymentWebhookView(APIView):
         return Response({"status": "Webhook processed"}, status=200)
 
     def _handle_success(self, payment, data):
+        if payment.status == 'refunded':
+            return
+
         if payment.status != 'succeeded':
+            gateway_payment_id = _extract_gateway_payment_id(data)
             payment.status = "succeeded"
             payment.gateway_response = data
+            if gateway_payment_id:
+                payment.gateway_payment_id = gateway_payment_id
             payment.save()
 
             if payment.related_booking:
@@ -530,6 +655,8 @@ class PaymentStatusView(APIView):
             "status": payment.status,
             "payment_type": payment.payment_type,
             "amount": str(payment.amount), 
+            "refund_status": payment.refund_status,
+            "refunded_amount": str(payment.refunded_amount),
         })
 
 class SubscriptionPriceView(APIView):
@@ -541,3 +668,381 @@ class SubscriptionPriceView(APIView):
             "guide_limit": 2, 
             "booking_limit": 1 
         })
+
+
+class MyRefundRequestListView(generics.ListAPIView):
+    serializer_class = RefundRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = (
+            RefundRequest.objects
+            .select_related('payment', 'booking', 'requested_by', 'processed_by')
+            .filter(requested_by=self.request.user)
+            .order_by('-request_date')
+        )
+
+        booking_id = self.request.query_params.get('booking_id')
+        payment_id = self.request.query_params.get('payment_id')
+        status_filter = self.request.query_params.get('status')
+
+        if booking_id:
+            qs = qs.filter(booking_id=booking_id)
+        if payment_id:
+            qs = qs.filter(payment_id=payment_id)
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        return qs
+
+
+class ProviderRefundRequestListView(generics.ListAPIView):
+    serializer_class = RefundRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return (
+            RefundRequest.objects
+            .select_related('payment', 'booking', 'requested_by', 'processed_by')
+            .filter(
+                Q(booking__guide=user) |
+                Q(booking__agency=user) |
+                Q(booking__accommodation__host=user)
+            )
+            .distinct()
+            .order_by('-request_date')
+        )
+
+
+class AdminRefundRequestListView(generics.ListAPIView):
+    serializer_class = RefundRequestSerializer
+    permission_classes = [IsSuperUser]
+
+    def get_queryset(self):
+        qs = RefundRequest.objects.select_related('payment', 'booking', 'requested_by', 'processed_by').order_by('-request_date')
+
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        return qs
+
+
+class RefundRequestDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self, refund_id, user):
+        refund_request = get_object_or_404(
+            RefundRequest.objects.select_related('payment', 'booking', 'requested_by', 'processed_by'),
+            id=refund_id,
+        )
+
+        if user.is_superuser:
+            return refund_request
+
+        provider = _booking_provider(refund_request.booking)
+        is_participant = refund_request.requested_by_id == user.id or (provider and provider.id == user.id)
+        if not is_participant:
+            raise PermissionDenied('You are not allowed to view this refund request.')
+
+        return refund_request
+
+    def get(self, request, refund_id):
+        refund_request = self.get_object(refund_id, request.user)
+        serializer = RefundRequestSerializer(refund_request, context={'request': request})
+        return Response(serializer.data)
+
+
+class RefundRequestCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        serializer = RefundRequestCreateSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+
+        payment = serializer.validated_data['payment']
+        booking = serializer.validated_data['booking']
+        requested_amount = serializer.validated_data['requested_amount']
+        reason = serializer.validated_data['reason']
+        proof_attachment = serializer.validated_data['proof_attachment']
+
+        refund_request = RefundRequest.objects.create(
+            payment=payment,
+            booking=booking,
+            requested_by=request.user,
+            reason=reason,
+            requested_amount=requested_amount,
+            proof_attachment=proof_attachment,
+            status='requested',
+        )
+
+        payment.refund_status = 'requested'
+        payment.save(update_fields=['refund_status'])
+
+        provider = _booking_provider(booking)
+        tourist_message = (
+            f"Your refund request for booking #{booking.id} was submitted and is waiting for admin review."
+        )
+        provider_message = (
+            f"Tourist {request.user.username} requested a refund for booking #{booking.id}."
+        )
+
+        _notify_user(
+            request.user,
+            title='Refund Request Submitted',
+            body=tourist_message,
+            related_model='RefundRequest',
+            related_object_id=refund_request.id,
+            alert_type='refund_requested',
+            event_key=f"refund-requested:{refund_request.id}:tourist",
+        )
+
+        if provider:
+            _notify_user(
+                provider,
+                title='Refund Requested',
+                body=provider_message,
+                related_model='RefundRequest',
+                related_object_id=refund_request.id,
+                alert_type='refund_requested',
+                event_key=f"refund-requested:{refund_request.id}:provider",
+            )
+
+        admins = User.objects.filter(is_superuser=True).exclude(id=request.user.id)
+        admin_emails = []
+        for admin in admins:
+            admin_msg = f"New refund request #{refund_request.id} for booking #{booking.id} requires review."
+            _notify_user(
+                admin,
+                title='New Refund Request',
+                body=admin_msg,
+                related_model='RefundRequest',
+                related_object_id=refund_request.id,
+                alert_type='refund_review_required',
+                event_key=f"refund-requested:{refund_request.id}:admin:{admin.id}",
+            )
+            if admin.email:
+                admin_emails.append(admin.email)
+
+        _safe_send_mail(
+            subject=f"LocaLynk Refund Request Received - #{refund_request.id}",
+            plain_message=(
+                f"Hi {request.user.first_name or request.user.username},\n\n"
+                f"We received your refund request for booking #{booking.id}.\n"
+                f"Requested amount: PHP {requested_amount}\n"
+                f"Reason: {reason}\n\n"
+                "Our team is now reviewing your request."
+            ),
+            recipient_list=[request.user.email] if request.user.email else [],
+        )
+
+        _safe_send_mail(
+            subject=f"New Refund Request Needs Review - #{refund_request.id}",
+            plain_message=(
+                f"A new refund request was submitted.\n\n"
+                f"Refund ID: {refund_request.id}\n"
+                f"Booking ID: {booking.id}\n"
+                f"Tourist: {request.user.username}\n"
+                f"Requested amount: PHP {requested_amount}\n"
+                f"Reason: {reason}\n"
+            ),
+            recipient_list=admin_emails,
+        )
+
+        return Response(
+            RefundRequestSerializer(refund_request, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RefundRequestProcessView(APIView):
+    permission_classes = [IsSuperUser]
+    parser_classes = (JSONParser,)
+
+    @transaction.atomic
+    def post(self, request, refund_id):
+        refund_request = get_object_or_404(
+            RefundRequest.objects.select_related('payment', 'booking', 'requested_by'),
+            id=refund_id,
+        )
+
+        serializer = RefundProcessSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        action = serializer.validated_data['action']
+        admin_notes = (serializer.validated_data.get('admin_notes') or '').strip()
+        payment = refund_request.payment
+        booking = refund_request.booking
+        now = timezone.now()
+
+        default_amount = refund_request.approved_amount or refund_request.requested_amount
+        final_amount = serializer.validated_data.get('approved_amount', default_amount)
+        final_amount = Decimal(final_amount).quantize(Decimal('0.01'))
+
+        if action in ('approve', 'complete'):
+            if final_amount <= 0:
+                raise DRFValidationError({'approved_amount': 'Approved amount must be greater than zero.'})
+            if final_amount > payment.amount:
+                raise DRFValidationError({'approved_amount': 'Approved amount cannot exceed paid downpayment.'})
+
+        if action == 'under_review':
+            if refund_request.status != 'requested':
+                raise DRFValidationError({'detail': 'Only requested refunds can move to under review.'})
+            refund_request.status = 'under_review'
+            refund_request.processed_by = request.user
+            refund_request.process_date = now
+            if admin_notes:
+                refund_request.admin_notes = admin_notes
+            refund_request.save(update_fields=['status', 'processed_by', 'process_date', 'admin_notes'])
+
+            payment.refund_status = 'under_review'
+            payment.save(update_fields=['refund_status'])
+
+            notify_title = 'Refund Under Review'
+            tourist_body = f"Your refund request #{refund_request.id} is now under review."
+            provider_body = f"Refund request #{refund_request.id} is under admin review."
+
+        elif action == 'approve':
+            if refund_request.status not in {'requested', 'under_review'}:
+                raise DRFValidationError({'detail': 'Only requested or under-review refunds can be approved.'})
+
+            refund_request.status = 'approved'
+            refund_request.approved_amount = final_amount
+            refund_request.processed_by = request.user
+            refund_request.process_date = now
+            if admin_notes:
+                refund_request.admin_notes = admin_notes
+            refund_request.save(update_fields=['status', 'approved_amount', 'processed_by', 'process_date', 'admin_notes'])
+
+            payment.refund_status = 'approved'
+            payment.save(update_fields=['refund_status'])
+
+            if booking and booking.status not in {'Completed', 'Refunded', 'Cancelled'}:
+                booking.status = 'Cancelled'
+                booking.save(update_fields=['status'])
+
+            notify_title = 'Refund Approved'
+            tourist_body = f"Your refund request #{refund_request.id} was approved for PHP {final_amount}."
+            provider_body = f"Refund request #{refund_request.id} was approved by admin."
+
+        elif action == 'reject':
+            if refund_request.status not in {'requested', 'under_review', 'approved'}:
+                raise DRFValidationError({'detail': 'Only open refunds can be rejected.'})
+
+            refund_request.status = 'rejected'
+            refund_request.processed_by = request.user
+            refund_request.process_date = now
+            if admin_notes:
+                refund_request.admin_notes = admin_notes
+            refund_request.save(update_fields=['status', 'processed_by', 'process_date', 'admin_notes'])
+
+            payment.refund_status = 'rejected'
+            payment.save(update_fields=['refund_status'])
+
+            notify_title = 'Refund Rejected'
+            reason_suffix = f" Reason: {admin_notes}" if admin_notes else ''
+            tourist_body = f"Your refund request #{refund_request.id} was rejected.{reason_suffix}"
+            provider_body = f"Refund request #{refund_request.id} was rejected by admin."
+
+        elif action == 'complete':
+            if refund_request.status not in {'approved', 'under_review', 'requested'}:
+                raise DRFValidationError({'detail': 'Refund can only be completed from an open or approved state.'})
+
+            gateway_response = None
+            gateway_refund_id = None
+
+            if payment.gateway_payment_id:
+                try:
+                    gateway_result = create_gateway_refund(
+                        payment_id=payment.gateway_payment_id,
+                        amount=final_amount,
+                        reason='requested_by_customer',
+                        notes=admin_notes,
+                    )
+                    gateway_refund_id = gateway_result.get('refund_id')
+                    gateway_response = gateway_result.get('raw')
+                except RuntimeError as exc:
+                    raise DRFValidationError({'detail': str(exc)})
+            else:
+                gateway_response = {
+                    'manual_processing': True,
+                    'note': 'Gateway payment ID missing. Completed manually by admin.',
+                }
+
+            refund_request.status = 'completed'
+            refund_request.approved_amount = final_amount
+            refund_request.processed_by = request.user
+            refund_request.process_date = refund_request.process_date or now
+            refund_request.completed_date = now
+            refund_request.gateway_refund_id = gateway_refund_id
+            refund_request.gateway_response = gateway_response
+            if admin_notes:
+                refund_request.admin_notes = admin_notes
+            refund_request.save(
+                update_fields=[
+                    'status',
+                    'approved_amount',
+                    'processed_by',
+                    'process_date',
+                    'completed_date',
+                    'gateway_refund_id',
+                    'gateway_response',
+                    'admin_notes',
+                ]
+            )
+
+            payment.refund_status = 'completed'
+            payment.refunded_amount = final_amount
+            payment.refunded_at = now
+            payment.status = 'refunded'
+            payment.save(update_fields=['refund_status', 'refunded_amount', 'refunded_at', 'status'])
+
+            if booking and booking.status != 'Refunded':
+                booking.status = 'Refunded'
+                booking.save(update_fields=['status'])
+
+            notify_title = 'Refund Completed'
+            tourist_body = f"Your refund for booking #{booking.id if booking else 'N/A'} has been completed (PHP {final_amount})."
+            provider_body = f"Refund for booking #{booking.id if booking else 'N/A'} has been completed."
+
+        else:
+            raise DRFValidationError({'action': 'Unsupported action.'})
+
+        provider = _booking_provider(booking)
+        _notify_user(
+            refund_request.requested_by,
+            title=notify_title,
+            body=tourist_body,
+            related_model='RefundRequest',
+            related_object_id=refund_request.id,
+            alert_type=f"refund_{action}",
+            event_key=f"refund-{action}:{refund_request.id}:tourist",
+        )
+
+        if provider:
+            _notify_user(
+                provider,
+                title=notify_title,
+                body=provider_body,
+                related_model='RefundRequest',
+                related_object_id=refund_request.id,
+                alert_type=f"refund_{action}",
+                event_key=f"refund-{action}:{refund_request.id}:provider",
+            )
+
+        _safe_send_mail(
+            subject=f"LocaLynk Refund Update - #{refund_request.id}",
+            plain_message=(
+                f"Hi {refund_request.requested_by.first_name or refund_request.requested_by.username},\n\n"
+                f"{tourist_body}\n"
+                f"Status: {refund_request.status}\n"
+                f"Booking ID: {booking.id if booking else 'N/A'}\n"
+            ),
+            recipient_list=[refund_request.requested_by.email] if refund_request.requested_by.email else [],
+        )
+
+        response_serializer = RefundRequestSerializer(refund_request, context={'request': request})
+        return Response(response_serializer.data, status=status.HTTP_200_OK)

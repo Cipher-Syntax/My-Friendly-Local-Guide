@@ -74,3 +74,48 @@ def retrieve_checkout_session(checkout_session_id):
         return response.json()
     except RequestException:
         return None
+
+
+def create_refund(payment_id: str, amount: Decimal, reason: str = "requested_by_customer", notes: str = ""):
+    if not PAYMONGO_SECRET_KEY:
+        raise RuntimeError("PayMongo Secret Key is not configured.")
+
+    if not payment_id:
+        raise RuntimeError("Gateway payment ID is required to create a refund.")
+
+    auth_tuple = (PAYMONGO_SECRET_KEY, "")
+    headers = {"Content-Type": "application/json"}
+    amount_in_centavos = int(amount.quantize(Decimal('0.01')) * 100)
+
+    payload = {
+        "data": {
+            "attributes": {
+                "amount": amount_in_centavos,
+                "payment_id": payment_id,
+                "reason": reason,
+                "notes": notes or "Refund processed by LocaLynk admin",
+            }
+        }
+    }
+
+    try:
+        response = requests.post(
+            f"{PAYMONGO_API_URL}/refunds",
+            json=payload,
+            headers=headers,
+            auth=auth_tuple,
+        )
+
+        if not response.ok:
+            data = response.json()
+            detail = data.get('errors', [{}])[0].get('detail', 'Unknown Error')
+            raise RuntimeError(f"Refund Error: {detail}")
+
+        data = response.json()
+        return {
+            "refund_id": data.get('data', {}).get('id'),
+            "status": data.get('data', {}).get('attributes', {}).get('status'),
+            "raw": data,
+        }
+    except RequestException as e:
+        raise RuntimeError(f"Network Error while creating refund: {e}")
