@@ -940,14 +940,8 @@ class RefundRequestCreateView(APIView):
         payment.refund_status = 'requested'
         payment.save(update_fields=['refund_status'])
 
-        provider = _booking_provider(booking)
-        booking_label = _booking_label(booking)
-        tourist_display_name = request.user.get_full_name().strip() or request.user.username
         tourist_message = (
             f"Your refund request for booking #{booking.id} was submitted and is waiting for admin review."
-        )
-        provider_message = (
-            f"Tourist {request.user.username} requested a refund for booking #{booking.id}."
         )
 
         _notify_user(
@@ -959,82 +953,6 @@ class RefundRequestCreateView(APIView):
             alert_type='refund_requested',
             event_key=f"refund-requested:{refund_request.id}:tourist",
         )
-
-        if provider:
-            if _is_agency_user(provider):
-                provider_dashboard_url = _agency_dashboard_url(booking_id=booking.id, refund_id=refund_request.id)
-                provider_name = provider.first_name or provider.username
-
-                _safe_send_mail(
-                    subject=f"Refund Requested For Booking #{booking.id}",
-                    plain_message=(
-                        f"Hi {provider_name},\n\n"
-                        f"A refund request was submitted for booking #{booking.id} ({booking_label}).\n"
-                        f"Tourist: {tourist_display_name}\n"
-                        f"Requested amount: PHP {requested_amount}\n"
-                        f"Reason: {reason}\n\n"
-                        f"Open your agency dashboard for details: {provider_dashboard_url}"
-                    ),
-                    recipient_list=[provider.email] if provider.email else [],
-                    html_message=_build_refund_email_html(
-                        heading='LocaLynk Agency Refund Notice',
-                        subheading='New Refund Request From Tourist',
-                        recipient_name=provider_name,
-                        intro_message='A tourist submitted a refund request for one of your agency bookings.',
-                        detail_rows=[
-                            ('Refund ID', f"#{refund_request.id}"),
-                            ('Booking ID', f"#{booking.id}"),
-                            ('Booking', booking_label),
-                            ('Tourist', tourist_display_name),
-                            ('Requested Amount', _format_php(requested_amount)),
-                            ('Reason', reason),
-                        ],
-                        status_label='Requested',
-                        accent_color=_refund_status_color('requested'),
-                        cta_label='View Agency Dashboard',
-                        cta_url=provider_dashboard_url,
-                        cta_hint=f"Open Bookings Management and search Booking #{booking.id}.",
-                    ),
-                )
-            else:
-                provider_name = provider.first_name or provider.username
-                _notify_user(
-                    provider,
-                    title='Refund Requested',
-                    body=provider_message,
-                    related_model='RefundRequest',
-                    related_object_id=refund_request.id,
-                    alert_type='refund_requested',
-                    event_key=f"refund-requested:{refund_request.id}:provider",
-                )
-
-                _safe_send_mail(
-                    subject=f"Refund Requested For Booking #{booking.id}",
-                    plain_message=(
-                        f"Hi {provider_name},\n\n"
-                        f"A refund request was submitted for booking #{booking.id} ({booking_label}).\n"
-                        f"Tourist: {tourist_display_name}\n"
-                        f"Requested amount: PHP {requested_amount}\n"
-                        f"Reason: {reason}\n"
-                    ),
-                    recipient_list=[provider.email] if provider.email else [],
-                    html_message=_build_refund_email_html(
-                        heading='LocaLynk Provider Refund Notice',
-                        subheading='New Refund Request From Tourist',
-                        recipient_name=provider_name,
-                        intro_message=provider_message,
-                        detail_rows=[
-                            ('Refund ID', f"#{refund_request.id}"),
-                            ('Booking ID', f"#{booking.id}"),
-                            ('Booking', booking_label),
-                            ('Tourist', tourist_display_name),
-                            ('Requested Amount', _format_php(requested_amount)),
-                            ('Reason', reason),
-                        ],
-                        status_label='Requested',
-                        accent_color=_refund_status_color('requested'),
-                    ),
-                )
 
         admins = User.objects.filter(is_superuser=True).exclude(id=request.user.id)
         admin_emails = []
@@ -1274,6 +1192,7 @@ class RefundRequestProcessView(APIView):
         admin_notes_line = f"\nAdmin Notes: {admin_notes_text}" if admin_notes_text else ''
 
         provider = _booking_provider(booking)
+        provider_notification_allowed = action in {'approve', 'complete'}
         _notify_user(
             refund_request.requested_by,
             title=notify_title,
@@ -1284,7 +1203,7 @@ class RefundRequestProcessView(APIView):
             event_key=f"refund-{action}:{refund_request.id}:tourist",
         )
 
-        if provider:
+        if provider and provider_notification_allowed:
             if _is_agency_user(provider):
                 provider_dashboard_url = _agency_dashboard_url(
                     booking_id=booking.id if booking else None,

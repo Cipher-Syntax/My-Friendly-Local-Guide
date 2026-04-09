@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 
 from accommodation_booking.models import Booking
 from destinations_and_attractions.models import Destination
+from system_management_module.models import SystemAlert
 
 from .models import Payment, RefundRequest
 from .serializers import PaymentInitiationSerializer
@@ -266,3 +267,87 @@ class RefundApiTests(TestCase):
 		response = self.client.get(reverse("refund-detail", args=[refund.id]))
 
 		self.assertEqual(response.status_code, 403)
+
+	def test_provider_not_notified_on_request_under_review_or_reject(self):
+		self.client.force_authenticate(user=self.tourist)
+		create_response = self.client.post(
+			reverse("refund-request"),
+			{
+				"booking_id": self.booking.id,
+				"reason": "Schedule conflict before trip.",
+				"requested_amount": "1800.00",
+				"proof_attachment": self._proof_file("proof6.png"),
+			},
+			format="multipart",
+		)
+
+		self.assertEqual(create_response.status_code, 201)
+		refund_id = create_response.json().get("id")
+
+		self.assertFalse(
+			SystemAlert.objects.filter(
+				recipient=self.guide,
+				related_model="RefundRequest",
+				related_object_id=refund_id,
+			).exists()
+		)
+
+		self.client.force_authenticate(user=self.admin)
+		under_review_response = self.client.post(
+			reverse("refund-process", args=[refund_id]),
+			{"action": "under_review", "admin_notes": "Verifying details."},
+			format="json",
+		)
+		self.assertEqual(under_review_response.status_code, 200)
+
+		reject_response = self.client.post(
+			reverse("refund-process", args=[refund_id]),
+			{"action": "reject", "admin_notes": "Not eligible under current policy."},
+			format="json",
+		)
+		self.assertEqual(reject_response.status_code, 200)
+
+		self.assertFalse(
+			SystemAlert.objects.filter(
+				recipient=self.guide,
+				related_model="RefundRequest",
+				related_object_id=refund_id,
+			).exists()
+		)
+
+	def test_provider_notified_on_approved_and_completed_only(self):
+		refund = RefundRequest.objects.create(
+			payment=self.payment,
+			booking=self.booking,
+			requested_by=self.tourist,
+			reason="Provider cancelled itinerary.",
+			requested_amount=Decimal("2400.00"),
+			proof_attachment=self._proof_file("proof7.png"),
+		)
+
+		self.client.force_authenticate(user=self.admin)
+		approve_response = self.client.post(
+			reverse("refund-process", args=[refund.id]),
+			{"action": "approve", "approved_amount": "2400.00", "admin_notes": "Approved by admin."},
+			format="json",
+		)
+		self.assertEqual(approve_response.status_code, 200)
+
+		complete_response = self.client.post(
+			reverse("refund-process", args=[refund.id]),
+			{"action": "complete", "approved_amount": "2400.00", "admin_notes": "Refund sent."},
+			format="json",
+		)
+		self.assertEqual(complete_response.status_code, 200)
+
+		provider_titles = list(
+			SystemAlert.objects.filter(
+				recipient=self.guide,
+				related_model="RefundRequest",
+				related_object_id=refund.id,
+			)
+			.order_by("created_at")
+			.values_list("title", flat=True)
+		)
+
+		self.assertEqual(provider_titles, ["Refund Approved", "Refund Completed"])
