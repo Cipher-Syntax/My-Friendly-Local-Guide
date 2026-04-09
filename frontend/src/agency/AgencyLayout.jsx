@@ -87,7 +87,7 @@ export default function AgencyLayout() {
 
             const unread = payload.reduce((sum, item) => sum + Number(item?.unread_count || 0), 0);
             setUnreadMessages(unread);
-        } catch (error) {
+        } catch {
             setUnreadMessages(0);
         }
     }, []);

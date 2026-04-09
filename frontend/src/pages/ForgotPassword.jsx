@@ -77,7 +77,7 @@ const ForgotPassword = () => {
                             filter: 'drop-shadow(0 0 10px rgba(14, 116, 144, 0.35))'
                         }}
                     >
-                        <Icon size={size} strokeWidth={1.5} />
+                        {Icon && <Icon size={size} strokeWidth={1.5} />}
                     </div>
                 ))}
             </div>

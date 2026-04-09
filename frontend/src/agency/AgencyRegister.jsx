@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Globe, ArrowRight, Loader2, Upload, CheckCircle, ShieldCheck, Mail, User, Lock, Building2, Phone, Briefcase } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api from '../api/api';
 import { formatPHPhoneLocal, normalizePHPhone } from '../utils/phoneNumber';
 
 const AgencyRegister = () => {
-    const navigate = useNavigate();
     const [isRegistered, setIsRegistered] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);

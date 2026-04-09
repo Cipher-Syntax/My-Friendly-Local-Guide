@@ -130,7 +130,7 @@ const ProtectedRoute = ({ children, requiredRole = null, redirectTo = '/' }) => 
             } else {
                 await finalizeAuthorization(token);
             }
-        } catch (error) {
+        } catch {
             await refreshToken();
         }
     }

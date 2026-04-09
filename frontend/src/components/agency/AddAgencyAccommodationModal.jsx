@@ -94,13 +94,6 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
         setError('');
     };
 
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
-    };
 
     const handleImageChange = (type, e) => {
         const file = e.target.files[0];

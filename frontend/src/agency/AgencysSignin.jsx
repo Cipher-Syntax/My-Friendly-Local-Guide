@@ -130,7 +130,7 @@ const Agencysignin = () => {
                             filter: 'drop-shadow(0 0 10px rgba(99, 102, 241, 0.3))'
                         }}
                     >
-                        <Icon size={size} strokeWidth={1.5} />
+                        {Icon && <Icon size={size} strokeWidth={1.5} />}
                     </div>
                 ))}
             </div>

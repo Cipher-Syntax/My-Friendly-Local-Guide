@@ -6,7 +6,7 @@ import api from '../../api/api';
 import { Loader2 } from 'lucide-react';
 
 // Reusable Stat Card Component
-const StatCard = ({ title, value, subtext, icon: Icon, color, trend }) => (
+const StatCard = ({ title, value, subtext, trend }) => (
     <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-6 relative overflow-hidden shadow-sm">
         <div className="flex items-start justify-between">
             <div>
@@ -14,9 +14,7 @@ const StatCard = ({ title, value, subtext, icon: Icon, color, trend }) => (
                 <h3 className="text-4xl font-bold text-slate-900 dark:text-white mt-2">{value}</h3>
                 <p className="text-slate-500 dark:text-slate-500 text-sm mt-1">{subtext}</p>
             </div>
-            <div className={`p-4 rounded-xl bg-${color}-100 dark:bg-${color}-500/10`}>
-                <Icon className={`w-8 h-8 text-${color}-600 dark:text-${color}-400`} />
-            </div>
+            {/* Icon removed since it was not used */}
         </div>
         {trend && (
             <div className={`flex items-center gap-1 mt-6 text-sm font-medium ${trend >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
@@ -224,8 +222,6 @@ export default function ReportsAndAnalysis() {
                     title="Total Volume"
                     value={`₱ ${processedData.totalRevenue.toLocaleString()}`}
                     subtext={`Gross booking value (${filter} view)`}
-                    icon={PhilippinePeso}
-                    color="emerald"
                     trend={12.5} // Simulated positive trend
                 />
             </div>

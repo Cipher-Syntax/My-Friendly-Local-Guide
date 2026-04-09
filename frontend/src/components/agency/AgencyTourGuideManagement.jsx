@@ -9,7 +9,6 @@ export default function AgencyTourGuideManagement({
     openAddGuideModal,
     openEditGuideModal, // Added edit handler prop
     handleRemoveGuide,
-    getStatusBg,
     isPremium,
     guideLimit,
     totalGuidesCount

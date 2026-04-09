@@ -232,7 +232,7 @@ export default function PaymentsManagement() {
                     {subValue && <p className="text-sm text-slate-500 mt-1">{subValue}</p>}
                 </div>
                 <div className={`p-3 rounded-lg bg-${color}-100 dark:bg-${color}-500/10 text-${color}-600 dark:text-${color}-400`}>
-                    <Icon className="w-6 h-6" />
+                    {Icon && <Icon className="w-6 h-6" />}
                 </div>
             </div>
         </div>

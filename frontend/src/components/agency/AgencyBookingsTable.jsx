@@ -942,7 +942,7 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                         try {
                                             await deleteBooking(selectedBookingForDelete.id);
                                             showToast("Booking deleted successfully.", "success");
-                                        } catch (e) {
+                                        } catch {
                                             showToast("Failed to delete booking.", "error");
                                         }
                                     } else {

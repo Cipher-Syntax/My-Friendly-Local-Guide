@@ -248,20 +248,20 @@ const Agencysignin = () => {
                     style={{ animationDelay: '2s', transform: `translate(${mousePosition.x * -1}px, ${mousePosition.y}px)` }}
                 />
 
-                {floatingIcons.map(({ Icon, top, left, delay, size, opacity }, idx) => (
+                {floatingIcons.map((iconProps, idx) => (
                     <div
                         key={idx}
                         className="absolute text-sky-700/35 dark:text-cyan-200"
                         style={{
-                            top,
-                            left,
-                            opacity: opacity * 2,
+                            top: iconProps.top,
+                            left: iconProps.left,
+                            opacity: iconProps.opacity * 2,
                             animation: `float 8s ease-in-out infinite`,
-                            animationDelay: delay,
+                            animationDelay: iconProps.delay,
                             filter: 'drop-shadow(0 0 10px rgba(14, 116, 144, 0.35))'
                         }}
                     >
-                        <Icon size={size} strokeWidth={1.5} />
+                        <iconProps.Icon size={iconProps.size} strokeWidth={1.5} />
                     </div>
                 ))}
             </div>

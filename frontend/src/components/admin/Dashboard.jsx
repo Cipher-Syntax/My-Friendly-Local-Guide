@@ -37,7 +37,7 @@ const StatCard = ({ title, value, subtext, icon: Icon, color }) => {
                 {subtext && <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">{subtext}</p>}
             </div>
             <div className={`p-3 rounded-xl group-hover:scale-110 transition-transform ${palette.icon}`}>
-                <Icon className="w-6 h-6" />
+                {Icon && <Icon className="w-6 h-6" />}
             </div>
         </div>
         <div className={`absolute -bottom-4 -right-4 w-24 h-24 rounded-full blur-2xl transition-colors pointer-events-none ${palette.glow}`}></div>

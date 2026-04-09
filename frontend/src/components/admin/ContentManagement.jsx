@@ -23,7 +23,6 @@ export default function ContentManagement() {
     const [isCreating, setIsCreating] = useState(false);
 
     const [isAttractionModalOpen, setIsAttractionModalOpen] = useState(false);
-    const [targetDestId, setTargetDestId] = useState(null);
     const [newAttraction, setNewAttraction] = useState({
         name: '', description: '', photo: null
     });
@@ -192,49 +191,9 @@ export default function ContentManagement() {
     };
 
     const handleCreateAttraction = async () => {
-        if (!targetDestId || !newAttraction.name || !newAttraction.photo) {
-            showToast("Please provide a name and an image.", "error");
-            return;
-        }
-
-        try {
-            const formData = new FormData();
-            formData.append('destination', targetDestId);
-            formData.append('name', newAttraction.name);
-            formData.append('description', newAttraction.description);
-            formData.append('photo', newAttraction.photo);
-
-            const response = await api.post('api/attractions/', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-
-            const createdAttraction = response.data;
-
-            showToast("Attraction added successfully!", "success");
-
-            setDestinations(prev => prev.map(s => {
-                if (s.id === targetDestId) {
-                    return {
-                        ...s,
-                        attractions: [...s.attractions, createdAttraction],
-                        attractionsCount: s.attractionsCount + 1
-                    };
-                }
-                return s;
-            }));
-
-            setIsAttractionModalOpen(false);
-            setNewAttraction({ name: '', description: '', photo: null });
-        } catch (error) {
-            console.error("Failed to add attraction:", error);
-            showToast("Failed to add attraction.", "error");
-        }
+        showToast("Attraction feature is currently disabled.", "error");
     };
 
-    const openAddAttractionModal = (destinationId) => {
-        setTargetDestId(destinationId);
-        setIsAttractionModalOpen(true);
-    };
 
     const handleUpdate = async () => {
         if (!editingSpot) return;

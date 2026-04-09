@@ -9,11 +9,7 @@ export default function AgencyDashboardContent({
     avgRating = 0,
     completedTours = 0,
     activeGuides = 0,
-    getStatusBg,
-    downPaymentPercentage = 30,
-    setDownPaymentPercentage = () => { },
-    handleUpdateDownPayment = () => { },
-    isSavingSettings = false
+    getStatusBg
 }) {
     const [filter, setFilter] = useState('Daily');
 
