@@ -282,7 +282,7 @@ const Agencysignin = () => {
                                 <Globe size={14} />Partner Portal
                             </h3>
                             <h1 className="text-4xl lg:text-5xl zam-title tracking-tight text-slate-900 dark:text-white">
-                                LocalLynk
+                                LocaLynk
                             </h1>
                         </div>
                     </div>
