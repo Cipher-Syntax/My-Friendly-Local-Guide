@@ -121,7 +121,7 @@ const AgencyRegister = () => {
                         <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg mb-6" style={{ background: 'linear-gradient(120deg, var(--zam-sea), var(--zam-coral))' }}>
                             <Globe size={24} className="text-white" />
                         </div>
-                        <h1 className="text-3xl zam-title mb-2 text-slate-900 dark:text-white">Partner with <br /> <span className="text-sky-700 dark:text-cyan-300">LocalLynk</span></h1>
+                        <h1 className="text-3xl zam-title mb-2 text-slate-900 dark:text-white">Partner with <br /> <span className="text-sky-700 dark:text-cyan-300">LocaLynk</span></h1>
                         <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed font-medium">
                             Join the agency partner network to manage tours, guides, and bookings in one place.
                         </p>
