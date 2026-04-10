@@ -83,9 +83,11 @@ class BookingSerializer(serializers.ModelSerializer):
     accommodation_detail = AccommodationSerializer(source='accommodation', read_only=True)
     guide_detail = serializers.SerializerMethodField(read_only=True)
     agency_detail = serializers.SerializerMethodField(read_only=True)
+    provider_payout_account = serializers.SerializerMethodField(read_only=True)
     destination_detail = SimpleDestinationSerializer(source='destination', read_only=True)
     tour_package_detail = serializers.SerializerMethodField(read_only=True)
     refund_status = serializers.SerializerMethodField(read_only=True)
+    payout_processed_by_detail = serializers.SerializerMethodField(read_only=True)
     
     assigned_guides_detail = serializers.SerializerMethodField(read_only=True)
     assigned_agency_guides_detail = serializers.SerializerMethodField(read_only=True)
@@ -95,7 +97,7 @@ class BookingSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'tourist_id', 'tourist_username', 'tourist_detail', # ADDED tourist_detail
             'accommodation', 'guide', 'agency', 'destination', 'tour_package',
-            'accommodation_detail', 'guide_detail', 'agency_detail', 'destination_detail', 'tour_package_detail',
+            'accommodation_detail', 'guide_detail', 'agency_detail', 'provider_payout_account', 'destination_detail', 'tour_package_detail',
             'assigned_guides', 'assigned_guides_detail',
             'assigned_agency_guides', 'assigned_agency_guides_detail',
 
@@ -106,7 +108,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'downpayment_paid_at', 'balance_paid_at',
             
             'platform_fee', 'guide_payout_amount', 'is_payout_settled',
-            'payout_settled_at', 'payout_channel', 'payout_reference_id', 'payout_processed_by',
+            'payout_settled_at', 'payout_channel', 'payout_reference_id', 'payout_processed_by', 'payout_processed_by_detail',
             
             'meetup_location', 'meetup_time', 'meetup_instructions',
             
@@ -157,6 +159,50 @@ class BookingSerializer(serializers.ModelSerializer):
                 data['logo'] = logo_url
             return data
         return None
+
+    def _is_admin_request(self):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        return bool(user and user.is_authenticated and (user.is_staff or user.is_superuser))
+
+    def get_provider_payout_account(self, obj):
+        if not self._is_admin_request():
+            return None
+
+        provider = obj.guide or obj.agency or (obj.accommodation.host if obj.accommodation and obj.accommodation.host else None)
+        if not provider:
+            return None
+
+        payout_account = {
+            'provider_id': provider.id,
+            'provider_username': provider.username,
+            'account_type': provider.payout_account_type,
+            'account_name': provider.payout_account_name,
+            'account_number': provider.payout_account_number,
+            'notes': provider.payout_account_notes,
+        }
+
+        if not any([
+            payout_account['account_type'],
+            payout_account['account_name'],
+            payout_account['account_number'],
+            payout_account['notes'],
+        ]):
+            return None
+
+        return payout_account
+
+    def get_payout_processed_by_detail(self, obj):
+        if not obj.payout_processed_by:
+            return None
+
+        user = obj.payout_processed_by
+        full_name = f"{user.first_name} {user.last_name}".strip() or user.username
+        return {
+            'id': user.id,
+            'username': user.username,
+            'full_name': full_name,
+        }
 
     def get_tour_package_detail(self, obj):
         if not obj.guide and not obj.agency:

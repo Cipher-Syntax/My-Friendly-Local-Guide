@@ -1,57 +1,176 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { PhilippinePeso, Clock, CheckCircle, Receipt, ArrowRight } from 'lucide-react';
 
+const DEFAULT_FILTERS = {
+    searchTerm: '',
+    statusFilter: 'all',
+    dateRangeFilter: 'all',
+    sortBy: 'latest',
+    minAmount: '',
+    maxAmount: '',
+};
+
+const toNumber = (value) => {
+    const parsed = parseFloat(value || 0);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
 export default function AgencyEarnings({ bookings }) {
-    const stats = useMemo(() => {
-        let total = 0;
-        let pending = 0;
-        let settled = 0;
+    const [draftFilters, setDraftFilters] = useState(DEFAULT_FILTERS);
+    const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
+
+    const updateDraftFilter = (key, value) => {
+        setDraftFilters((prev) => ({ ...prev, [key]: value }));
+    };
+
+    const hasPendingFilterChanges = useMemo(() => {
+        const normalize = (value) => String(value || '').trim();
+        return (
+            normalize(draftFilters.searchTerm) !== normalize(appliedFilters.searchTerm)
+            || draftFilters.statusFilter !== appliedFilters.statusFilter
+            || draftFilters.dateRangeFilter !== appliedFilters.dateRangeFilter
+            || draftFilters.sortBy !== appliedFilters.sortBy
+            || normalize(draftFilters.minAmount) !== normalize(appliedFilters.minAmount)
+            || normalize(draftFilters.maxAmount) !== normalize(appliedFilters.maxAmount)
+        );
+    }, [appliedFilters, draftFilters]);
+
+    const financialBookings = useMemo(() => {
         const validBookings = [];
 
-        bookings.forEach(booking => {
-            if (['accepted', 'confirmed', 'completed'].includes(booking.status?.toLowerCase())) {
-                const downPayment = parseFloat(booking.down_payment || 0);
-                const totalBookingPrice = parseFloat(booking.total_price || 0);
-                const commission = parseFloat(booking.platform_fee || (totalBookingPrice * 0.02));
+        bookings.forEach((booking) => {
+            if (['accepted', 'confirmed', 'completed'].includes(String(booking.status || '').toLowerCase())) {
+                const downPayment = toNumber(booking.down_payment);
+                const totalBookingPrice = toNumber(booking.total_price);
+                const commission = toNumber(booking.platform_fee || (totalBookingPrice * 0.02));
 
-                let payoutAmount = parseFloat(booking.agency_payout_amount || booking.guide_payout_amount || 0);
+                let payoutAmount = toNumber(booking.agency_payout_amount || booking.guide_payout_amount || 0);
 
                 if (payoutAmount === 0 && downPayment > 0) {
                     payoutAmount = downPayment - commission;
                 }
 
                 if (payoutAmount > 0) {
-                    total += payoutAmount;
-                    if (booking.is_payout_settled) {
-                        settled += payoutAmount;
-                    } else {
-                        pending += payoutAmount;
-                    }
+                    const touristDisplayName = [
+                        String(booking?.tourist_detail?.first_name || '').trim(),
+                        String(booking?.tourist_detail?.last_name || '').trim(),
+                    ].filter(Boolean).join(' ') || 'Guest';
+
+                    const createdAtTs = booking?.created_at ? new Date(booking.created_at).getTime() : 0;
+
                     validBookings.push({
                         ...booking,
+                        touristDisplayName,
                         payoutAmount,
                         totalBookingPrice,
                         downPayment,
                         commission,
-                        balance: totalBookingPrice - downPayment
+                        balance: totalBookingPrice - downPayment,
+                        destinationLabel: booking.destination_detail?.name || booking.location || 'Custom Tour',
+                        createdAtTs: Number.isFinite(createdAtTs) ? createdAtTs : 0,
                     });
                 }
             }
         });
 
-        // Sort by date descending
-        validBookings.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-
-        return { total, pending, settled, validBookings };
+        return validBookings;
     }, [bookings]);
+
+    const filteredBookings = useMemo(() => {
+        let rows = [...financialBookings];
+
+        const query = String(appliedFilters.searchTerm || '').trim().toLowerCase();
+        if (query) {
+            rows = rows.filter((booking) => (
+                String(booking.touristDisplayName || '').toLowerCase().includes(query)
+                || String(booking.destinationLabel || '').toLowerCase().includes(query)
+                || String(booking.id || '').includes(query)
+            ));
+        }
+
+        if (appliedFilters.statusFilter === 'pending') {
+            rows = rows.filter((booking) => !booking.is_payout_settled);
+        } else if (appliedFilters.statusFilter === 'settled') {
+            rows = rows.filter((booking) => !!booking.is_payout_settled);
+        }
+
+        if (appliedFilters.dateRangeFilter !== 'all') {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const threshold = new Date(now);
+
+            if (appliedFilters.dateRangeFilter === '7d') threshold.setDate(now.getDate() - 7);
+            if (appliedFilters.dateRangeFilter === '30d') threshold.setDate(now.getDate() - 30);
+            if (appliedFilters.dateRangeFilter === '90d') threshold.setDate(now.getDate() - 90);
+
+            const thresholdTs = threshold.getTime();
+            rows = rows.filter((booking) => booking.createdAtTs >= thresholdTs);
+        }
+
+        const minAmount = toNumber(String(appliedFilters.minAmount || '').trim());
+        const maxAmount = toNumber(String(appliedFilters.maxAmount || '').trim());
+
+        if (String(appliedFilters.minAmount || '').trim()) {
+            rows = rows.filter((booking) => booking.payoutAmount >= minAmount);
+        }
+        if (String(appliedFilters.maxAmount || '').trim()) {
+            rows = rows.filter((booking) => booking.payoutAmount <= maxAmount);
+        }
+
+        if (appliedFilters.sortBy === 'oldest') {
+            rows.sort((a, b) => a.createdAtTs - b.createdAtTs);
+        } else if (appliedFilters.sortBy === 'amount_desc') {
+            rows.sort((a, b) => b.payoutAmount - a.payoutAmount);
+        } else if (appliedFilters.sortBy === 'amount_asc') {
+            rows.sort((a, b) => a.payoutAmount - b.payoutAmount);
+        } else {
+            rows.sort((a, b) => b.createdAtTs - a.createdAtTs);
+        }
+
+        return rows;
+    }, [appliedFilters, financialBookings]);
+
+    const stats = useMemo(() => {
+        let total = 0;
+        let pending = 0;
+        let settled = 0;
+
+        filteredBookings.forEach((booking) => {
+            total += booking.payoutAmount;
+            if (booking.is_payout_settled) {
+                settled += booking.payoutAmount;
+            } else {
+                pending += booking.payoutAmount;
+            }
+        });
+
+        return { total, pending, settled };
+    }, [filteredBookings]);
 
     const formatDate = (dateString) => {
         if (!dateString) return 'Pending';
         return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
+    const applyFilters = () => {
+        setAppliedFilters({
+            searchTerm: String(draftFilters.searchTerm || '').trim(),
+            statusFilter: draftFilters.statusFilter,
+            dateRangeFilter: draftFilters.dateRangeFilter,
+            sortBy: draftFilters.sortBy,
+            minAmount: String(draftFilters.minAmount || '').trim(),
+            maxAmount: String(draftFilters.maxAmount || '').trim(),
+        });
+    };
+
+    const resetFilters = () => {
+        setDraftFilters(DEFAULT_FILTERS);
+        setAppliedFilters(DEFAULT_FILTERS);
+    };
+
     return (
         <div className="space-y-6 transition-colors duration-300">
+           
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Total Earnings Card */}
                 <div className="bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
@@ -95,6 +214,100 @@ export default function AgencyEarnings({ bookings }) {
                 </div>
             </div>
 
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Quick Filters</h3>
+                    {hasPendingFilterChanges && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                            Changes not applied
+                        </span>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    <input
+                        type="text"
+                        value={draftFilters.searchTerm}
+                        onChange={(e) => updateDraftFilter('searchTerm', e.target.value)}
+                        placeholder="Search tourist, destination, or booking ID"
+                        className="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-cyan-400"
+                    />
+
+                    <select
+                        value={draftFilters.statusFilter}
+                        onChange={(e) => updateDraftFilter('statusFilter', e.target.value)}
+                        className="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-cyan-400"
+                    >
+                        <option value="all">All payout statuses</option>
+                        <option value="pending">Pending payouts</option>
+                        <option value="settled">Settled payouts</option>
+                    </select>
+
+                    <select
+                        value={draftFilters.dateRangeFilter}
+                        onChange={(e) => updateDraftFilter('dateRangeFilter', e.target.value)}
+                        className="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-cyan-400"
+                    >
+                        <option value="all">All time</option>
+                        <option value="7d">Last 7 days</option>
+                        <option value="30d">Last 30 days</option>
+                        <option value="90d">Last 90 days</option>
+                    </select>
+
+                    <select
+                        value={draftFilters.sortBy}
+                        onChange={(e) => updateDraftFilter('sortBy', e.target.value)}
+                        className="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-cyan-400"
+                    >
+                        <option value="latest">Sort: Latest</option>
+                        <option value="oldest">Sort: Oldest</option>
+                        <option value="amount_desc">Sort: Highest amount</option>
+                        <option value="amount_asc">Sort: Lowest amount</option>
+                    </select>
+
+                    <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={draftFilters.minAmount}
+                        onChange={(e) => updateDraftFilter('minAmount', e.target.value)}
+                        placeholder="Min payout amount"
+                        className="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-cyan-400"
+                    />
+
+                    <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={draftFilters.maxAmount}
+                        onChange={(e) => updateDraftFilter('maxAmount', e.target.value)}
+                        placeholder="Max payout amount"
+                        className="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-cyan-400"
+                    />
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={applyFilters}
+                        disabled={!hasPendingFilterChanges}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition ${hasPendingFilterChanges ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-300 text-white cursor-not-allowed'}`}
+                    >
+                        {hasPendingFilterChanges ? 'Apply Filters' : 'Applied'}
+                    </button>
+
+                    <button
+                        onClick={resetFilters}
+                        className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100"
+                    >
+                        Reset Filters
+                    </button>
+
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-auto">
+                        Showing {filteredBookings.length} of {financialBookings.length} transactions
+                    </p>
+                </div>
+            </div>
+
             {/* Transaction History */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                 <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-700">
@@ -102,8 +315,8 @@ export default function AgencyEarnings({ bookings }) {
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">Chronological record of down payments and balances.</p>
                 </div>
                 <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {stats.validBookings.length > 0 ? (
-                        stats.validBookings.map(booking => (
+                    {filteredBookings.length > 0 ? (
+                        filteredBookings.map(booking => (
                             <div key={booking.id} className="p-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                     <div className="flex items-center gap-4">
@@ -112,10 +325,10 @@ export default function AgencyEarnings({ bookings }) {
                                         </div>
                                         <div>
                                             <p className="font-bold text-slate-900 dark:text-white">
-                                                {booking.destination_detail?.name || booking.location || "Custom Tour"}
+                                                {booking.destinationLabel}
                                             </p>
                                             <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                                                {booking.tourist_username || "Guest"} • Booking ID: #{booking.id}
+                                                {booking.touristDisplayName} • Booking ID: #{booking.id}
                                             </p>
                                         </div>
                                     </div>
@@ -128,6 +341,16 @@ export default function AgencyEarnings({ bookings }) {
                                         </span>
                                     </div>
                                 </div>
+
+                                {booking.is_payout_settled && (booking.payout_channel || booking.payout_reference_id || booking.payout_settled_at) && (
+                                    <div className="mt-3 ml-16 sm:ml-0 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                                        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                            {booking.payout_channel && <span>Channel: {booking.payout_channel}</span>}
+                                            {booking.payout_reference_id && <span>Reference: {booking.payout_reference_id}</span>}
+                                            {booking.payout_settled_at && <span>Settled At: {new Date(booking.payout_settled_at).toLocaleString()}</span>}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* --- REVISION 12: CHRONOLOGICAL TIMELINE LEDGER --- */}
                                 <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-700/50 ml-16 sm:ml-0">
@@ -188,8 +411,12 @@ export default function AgencyEarnings({ bookings }) {
                     ) : (
                         <div className="p-12 text-center flex flex-col items-center">
                             <Receipt className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4" />
-                            <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">No transactions yet.</p>
-                            <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">Earnings will appear here once bookings are confirmed.</p>
+                            <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">
+                                {financialBookings.length > 0 ? 'No matching transactions found.' : 'No transactions yet.'}
+                            </p>
+                            <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">
+                                {financialBookings.length > 0 ? 'Try adjusting your filters and apply again.' : 'Earnings will appear here once bookings are confirmed.'}
+                            </p>
                         </div>
                     )}
                 </div>

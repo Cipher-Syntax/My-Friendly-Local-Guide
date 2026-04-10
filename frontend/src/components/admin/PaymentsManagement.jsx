@@ -17,6 +17,14 @@ import {
     RotateCcw,
 } from 'lucide-react';
 
+const PAYOUT_CHANNEL_OPTIONS = [
+    { value: 'GCash', label: 'GCash' },
+    { value: 'Bank', label: 'Bank Transfer' },
+    { value: 'Maya', label: 'Maya' },
+    { value: 'Cash', label: 'Cash' },
+    { value: 'Other', label: 'Other' },
+];
+
 export default function PaymentsManagement() {
     const navigate = useNavigate();
     const [bookings, setBookings] = useState([]);
@@ -43,6 +51,11 @@ export default function PaymentsManagement() {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
+    const [selectedBooking, setSelectedBooking] = useState(null);
+    const [settlementDraft, setSettlementDraft] = useState({
+        payout_channel: 'GCash',
+        payout_reference_id: '',
+    });
     const [isProcessing, setIsProcessing] = useState(false);
 
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -57,7 +70,12 @@ export default function PaymentsManagement() {
     // Move fetchBookings outside so it can be reused
     const fetchBookings = React.useCallback(async () => {
         try {
-            const response = await api.get('/api/bookings/');
+            const response = await api.get('/api/bookings/', {
+                params: {
+                    financial_only: true,
+                    sort: 'latest',
+                },
+            });
             const relevantBookings = response.data.results || response.data;
             const filteredRelevant = relevantBookings.filter(b =>
                 ['Confirmed', 'Completed'].includes(b.status)
@@ -162,8 +180,18 @@ export default function PaymentsManagement() {
         });
     };
 
-    const initiateSettlement = (bookingId) => {
-        setSelectedBookingId(bookingId);
+    const initiateSettlement = (booking) => {
+        const preferredChannel = String(booking?.payout_channel || 'GCash');
+        const validChannel = PAYOUT_CHANNEL_OPTIONS.some((opt) => opt.value === preferredChannel)
+            ? preferredChannel
+            : 'GCash';
+
+        setSelectedBookingId(booking?.id || null);
+        setSelectedBooking(booking || null);
+        setSettlementDraft({
+            payout_channel: validChannel,
+            payout_reference_id: String(booking?.payout_reference_id || ''),
+        });
         setIsModalOpen(true);
     };
 
@@ -172,15 +200,17 @@ export default function PaymentsManagement() {
 
         setIsProcessing(true);
         try {
-            await api.patch(`/api/bookings/${selectedBookingId}/`, {
-                is_payout_settled: true
+            await api.post(`/api/bookings/${selectedBookingId}/settle_payout/`, {
+                payout_channel: settlementDraft.payout_channel,
+                payout_reference_id: String(settlementDraft.payout_reference_id || '').trim(),
             });
             await fetchBookings();
-            showToast("Payout marked as settled!", "success");
+            showToast('Payout marked as settled with settlement details.', 'success');
             closeModal();
         } catch (error) {
             console.error("Failed to update payout:", error);
-            showToast("Failed to update status.", "error");
+            const backendMessage = error?.response?.data?.error || 'Failed to update payout status.';
+            showToast(backendMessage, 'error');
         } finally {
             setIsProcessing(false);
         }
@@ -189,6 +219,11 @@ export default function PaymentsManagement() {
     const closeModal = () => {
         setIsModalOpen(false);
         setSelectedBookingId(null);
+        setSelectedBooking(null);
+        setSettlementDraft({
+            payout_channel: 'GCash',
+            payout_reference_id: '',
+        });
     };
 
     const getProviderName = (b) => {
@@ -210,6 +245,27 @@ export default function PaymentsManagement() {
         if (b.agency_detail) return b.agency_detail.agency_phone || b.agency_detail.phone_number || "Not Setup";
         if (b.accommodation_detail) return b.accommodation_detail.phone_number || "Not Setup";
         return "N/A";
+    };
+
+    const getProviderPayoutAccount = (b) => b?.provider_payout_account || null;
+
+    const getProviderPayoutSummary = (b) => {
+        const payoutAccount = getProviderPayoutAccount(b);
+        if (!payoutAccount) return 'Not setup';
+
+        const accountParts = [
+            payoutAccount.account_type,
+            payoutAccount.account_number,
+            payoutAccount.account_name,
+        ].filter(Boolean);
+
+        return accountParts.length ? accountParts.join(' • ') : 'Setup incomplete';
+    };
+
+    const getSettledByLabel = (booking) => {
+        const detail = booking?.payout_processed_by_detail;
+        if (!detail) return booking?.payout_processed_by ? `User #${booking.payout_processed_by}` : 'N/A';
+        return detail.full_name || detail.username || `User #${detail.id}`;
     };
 
     const getRefundTouristName = (refund) => {
@@ -237,10 +293,12 @@ export default function PaymentsManagement() {
             const searchLower = searchTerm.toLowerCase();
             const providerName = getProviderName(booking).toLowerCase();
             const providerPhone = getProviderPhone(booking).toLowerCase();
+            const payoutSummary = getProviderPayoutSummary(booking).toLowerCase();
             const bookingIdStr = booking.id.toString();
 
             if (!providerName.includes(searchLower) &&
                 !providerPhone.includes(searchLower) &&
+                !payoutSummary.includes(searchLower) &&
                 !bookingIdStr.includes(searchLower)) {
                 return false;
             }
@@ -297,28 +355,42 @@ export default function PaymentsManagement() {
             return;
         }
 
-        const exportData = processedBookings.map(b => ({
-            "Booking ID": b.id,
-            "Provider Name": getProviderName(b),
-            "Provider Type": getProviderType(b),
-            "Provider GCash/Contact": getProviderPhone(b),
-            "Total Booking Price": parseFloat(b.total_price || 0),
-            "Down Payment": parseFloat(b.down_payment || 0),
-            "Down Payment Date": b.downpayment_paid_at ? new Date(b.downpayment_paid_at).toLocaleString() : 'N/A',
-            "Balance Settled Date (Face-to-Face)": b.balance_paid_at ? new Date(b.balance_paid_at).toLocaleString() : 'Pending',
-            "Platform Fee (2%)": parseFloat(b.platform_fee || (parseFloat(b.total_price || 0) * 0.02)),
-            "Net Guide Payout": parseFloat(b.guide_payout_amount || 0),
-            "Payout Status": b.is_payout_settled ? 'Settled' : 'Pending',
-            "Booking Created At": new Date(b.created_at).toLocaleDateString()
-        }));
+        const exportData = processedBookings.map((b) => {
+            const payoutAccount = getProviderPayoutAccount(b) || {};
+
+            return {
+                "Booking ID": b.id,
+                "Provider Name": getProviderName(b),
+                "Provider Type": getProviderType(b),
+                "Provider GCash/Contact": getProviderPhone(b),
+                "Payout Account Type": payoutAccount.account_type || 'Not setup',
+                "Payout Account Name": payoutAccount.account_name || 'N/A',
+                "Payout Account Number": payoutAccount.account_number || 'N/A',
+                "Payout Account Notes": payoutAccount.notes || 'N/A',
+                "Total Booking Price": parseFloat(b.total_price || 0),
+                "Down Payment": parseFloat(b.down_payment || 0),
+                "Down Payment Date": b.downpayment_paid_at ? new Date(b.downpayment_paid_at).toLocaleString() : 'N/A',
+                "Balance Settled Date (Face-to-Face)": b.balance_paid_at ? new Date(b.balance_paid_at).toLocaleString() : 'Pending',
+                "Platform Fee (2%)": parseFloat(b.platform_fee || (parseFloat(b.total_price || 0) * 0.02)),
+                "Net Guide Payout": parseFloat(b.guide_payout_amount || 0),
+                "Payout Status": b.is_payout_settled ? 'Settled' : 'Pending',
+                "Settlement Channel": b.payout_channel || 'N/A',
+                "Settlement Reference": b.payout_reference_id || 'N/A',
+                "Settlement Date": b.payout_settled_at ? new Date(b.payout_settled_at).toLocaleString() : 'N/A',
+                "Settled By": getSettledByLabel(b),
+                "Booking Created At": new Date(b.created_at).toLocaleDateString(),
+            };
+        });
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(exportData);
 
         const colWidths = [
             { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 25 },
+            { wch: 20 }, { wch: 24 }, { wch: 22 }, { wch: 20 },
             { wch: 20 }, { wch: 15 }, { wch: 22 }, { wch: 32 },
-            { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 20 }
+            { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 20 },
+            { wch: 18 }, { wch: 24 }, { wch: 22 }, { wch: 18 }
         ];
         ws['!cols'] = colWidths;
 
@@ -335,6 +407,17 @@ export default function PaymentsManagement() {
     const formatDate = (dateString) => {
         if (!dateString) return null;
         return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    const formatDateTime = (dateString) => {
+        if (!dateString) return null;
+        return new Date(dateString).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        });
     };
 
     const StatsCard = ({ title, value, icon: Icon, color, subValue, clickable, onClick }) => (
@@ -375,7 +458,7 @@ export default function PaymentsManagement() {
 
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm p-4 transition-colors duration-300">
-                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-md shadow-2xl transform transition-all scale-100 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl transform transition-all scale-100 animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-6">
                             <div className="flex items-center gap-4 mb-4">
                                 <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center flex-shrink-0">
@@ -387,9 +470,53 @@ export default function PaymentsManagement() {
                                 </div>
                             </div>
 
-                            <p className="text-slate-700 dark:text-slate-300 mb-6 leading-relaxed">
-                                Are you sure you have manually transferred the funds to this guide's account?
-                                Marking this as settled will update the guide's dashboard status to "Paid".
+                            <div className="mb-5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 p-4">
+                                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Settlement Target</p>
+                                <p className="mt-2 text-sm text-slate-900 dark:text-white font-medium">
+                                    Booking #{selectedBookingId} • {selectedBooking ? getProviderName(selectedBooking) : 'Unknown Provider'}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                                    Contact: {selectedBooking ? getProviderPhone(selectedBooking) : 'N/A'}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                                    Payout Account: {selectedBooking ? getProviderPayoutSummary(selectedBooking) : 'Not setup'}
+                                </p>
+                            </div>
+
+                            <div className="space-y-3 mb-5">
+                                <div>
+                                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">
+                                        Settlement Channel
+                                    </label>
+                                    <select
+                                        value={settlementDraft.payout_channel}
+                                        onChange={(e) => setSettlementDraft((prev) => ({ ...prev, payout_channel: e.target.value }))}
+                                        disabled={isProcessing}
+                                        className="w-full px-3 py-2 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                                    >
+                                        {PAYOUT_CHANNEL_OPTIONS.map((channel) => (
+                                            <option key={channel.value} value={channel.value}>{channel.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">
+                                        Reference ID (Optional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settlementDraft.payout_reference_id}
+                                        onChange={(e) => setSettlementDraft((prev) => ({ ...prev, payout_reference_id: e.target.value }))}
+                                        placeholder="e.g., GCash/BPI transfer reference"
+                                        disabled={isProcessing}
+                                        className="w-full px-3 py-2 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <p className="text-slate-700 dark:text-slate-300 mb-6 leading-relaxed text-sm">
+                                Confirm only after you have completed the transfer. This logs channel, reference, timestamp, and processor for payout auditing.
                             </p>
 
                             <div className="flex gap-3 justify-end">
@@ -402,7 +529,7 @@ export default function PaymentsManagement() {
                                 </button>
                                 <button
                                     onClick={confirmSettlement}
-                                    disabled={isProcessing}
+                                    disabled={isProcessing || !settlementDraft.payout_channel}
                                     className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg shadow-lg shadow-cyan-500/20 font-medium text-sm flex items-center gap-2 transition-all"
                                 >
                                     {isProcessing ? 'Processing...' : 'Yes, Mark as Settled'}
@@ -477,7 +604,7 @@ export default function PaymentsManagement() {
                             </div>
                             <input
                                 type="text"
-                                placeholder="Search ID, Provider, Phone..."
+                                placeholder="Search ID, Provider, Phone, Account..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="pl-10 pr-4 py-2 w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 transition-colors"
@@ -536,7 +663,10 @@ export default function PaymentsManagement() {
                                         </td>
 
                                         <td className="p-4 text-slate-600 dark:text-slate-300">
-                                            {getProviderPhone(booking)}
+                                            <div className="font-medium">{getProviderPhone(booking)}</div>
+                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                                                Payout: {getProviderPayoutSummary(booking)}
+                                            </div>
                                         </td>
 
                                         <td className="p-4 text-right border-l border-slate-100 dark:border-slate-800">
@@ -576,12 +706,21 @@ export default function PaymentsManagement() {
                                                 }`}>
                                                 {booking.is_payout_settled ? 'Settled' : 'Pending'}
                                             </span>
+
+                                            {booking.is_payout_settled && (
+                                                <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 text-left space-y-0.5">
+                                                    {booking.payout_channel && <div>Channel: {booking.payout_channel}</div>}
+                                                    {booking.payout_reference_id && <div>Ref: {booking.payout_reference_id}</div>}
+                                                    {booking.payout_settled_at && <div>At: {formatDateTime(booking.payout_settled_at)}</div>}
+                                                    <div>By: {getSettledByLabel(booking)}</div>
+                                                </div>
+                                            )}
                                         </td>
 
                                         <td className="p-4 text-right">
                                             {!booking.is_payout_settled && (
                                                 <button
-                                                    onClick={() => initiateSettlement(booking.id)}
+                                                    onClick={() => initiateSettlement(booking)}
                                                     className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white text-xs rounded-lg transition-colors flex items-center gap-1 ml-auto shadow-md shadow-cyan-500/10"
                                                 >
                                                     Mark Settled
