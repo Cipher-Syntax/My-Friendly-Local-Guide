@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
 
 export const availableLanguages = [
-    'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
-    'Russian', 'Chinese', 'Japanese', 'Korean', 'Arabic', 'Hindi',
-    'Dutch', 'Swedish', 'Polish', 'Greek', 'Turkish', 'Thai',
-    'Vietnamese', 'Indonesian', 'Filipino', 'Hebrew', 'Danish', 'Norwegian'
+    'English', 'Tagalog', 'Chavacano', 'Cebuano', 'Ilocano', 
+    'Hiligaynon', 'Waray', 'Tausug', 'Kapampangan', 'Pangasinan', 
+    'Bikolano', 'Maranao', 'Maguindanao', 'Yakan', 'Surigaonon'
 ].sort();
 
 export const useAgencyDashboardData = () => {
@@ -33,11 +32,9 @@ export const useAgencyDashboardData = () => {
     const [availableSpecialties, setAvailableSpecialties] = useState([]); 
     const [isLoading, setIsLoading] = useState(true);
     
-    // Settings state
     const [downPaymentPercentage, setDownPaymentPercentage] = useState(30);
     const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-    // Fetch data from backend API
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
@@ -81,7 +78,6 @@ export const useAgencyDashboardData = () => {
         }
     };
 
-    // --- Helper Functions ---
     const getStatusBg = (status) => {
         const lowerStatus = status?.toLowerCase();
         switch (lowerStatus) {
@@ -119,7 +115,6 @@ export const useAgencyDashboardData = () => {
         bookings.find(b => b.id === selectedBookingId)
         , [bookings, selectedBookingId]);
 
-    // Used for toggling a single guide manually
     const assignGuide = async (bookingId, guide) => {
         const targetBooking = bookings.find(b => b.id === bookingId);
         if (!targetBooking) return;
@@ -134,7 +129,6 @@ export const useAgencyDashboardData = () => {
             newGuideIds = [...currentGuideIds, guide.id];
         }
 
-        // FIX: Keep the current status (e.g., Pending) so the Accept button doesn't disappear
         const currentStatus = targetBooking.status;
 
         setBookings(prevBookings => prevBookings.map(booking => {

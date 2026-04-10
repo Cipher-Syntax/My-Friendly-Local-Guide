@@ -61,6 +61,78 @@ class CommunicationApiTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertTrue(Message.objects.get().is_read)
 
+	def test_delete_conversation_hides_only_for_request_user(self):
+		Message.objects.create(sender=self.user, receiver=self.partner, content="Hi")
+		Message.objects.create(sender=self.partner, receiver=self.user, content="Hello")
+
+		self.client.force_authenticate(user=self.user)
+		delete_response = self.client.delete(
+			reverse("conversation-delete", kwargs={"partner_id": self.partner.id})
+		)
+		self.assertEqual(delete_response.status_code, 200)
+
+		my_list_response = self.client.get(reverse("conversation-list"))
+		self.assertEqual(my_list_response.status_code, 200)
+		my_partner_ids = [item.get("id") for item in my_list_response.data]
+		self.assertNotIn(self.partner.id, my_partner_ids)
+
+		self.client.force_authenticate(user=self.partner)
+		partner_list_response = self.client.get(reverse("conversation-list"))
+		self.assertEqual(partner_list_response.status_code, 200)
+		partner_ids = [item.get("id") for item in partner_list_response.data]
+		self.assertIn(self.user.id, partner_ids)
+
+	def test_delete_single_message_hides_only_for_request_user(self):
+		message = Message.objects.create(sender=self.user, receiver=self.partner, content="Delete me")
+
+		self.client.force_authenticate(user=self.user)
+		delete_response = self.client.delete(
+			reverse("message-delete", kwargs={"message_id": message.id})
+		)
+		self.assertEqual(delete_response.status_code, 200)
+
+		my_thread = self.client.get(reverse("message-thread", kwargs={"partner_id": self.partner.id}))
+		self.assertEqual(my_thread.status_code, 200)
+		self.assertEqual(len(my_thread.data), 0)
+
+		self.client.force_authenticate(user=self.partner)
+		partner_thread = self.client.get(reverse("message-thread", kwargs={"partner_id": self.user.id}))
+		self.assertEqual(partner_thread.status_code, 200)
+		self.assertEqual(len(partner_thread.data), 1)
+		self.assertEqual(partner_thread.data[0].get("id"), message.id)
+
+	def test_sender_can_delete_message_for_everyone(self):
+		message = Message.objects.create(sender=self.user, receiver=self.partner, content="Global delete")
+
+		self.client.force_authenticate(user=self.user)
+		delete_response = self.client.delete(
+			reverse("message-delete", kwargs={"message_id": message.id}) + "?scope=everyone"
+		)
+		self.assertEqual(delete_response.status_code, 200)
+
+		my_thread = self.client.get(reverse("message-thread", kwargs={"partner_id": self.partner.id}))
+		self.assertEqual(my_thread.status_code, 200)
+		self.assertEqual(len(my_thread.data), 0)
+
+		self.client.force_authenticate(user=self.partner)
+		partner_thread = self.client.get(reverse("message-thread", kwargs={"partner_id": self.user.id}))
+		self.assertEqual(partner_thread.status_code, 200)
+		self.assertEqual(len(partner_thread.data), 0)
+
+	def test_receiver_cannot_delete_message_for_everyone(self):
+		message = Message.objects.create(sender=self.user, receiver=self.partner, content="Not allowed")
+
+		self.client.force_authenticate(user=self.partner)
+		delete_response = self.client.delete(
+			reverse("message-delete", kwargs={"message_id": message.id}) + "?scope=everyone"
+		)
+		self.assertEqual(delete_response.status_code, 400)
+
+		self.client.force_authenticate(user=self.user)
+		sender_thread = self.client.get(reverse("message-thread", kwargs={"partner_id": self.partner.id}))
+		self.assertEqual(sender_thread.status_code, 200)
+		self.assertEqual(len(sender_thread.data), 1)
+
 	def test_tourist_and_agency_can_exchange_messages(self):
 		tourist = User.objects.create_user(username="tourist_user", password="Pass12345")
 		agency_user = User.objects.create_user(username="agency_owner", password="Pass12345")

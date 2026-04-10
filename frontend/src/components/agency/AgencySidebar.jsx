@@ -56,13 +56,13 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
                             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/30 hover:text-slate-900 dark:hover:text-white'
                             }`}
                     >
-                        <item.icon className="w-5 h-5" />
+                        <div className="relative">
+                            <item.icon className="w-5 h-5" />
+                            {item.id === 'messages' && unreadMessages > 0 && (
+                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-800" />
+                            )}
+                        </div>
                         <span className="font-medium text-left flex-1">{item.label}</span>
-                        {item.id === 'messages' && unreadMessages > 0 && (
-                            <span className="ml-auto inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
-                                {unreadMessages > 99 ? '99+' : unreadMessages}
-                            </span>
-                        )}
                     </button>
                 ))}
             </nav>

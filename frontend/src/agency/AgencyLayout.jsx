@@ -82,8 +82,38 @@ export default function AgencyLayout() {
                     ? response.data.results
                     : [];
 
-            const unread = payload.reduce((sum, item) => sum + Number(item?.unread_count || 0), 0);
-            setUnreadMessages(unread);
+            const partnerIdOf = (item) => Number(item?.id ?? item?.partner_id ?? item?.user_id);
+            const unreadByServer = payload.reduce((sum, item) => sum + Number(item?.unread_count || 0), 0);
+
+            let forcedUnreadBonus = 0;
+            try {
+                const rawPrefs = localStorage.getItem('agency_message_conversation_prefs_v1');
+                if (rawPrefs) {
+                    const parsedPrefs = JSON.parse(rawPrefs);
+                    const forcedUnread = Array.isArray(parsedPrefs?.forceUnread)
+                        ? parsedPrefs.forceUnread
+                            .map((value) => Number(value))
+                            .filter((value) => Number.isFinite(value) && value > 0)
+                        : [];
+
+                    const hasServerUnread = new Set(
+                        payload
+                            .filter((item) => Number(item?.unread_count || 0) > 0)
+                            .map((item) => partnerIdOf(item))
+                            .filter((id) => Number.isFinite(id) && id > 0)
+                    );
+
+                    forcedUnread.forEach((id) => {
+                        if (!hasServerUnread.has(id)) {
+                            forcedUnreadBonus += 1;
+                        }
+                    });
+                }
+            } catch {
+                // Ignore local preference parsing issues.
+            }
+
+            setUnreadMessages(unreadByServer + forcedUnreadBonus);
         } catch {
             setUnreadMessages(0);
         }

@@ -3,6 +3,7 @@ from rest_framework.response import Response #type: ignore
 from rest_framework.exceptions import NotFound, ValidationError #type: ignore
 from rest_framework.decorators import api_view, permission_classes #type: ignore
 from rest_framework.permissions import IsAuthenticated, AllowAny #type: ignore
+from rest_framework.views import APIView #type: ignore
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
@@ -67,15 +68,22 @@ def _safe_profile_picture_value(user):
     except Exception:
         return None
 
+
+def _messages_visible_to_user(user):
+    return Message.objects.filter(
+        (Q(sender=user) & Q(deleted_by_sender=False)) |
+        (Q(receiver=user) & Q(deleted_by_receiver=False))
+    )
+
 class ConversationListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def list(self, request, *args, **kwargs):
         user = request.user
-        
-        partners_raw = Message.objects.filter(
-            Q(sender=user) | Q(receiver=user)
-        ).values_list('sender', 'receiver').distinct()
+
+        visible_messages = _messages_visible_to_user(user)
+
+        partners_raw = visible_messages.values_list('sender', 'receiver').distinct()
         
         partner_ids = set()
         for s, r in partners_raw:
@@ -88,15 +96,20 @@ class ConversationListView(generics.ListAPIView):
 
         data = []
         for partner in partners:
-            thread = Message.objects.filter(
-                Q(sender=user, receiver=partner) | Q(sender=partner, receiver=user)
+            thread = visible_messages.filter(
+                Q(sender=user, receiver=partner) |
+                Q(sender=partner, receiver=user)
             )
             latest = thread.order_by('-timestamp').first()
             unread_count = Message.objects.filter(
                 sender=partner,
                 receiver=user,
                 is_read=False,
+                deleted_by_receiver=False,
             ).count()
+
+            if not latest:
+                continue
 
             data.append({
                 'id': partner.id,
@@ -130,11 +143,16 @@ class MessageThreadView(generics.ListCreateAPIView):
             return Message.objects.none()
 
         queryset = Message.objects.filter(
-            Q(sender=user.id, receiver=partner_id) | 
-            Q(sender=partner_id, receiver=user.id)
+            (Q(sender=user.id, receiver=partner_id) & Q(deleted_by_sender=False)) |
+            (Q(sender=partner_id, receiver=user.id) & Q(deleted_by_receiver=False))
         ).order_by('timestamp')
         
-        Message.objects.filter(receiver=user.id, sender=partner_id, is_read=False).update(is_read=True)
+        Message.objects.filter(
+            receiver=user.id,
+            sender=partner_id,
+            is_read=False,
+            deleted_by_receiver=False,
+        ).update(is_read=True)
         
         return queryset
 
@@ -151,6 +169,104 @@ class MessageThreadView(generics.ListCreateAPIView):
             raise ValidationError({"detail": "You cannot send a message to your own account."})
 
         serializer.save(sender=user, receiver=receiver)
+
+
+class ConversationDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, partner_id):
+        user = request.user
+
+        if user.id == partner_id:
+            raise ValidationError({"detail": "You cannot delete a self-conversation."})
+
+        if not User.objects.filter(pk=partner_id).exists():
+            raise NotFound({"detail": "Conversation partner not found."})
+
+        hidden_from_sender = Message.objects.filter(
+            sender=user.id,
+            receiver=partner_id,
+            deleted_by_sender=False,
+        ).update(deleted_by_sender=True)
+
+        hidden_from_receiver = Message.objects.filter(
+            sender=partner_id,
+            receiver=user.id,
+            deleted_by_receiver=False,
+        ).update(deleted_by_receiver=True)
+
+        hidden_messages = hidden_from_sender + hidden_from_receiver
+
+        return Response(
+            {
+                "detail": "Conversation removed from your view only.",
+                "hidden_messages": hidden_messages,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class MessageDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, message_id):
+        user = request.user
+        scope = str(request.query_params.get('scope', 'me') or 'me').strip().lower()
+
+        if scope not in {'me', 'everyone'}:
+            raise ValidationError({"detail": "Invalid scope. Use 'me' or 'everyone'."})
+
+        try:
+            message = Message.objects.get(pk=message_id)
+        except Message.DoesNotExist:
+            raise NotFound({"detail": "Message not found."})
+
+        if message.sender_id != user.id and message.receiver_id != user.id:
+            raise NotFound({"detail": "Message not found."})
+
+        if scope == 'everyone':
+            if message.sender_id != user.id:
+                raise ValidationError({"detail": "Only the sender can delete for everyone."})
+
+            changed = False
+            if not message.deleted_by_sender:
+                message.deleted_by_sender = True
+                changed = True
+            if not message.deleted_by_receiver:
+                message.deleted_by_receiver = True
+                changed = True
+
+            if changed:
+                message.save(update_fields=['deleted_by_sender', 'deleted_by_receiver'])
+
+            return Response(
+                {
+                    "detail": "Message removed for everyone.",
+                    "scope": "everyone",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        update_fields = []
+
+        if message.sender_id == user.id and not message.deleted_by_sender:
+            message.deleted_by_sender = True
+            update_fields.append('deleted_by_sender')
+
+        if message.receiver_id == user.id and not message.deleted_by_receiver:
+            message.deleted_by_receiver = True
+            update_fields.append('deleted_by_receiver')
+
+        if update_fields:
+            message.save(update_fields=update_fields)
+
+        return Response(
+            {
+                "detail": "Message removed from your view only.",
+                "scope": "me",
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @api_view(['POST'])
