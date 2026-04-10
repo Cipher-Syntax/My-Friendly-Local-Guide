@@ -912,7 +912,7 @@ export default function AgencyMessages({
                                     return (
                                         <div key={message.id} className={`group flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                                             <div className="relative">
-                                                <div className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-sm border ${isMine
+                                                <div className={`max-w-[300px] rounded-2xl px-4 py-3 shadow-sm border ${isMine
                                                     ? 'bg-cyan-500 text-white border-cyan-400/60'
                                                     : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-100 border-slate-200 dark:border-slate-700'
                                                     }`}>
