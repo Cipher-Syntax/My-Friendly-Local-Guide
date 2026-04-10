@@ -115,6 +115,9 @@ class PaymentInitiationSerializer(serializers.Serializer):
 
 
 class RefundRequestSerializer(serializers.ModelSerializer):
+    requested_by_display_name = serializers.SerializerMethodField()
+    requested_by_first_name = serializers.CharField(source='requested_by.first_name', read_only=True)
+    requested_by_last_name = serializers.CharField(source='requested_by.last_name', read_only=True)
     requested_by_username = serializers.CharField(source='requested_by.username', read_only=True)
     requested_by_phone = serializers.CharField(source='requested_by.phone_number', read_only=True)
     processed_by_username = serializers.CharField(source='processed_by.username', read_only=True)
@@ -133,6 +136,9 @@ class RefundRequestSerializer(serializers.ModelSerializer):
             'booking_id',
             'booking_label',
             'requested_by',
+            'requested_by_display_name',
+            'requested_by_first_name',
+            'requested_by_last_name',
             'requested_by_username',
             'requested_by_phone',
             'processed_by',
@@ -164,6 +170,14 @@ class RefundRequestSerializer(serializers.ModelSerializer):
             'payment_status',
             'proof_attachment_url',
         ]
+
+    def get_requested_by_display_name(self, obj):
+        user = getattr(obj, 'requested_by', None)
+        if not user:
+            return None
+
+        full_name = f"{(user.first_name or '').strip()} {(user.last_name or '').strip()}".strip()
+        return full_name or user.username
 
     def get_proof_attachment_url(self, obj):
         if not obj.proof_attachment:

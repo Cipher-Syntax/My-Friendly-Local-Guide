@@ -212,6 +212,20 @@ export default function PaymentsManagement() {
         return "N/A";
     };
 
+    const getRefundTouristName = (refund) => {
+        const firstName = String(refund?.requested_by_first_name || '').trim();
+        const lastName = String(refund?.requested_by_last_name || '').trim();
+        const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+
+        if (fullName) return fullName;
+
+        const displayName = String(refund?.requested_by_display_name || '').trim();
+        if (displayName) return displayName;
+
+        const username = String(refund?.requested_by_username || '').trim();
+        return username || 'Unknown';
+    };
+
     // Filter and Search Logic
     const processedBookings = bookings.filter(booking => {
         // 1. Status Filter
@@ -247,13 +261,15 @@ export default function PaymentsManagement() {
 
         if (!refundSearchTerm) return true;
         const term = refundSearchTerm.toLowerCase();
-        const requestedBy = String(refund.requested_by_username || '').toLowerCase();
+        const requestedBy = String(getRefundTouristName(refund) || '').toLowerCase();
+        const requestedByUsername = String(refund.requested_by_username || '').toLowerCase();
         const requestedPhone = String(refund.requested_by_phone || '').toLowerCase();
         const reason = String(refund.reason || '').toLowerCase();
         const bookingId = String(refund.booking_id || '');
         const refundId = String(refund.id || '');
         return (
             requestedBy.includes(term) ||
+            requestedByUsername.includes(term) ||
             requestedPhone.includes(term) ||
             reason.includes(term) ||
             bookingId.includes(term) ||
@@ -264,8 +280,6 @@ export default function PaymentsManagement() {
     const refundTotalPages = Math.ceil(filteredRefundRequests.length / refundItemsPerPage);
     const refundStartIndex = (refundCurrentPage - 1) * refundItemsPerPage;
     const paginatedRefundRequests = filteredRefundRequests.slice(refundStartIndex, refundStartIndex + refundItemsPerPage);
-
-    console.log(paginatedRefundRequests)
 
     const refundStatusBadge = (statusValue) => {
         const normalized = String(statusValue || '').toLowerCase();
@@ -699,7 +713,7 @@ export default function PaymentsManagement() {
                                     <tr key={refund.id} className="text-sm align-top hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
                                         <td className="p-4 text-slate-900 dark:text-white font-medium">#{refund.id}</td>
                                         <td className="p-4 text-slate-700 dark:text-slate-200">#{refund.booking_id || 'N/A'}</td>
-                                        <td className="p-4 text-slate-700 dark:text-slate-200">{refund.requested_by_username || 'Unknown'}</td>
+                                        <td className="p-4 text-slate-700 dark:text-slate-200">{getRefundTouristName(refund)}</td>
                                         <td className="p-4 text-slate-700 dark:text-slate-200">{refund.requested_by_phone || 'Not provided'}</td>
                                         <td className="p-4 text-slate-700 dark:text-slate-200">
                                             <div>Req: {requestedAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</div>

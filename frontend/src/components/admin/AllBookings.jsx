@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, AlertTriangle, Trash2, XCircle, CheckCircle, Eye, AlertCircle, X, Download } from 'lucide-react';
+import { Search, Filter, AlertTriangle, Trash2, XCircle, CheckCircle, Eye, AlertCircle, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx'; // IMPORT XLSX FOR EXPORT
 import api from '../../api/api';
 
@@ -8,6 +8,8 @@ export default function AllBookings() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10);
 
     // Toast State
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -33,8 +35,36 @@ export default function AllBookings() {
 
     const fetchBookings = useCallback(async () => {
         try {
-            const res = await api.get('/api/bookings/');
-            setBookings(res.data.results || res.data); // Safely handle pagination format
+            const aggregate = [];
+            let nextUrl = '/api/bookings/';
+            let safetyCounter = 0;
+
+            while (nextUrl && safetyCounter < 100) {
+                const res = await api.get(nextUrl);
+                const payload = res.data;
+
+                if (Array.isArray(payload)) {
+                    aggregate.push(...payload);
+                    nextUrl = null;
+                    break;
+                }
+
+                const results = Array.isArray(payload?.results) ? payload.results : [];
+                aggregate.push(...results);
+
+                if (payload?.next && typeof payload.next === 'string') {
+                    const base = api.defaults.baseURL || '';
+                    nextUrl = base && payload.next.startsWith(base)
+                        ? payload.next.slice(base.length)
+                        : payload.next;
+                } else {
+                    nextUrl = null;
+                }
+
+                safetyCounter += 1;
+            }
+
+            setBookings(aggregate);
         } catch (error) {
             console.error("Failed to fetch bookings:", error);
             showToast("Failed to fetch bookings.", "error");
@@ -46,6 +76,21 @@ export default function AllBookings() {
     useEffect(() => {
         fetchBookings();
     }, [fetchBookings]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterStatus]);
+
+    const getTouristDisplayName = (booking) => {
+        const firstName = String(booking?.tourist_detail?.first_name || '').trim();
+        const lastName = String(booking?.tourist_detail?.last_name || '').trim();
+        const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+
+        if (fullName) return fullName;
+
+        const username = String(booking?.tourist_username || booking?.tourist_detail?.username || '').trim();
+        return username || 'Unknown';
+    };
 
     const executeForceUpdate = async (id, newStatus) => {
         try {
@@ -98,12 +143,19 @@ export default function AllBookings() {
     };
 
     const filteredBookings = bookings.filter(b => {
+        const touristName = getTouristDisplayName(b).toLowerCase();
+        const touristUsername = String(b.tourist_username || '').toLowerCase();
         const matchesSearch =
-            b.tourist_username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            touristName.includes(searchTerm.toLowerCase()) ||
+            touristUsername.includes(searchTerm.toLowerCase()) ||
             b.id.toString().includes(searchTerm);
         const matchesStatus = filterStatus === 'all' || b.status === filterStatus;
         return matchesSearch && matchesStatus;
     });
+
+    const totalPages = Math.max(1, Math.ceil(filteredBookings.length / itemsPerPage));
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedBookings = filteredBookings.slice(startIndex, startIndex + itemsPerPage);
 
     // --- EXPORT TO EXCEL FUNCTIONALITY ---
     const handleExport = () => {
@@ -114,7 +166,7 @@ export default function AllBookings() {
 
         const exportData = filteredBookings.map(b => ({
             "Booking ID": b.id,
-            "Tourist Name": b.tourist_username || "Unknown",
+            "Tourist Name": getTouristDisplayName(b),
             "Tour Guide": b.guide ? b.guide_detail?.username || 'Unknown' :
                 b.agency ? `Agency: ${b.agency_detail?.username || 'Unknown'}` : 'N/A',
             "Check-In Date": b.check_in,
@@ -256,10 +308,10 @@ export default function AllBookings() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                        {filteredBookings.map(booking => (
+                        {paginatedBookings.map(booking => (
                             <tr key={booking.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                                 <td className="px-6 py-4 text-slate-600 dark:text-slate-300 font-mono">#{booking.id}</td>
-                                <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{booking.tourist_username}</td>
+                                <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{getTouristDisplayName(booking)}</td>
                                 <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
                                     {booking.guide ? booking.guide_detail?.username || 'Unknown' :
                                         booking.agency ? `Agency: ${booking.agency_detail?.username || 'Unknown'}` : 'N/A'}
@@ -310,6 +362,33 @@ export default function AllBookings() {
                 </table>
                 {filteredBookings.length === 0 && (
                     <div className="p-8 text-center text-slate-500">No bookings found.</div>
+                )}
+
+                {filteredBookings.length > 0 && totalPages > 1 && (
+                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
+                        <span className="text-sm text-slate-500 dark:text-slate-400">
+                            Showing <span className="font-medium text-slate-900 dark:text-white">{startIndex + 1}</span> to <span className="font-medium text-slate-900 dark:text-white">{Math.min(startIndex + itemsPerPage, filteredBookings.length)}</span> of <span className="font-medium text-slate-900 dark:text-white">{filteredBookings.length}</span> results
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <div className="flex items-center px-4 text-sm font-medium text-slate-700 dark:text-slate-300">
+                                Page {currentPage} of {totalPages}
+                            </div>
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

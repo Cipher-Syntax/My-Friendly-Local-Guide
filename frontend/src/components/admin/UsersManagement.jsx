@@ -1002,6 +1002,7 @@ export default function UsersManagement() {
                                 <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 uppercase text-xs">
                                     <tr>
                                         <th className="px-6 py-4 font-semibold">Username</th>
+                                        <th className="px-6 py-4 font-semibold">Phone Number</th>
                                         <th className="px-6 py-4 font-semibold">Email</th>
                                         <th className="px-6 py-4 font-semibold">Role</th>
                                         <th className="px-6 py-4 font-semibold">Account Status</th>
@@ -1012,6 +1013,9 @@ export default function UsersManagement() {
                                     {paginatedPages.map((user) => (
                                         <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{user.username}</td>
+                                            <td className="px-6 py-4">
+                                                {user.agency_profile?.phone || user.phone_number || <span className="text-slate-400">N/A</span>}
+                                            </td>
                                             <td className="px-6 py-4">{user.email}</td>
                                             <td className="px-6 py-4">{getRoleBadge(user)}</td>
                                             <td className="px-6 py-4">

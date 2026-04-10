@@ -313,9 +313,15 @@ class AdminDashboardSummaryView(APIView):
         total_bookings = all_bookings.count()
         active_bookings = all_bookings.filter(status__in=['Pending_Payment', 'Confirmed', 'Accepted']).count()
         
-        # Get the 5 most recent bookings
-        recent_bookings = list(all_bookings.order_by('-created_at')[:5].values(
-            'id', 'status', 'total_price', 'created_at', 'tourist__username'
+        # Get recent bookings for dashboard table pagination
+        recent_bookings = list(all_bookings.order_by('-created_at')[:25].values(
+            'id',
+            'status',
+            'total_price',
+            'created_at',
+            'tourist__username',
+            'tourist__first_name',
+            'tourist__last_name',
         ))
 
         # 4. Financials (Total Platform Earnings from settled payouts)

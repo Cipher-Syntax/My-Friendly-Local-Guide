@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../../api/api';
 import {
     Users, Activity, Map, Briefcase,
-    UserCheck, AlertTriangle, Loader2, Banknote, Calendar, ArrowRight
+    UserCheck, AlertTriangle, Loader2, Banknote, Calendar, ArrowRight, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const colorClassMap = {
@@ -49,6 +49,8 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [error, setError] = useState(false);
+    const [recentBookingsPage, setRecentBookingsPage] = useState(1);
+    const recentBookingsPerPage = 5;
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -81,6 +83,21 @@ export default function Dashboard() {
     );
 
     const { users, content, bookings, finance, system } = data;
+
+    const getTouristDisplayName = (booking) => {
+        const firstName = String(booking?.tourist__first_name || '').trim();
+        const lastName = String(booking?.tourist__last_name || '').trim();
+        const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+        if (fullName) return fullName;
+
+        const username = String(booking?.tourist__username || '').trim();
+        return username || 'Unknown';
+    };
+
+    const recentBookings = Array.isArray(bookings?.recent) ? bookings.recent : [];
+    const totalRecentPages = Math.max(1, Math.ceil(recentBookings.length / recentBookingsPerPage));
+    const recentStartIndex = (recentBookingsPage - 1) * recentBookingsPerPage;
+    const paginatedRecentBookings = recentBookings.slice(recentStartIndex, recentStartIndex + recentBookingsPerPage);
 
     const getStatusColor = (status) => {
         const colors = {
@@ -132,11 +149,11 @@ export default function Dashboard() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                                {bookings.recent.length > 0 ? (
-                                    bookings.recent.map((booking) => (
+                                {recentBookings.length > 0 ? (
+                                    paginatedRecentBookings.map((booking) => (
                                         <tr key={booking.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                                             <td className="px-6 py-4 text-slate-600 dark:text-slate-300 font-mono">#{booking.id}</td>
-                                            <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{booking.tourist__username}</td>
+                                            <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{getTouristDisplayName(booking)}</td>
                                             <td className="px-6 py-4 text-emerald-600 dark:text-emerald-400 font-medium">{parseFloat(booking.total_price || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(booking.status)}`}>
@@ -159,6 +176,33 @@ export default function Dashboard() {
                             </tbody>
                         </table>
                     </div>
+
+                    {recentBookings.length > 0 && totalRecentPages > 1 && (
+                        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex items-center justify-between">
+                            <span className="text-sm text-slate-500 dark:text-slate-400">
+                                Showing <span className="font-medium text-slate-900 dark:text-white">{recentStartIndex + 1}</span> to <span className="font-medium text-slate-900 dark:text-white">{Math.min(recentStartIndex + recentBookingsPerPage, recentBookings.length)}</span> of <span className="font-medium text-slate-900 dark:text-white">{recentBookings.length}</span> bookings
+                            </span>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setRecentBookingsPage((prev) => Math.max(prev - 1, 1))}
+                                    disabled={recentBookingsPage === 1}
+                                    className="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <div className="flex items-center px-4 text-sm font-medium text-slate-700 dark:text-slate-300">
+                                    Page {recentBookingsPage} of {totalRecentPages}
+                                </div>
+                                <button
+                                    onClick={() => setRecentBookingsPage((prev) => Math.min(prev + 1, totalRecentPages))}
+                                    disabled={recentBookingsPage === totalRecentPages}
+                                    className="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-6">

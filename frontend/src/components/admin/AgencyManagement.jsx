@@ -169,6 +169,7 @@ export default function AgencyManagement() {
                                     <tr>
                                         <th className="px-4 py-3 font-semibold">Business Name</th>
                                         <th className="px-4 py-3 font-semibold">Owner</th>
+                                        <th className="px-4 py-3 font-semibold">Phone Number</th>
                                         <th className="px-4 py-3 font-semibold">Email</th>
                                         <th className="px-4 py-3 font-semibold">Status</th>
                                         <th className="px-4 py-3 font-semibold">Actions</th>
@@ -179,6 +180,7 @@ export default function AgencyManagement() {
                                         <tr key={agency.id} className="border-t border-slate-200 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{agency.business_name}</td>
                                             <td className="px-4 py-3">{agency.owner_name}</td>
+                                            <td className="px-4 py-3">{agency.phone}</td>
                                             <td className="px-4 py-3">{agency.email}</td>
                                             <td className="px-4 py-3">
                                                 <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(agency.status || 'Pending')}`}>
