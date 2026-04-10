@@ -8,9 +8,14 @@ from accommodation_booking.models import Booking
 profanity.load_censor_words()
 profanity.add_censor_words(['putangina', 'gago', 'tarantado', 'bobo', 'ulol'])
 
+
+def _reviewer_display_name(user):
+    first_name = (user.first_name or '').strip()
+    return first_name if first_name else user.username
+
 class ReviewSerializer(serializers.ModelSerializer):
     
-    reviewer_username = serializers.CharField(source='reviewer.username', read_only=True)
+    reviewer_username = serializers.SerializerMethodField()
     reviewed_user_username = serializers.CharField(source='reviewed_user.username', read_only=True)
     
     reviewed_user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
@@ -35,6 +40,9 @@ class ReviewSerializer(serializers.ModelSerializer):
         if value and profanity.contains_profanity(value):
             raise serializers.ValidationError("Your review contains inappropriate language. Please revise it.")
         return value
+
+    def get_reviewer_username(self, obj):
+        return _reviewer_display_name(obj.reviewer)
         
     def validate(self, data):
         reviewer = self.context['request'].user
@@ -52,7 +60,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 class DestinationReviewSerializer(serializers.ModelSerializer):
     
-    reviewer_username = serializers.CharField(source='reviewer.username', read_only=True)
+    reviewer_username = serializers.SerializerMethodField()
     destination_name = serializers.CharField(source='destination.name', read_only=True)
 
     destination = serializers.PrimaryKeyRelatedField(queryset=Destination.objects.all())
@@ -77,6 +85,9 @@ class DestinationReviewSerializer(serializers.ModelSerializer):
         if value and profanity.contains_profanity(value):
             raise serializers.ValidationError("Your review contains inappropriate language. Please revise it.")
         return value
+
+    def get_reviewer_username(self, obj):
+        return _reviewer_display_name(obj.reviewer)
         
     def validate(self, data):
         reviewer = self.context['request'].user
