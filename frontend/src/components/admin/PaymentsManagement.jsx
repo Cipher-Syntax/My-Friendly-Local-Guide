@@ -282,6 +282,19 @@ export default function PaymentsManagement() {
         return username || 'Unknown';
     };
 
+    const getRefundTouristPayoutSummary = (refund) => {
+        const payout = refund?.requested_by_payout_account;
+        if (!payout) return 'Not setup';
+
+        const accountParts = [
+            payout.account_type,
+            payout.account_number,
+            payout.account_name,
+        ].filter(Boolean);
+
+        return accountParts.length ? accountParts.join(' • ') : 'Setup incomplete';
+    };
+
     // Filter and Search Logic
     const processedBookings = bookings.filter(booking => {
         // 1. Status Filter
@@ -322,6 +335,7 @@ export default function PaymentsManagement() {
         const requestedBy = String(getRefundTouristName(refund) || '').toLowerCase();
         const requestedByUsername = String(refund.requested_by_username || '').toLowerCase();
         const requestedPhone = String(refund.requested_by_phone || '').toLowerCase();
+        const payoutSummary = String(getRefundTouristPayoutSummary(refund) || '').toLowerCase();
         const reason = String(refund.reason || '').toLowerCase();
         const bookingId = String(refund.booking_id || '');
         const refundId = String(refund.id || '');
@@ -329,6 +343,7 @@ export default function PaymentsManagement() {
             requestedBy.includes(term) ||
             requestedByUsername.includes(term) ||
             requestedPhone.includes(term) ||
+            payoutSummary.includes(term) ||
             reason.includes(term) ||
             bookingId.includes(term) ||
             refundId.includes(term)
@@ -790,7 +805,7 @@ export default function PaymentsManagement() {
                             </div>
                             <input
                                 type="text"
-                                placeholder="Search refund, booking, tourist..."
+                                placeholder="Search refund, booking, tourist, account..."
                                 value={refundSearchTerm}
                                 onChange={(e) => setRefundSearchTerm(e.target.value)}
                                 className="pl-10 pr-4 py-2 w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 transition-colors"
@@ -853,7 +868,12 @@ export default function PaymentsManagement() {
                                         <td className="p-4 text-slate-900 dark:text-white font-medium">#{refund.id}</td>
                                         <td className="p-4 text-slate-700 dark:text-slate-200">#{refund.booking_id || 'N/A'}</td>
                                         <td className="p-4 text-slate-700 dark:text-slate-200">{getRefundTouristName(refund)}</td>
-                                        <td className="p-4 text-slate-700 dark:text-slate-200">{refund.requested_by_phone || 'Not provided'}</td>
+                                        <td className="p-4 text-slate-700 dark:text-slate-200">
+                                            <div className="font-medium">{refund.requested_by_phone || 'Not provided'}</div>
+                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                                                Refund To: {getRefundTouristPayoutSummary(refund)}
+                                            </div>
+                                        </td>
                                         <td className="p-4 text-slate-700 dark:text-slate-200">
                                             <div>Req: {requestedAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</div>
                                             <div className="text-xs text-slate-500 mt-1">
@@ -866,6 +886,15 @@ export default function PaymentsManagement() {
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${refundStatusBadge(statusValue)}`}>
                                                 {statusValue.replace('_', ' ')}
                                             </span>
+
+                                            {(refund.processed_by_username || refund.process_date || refund.completed_date || refund.gateway_refund_id) && (
+                                                <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 space-y-0.5">
+                                                    {refund.processed_by_username && <div>By: {refund.processed_by_username}</div>}
+                                                    {refund.process_date && <div>Processed: {formatDateTime(refund.process_date)}</div>}
+                                                    {refund.completed_date && <div>Completed: {formatDateTime(refund.completed_date)}</div>}
+                                                    {refund.gateway_refund_id && <div>Gateway Ref: {refund.gateway_refund_id}</div>}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="p-4">
                                             <input

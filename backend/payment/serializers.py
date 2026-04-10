@@ -120,6 +120,7 @@ class RefundRequestSerializer(serializers.ModelSerializer):
     requested_by_last_name = serializers.CharField(source='requested_by.last_name', read_only=True)
     requested_by_username = serializers.CharField(source='requested_by.username', read_only=True)
     requested_by_phone = serializers.CharField(source='requested_by.phone_number', read_only=True)
+    requested_by_payout_account = serializers.SerializerMethodField()
     processed_by_username = serializers.CharField(source='processed_by.username', read_only=True)
     payment_id = serializers.IntegerField(source='payment.id', read_only=True)
     booking_id = serializers.IntegerField(source='booking.id', read_only=True)
@@ -141,6 +142,7 @@ class RefundRequestSerializer(serializers.ModelSerializer):
             'requested_by_last_name',
             'requested_by_username',
             'requested_by_phone',
+            'requested_by_payout_account',
             'processed_by',
             'processed_by_username',
             'reason',
@@ -178,6 +180,37 @@ class RefundRequestSerializer(serializers.ModelSerializer):
 
         full_name = f"{(user.first_name or '').strip()} {(user.last_name or '').strip()}".strip()
         return full_name or user.username
+
+    def _can_view_requested_by_payout_account(self, obj):
+        request = self.context.get('request')
+        viewer = getattr(request, 'user', None)
+        if not viewer or not viewer.is_authenticated:
+            return False
+
+        if viewer.is_superuser or viewer.is_staff:
+            return True
+
+        return viewer.id == getattr(obj, 'requested_by_id', None)
+
+    def get_requested_by_payout_account(self, obj):
+        if not self._can_view_requested_by_payout_account(obj):
+            return None
+
+        user = getattr(obj, 'requested_by', None)
+        if not user:
+            return None
+
+        payload = {
+            'account_type': user.payout_account_type,
+            'account_name': user.payout_account_name,
+            'account_number': user.payout_account_number,
+            'notes': user.payout_account_notes,
+        }
+
+        if not any(payload.values()):
+            return None
+
+        return payload
 
     def get_proof_attachment_url(self, obj):
         if not obj.proof_attachment:
