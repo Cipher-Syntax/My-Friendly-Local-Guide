@@ -2,6 +2,13 @@ from django.db import models #type: ignore
 from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
+    PAYOUT_ACCOUNT_TYPE_CHOICES = [
+        ('GCash', 'GCash'),
+        ('Bank', 'Bank Transfer'),
+        ('Maya', 'Maya'),
+        ('Other', 'Other'),
+    ]
+
     middle_name = models.CharField(max_length=255, blank=True, null=True)
     is_tourist = models.BooleanField(default=True)
     is_local_guide = models.BooleanField(default=False)
@@ -27,6 +34,10 @@ class User(AbstractUser):
     profile_picture = models.ImageField(upload_to='profiles/', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
+    payout_account_type = models.CharField(max_length=20, choices=PAYOUT_ACCOUNT_TYPE_CHOICES, null=True, blank=True)
+    payout_account_name = models.CharField(max_length=120, blank=True, null=True)
+    payout_account_number = models.CharField(max_length=80, blank=True, null=True)
+    payout_account_notes = models.CharField(max_length=255, blank=True, null=True)
     location = models.CharField(max_length=255, blank=True, null=True, help_text="e.g., City, Province")
     valid_id_image = models.ImageField(upload_to='user_kyc/', null=True, blank=True)
     

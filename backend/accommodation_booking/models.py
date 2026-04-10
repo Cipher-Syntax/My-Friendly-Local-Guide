@@ -60,6 +60,14 @@ class Booking(models.Model):
         ('Cancelled', 'Cancelled'),
         ('Refunded', 'Refunded'),
     ]
+
+    PAYOUT_CHANNEL_CHOICES = [
+        ('GCash', 'GCash'),
+        ('Bank', 'Bank Transfer'),
+        ('Maya', 'Maya'),
+        ('Cash', 'Cash'),
+        ('Other', 'Other'),
+    ]
     
     tourist = models.ForeignKey(User, limit_choices_to={'is_tourist': True}, related_name='tourist_bookings', on_delete=models.CASCADE)
     accommodation = models.ForeignKey(Accommodation, on_delete=models.CASCADE, blank=True, null=True)
@@ -90,6 +98,17 @@ class Booking(models.Model):
     platform_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="2% Commission for the App")
     guide_payout_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Amount Admin must send to Guide")
     is_payout_settled = models.BooleanField(default=False, help_text="Has Admin sent the money to the Guide?")
+    payout_settled_at = models.DateTimeField(null=True, blank=True, help_text="When the payout was marked as settled.")
+    payout_channel = models.CharField(max_length=20, choices=PAYOUT_CHANNEL_CHOICES, null=True, blank=True, help_text="How the payout was sent to provider.")
+    payout_reference_id = models.CharField(max_length=120, null=True, blank=True, help_text="GCash/bank transfer reference number.")
+    payout_processed_by = models.ForeignKey(
+        User,
+        related_name='processed_booking_payouts',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        help_text='Admin/staff who marked this payout as settled.'
+    )
 
     meetup_location = models.CharField(max_length=255, blank=True, null=True, help_text="Where the guide and tourist will meet")
     meetup_time = models.TimeField(blank=True, null=True)

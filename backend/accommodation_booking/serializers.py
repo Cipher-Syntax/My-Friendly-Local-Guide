@@ -106,6 +106,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'downpayment_paid_at', 'balance_paid_at',
             
             'platform_fee', 'guide_payout_amount', 'is_payout_settled',
+            'payout_settled_at', 'payout_channel', 'payout_reference_id', 'payout_processed_by',
             
             'meetup_location', 'meetup_time', 'meetup_instructions',
             
@@ -116,7 +117,8 @@ class BookingSerializer(serializers.ModelSerializer):
             'status', 'created_at', 
             'total_price', 'down_payment', 'balance_due', 
             'downpayment_paid_at', 'balance_paid_at', 
-            'platform_fee', 'guide_payout_amount', 
+            'platform_fee', 'guide_payout_amount',
+            'is_payout_settled', 'payout_settled_at', 'payout_channel', 'payout_reference_id', 'payout_processed_by',
             'assigned_guides', 'assigned_agency_guides', 'destination_detail', 'tour_package',
             'meetup_location', 'meetup_time', 'meetup_instructions' 
         ]

@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser 
-from django.db.models import Q #type: ignore
+from django.db.models import Q, F, Value, DecimalField, ExpressionWrapper, Case, When #type: ignore
+from django.db.models.functions import Coalesce #type: ignore
 from datetime import date, timedelta, datetime
 from django.utils import timezone #type: ignore
 from django.core.mail import send_mail #type: ignore
@@ -216,27 +217,127 @@ class BookingViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = Booking.objects.select_related('tourist', 'accommodation', 'guide', 'agency').prefetch_related('payments')
-        
-        if user.is_superuser:
-            return qs.order_by('-created_at')
 
-        view_as = self.request.query_params.get('view_as')
+        if not user.is_superuser:
+            view_as = self.request.query_params.get('view_as')
 
-        if view_as == 'guide':
-            return qs.filter(
-                Q(accommodation__host=user) |
-                Q(guide=user) |
-                Q(agency=user) |
-                Q(assigned_guides=user)
-            ).distinct().order_by('-created_at')
-        
-        return qs.filter(
-            Q(tourist=user) |
-            Q(accommodation__host=user) |
-            Q(guide=user) |
-            Q(agency=user) |
-            Q(assigned_guides=user)
-        ).distinct().order_by('-created_at')
+            if view_as == 'guide':
+                qs = qs.filter(
+                    Q(accommodation__host=user) |
+                    Q(guide=user) |
+                    Q(agency=user) |
+                    Q(assigned_guides=user)
+                ).distinct()
+            else:
+                qs = qs.filter(
+                    Q(tourist=user) |
+                    Q(accommodation__host=user) |
+                    Q(guide=user) |
+                    Q(agency=user) |
+                    Q(assigned_guides=user)
+                ).distinct()
+
+        financial_only = str(self.request.query_params.get('financial_only', '')).lower() in {'1', 'true', 'yes'}
+        payout_status = str(self.request.query_params.get('payout_status', '')).strip().lower()
+        search_term = str(self.request.query_params.get('search', '')).strip()
+        date_from_raw = str(self.request.query_params.get('date_from', '')).strip()
+        date_to_raw = str(self.request.query_params.get('date_to', '')).strip()
+        min_amount_raw = str(self.request.query_params.get('min_amount', '')).strip()
+        max_amount_raw = str(self.request.query_params.get('max_amount', '')).strip()
+        sort = str(self.request.query_params.get('sort', 'latest')).strip().lower()
+
+        if financial_only:
+            qs = qs.filter(status__in=['Confirmed', 'Completed'])
+
+        needs_payout_annotation = (
+            financial_only
+            or payout_status in {'settled', 'pending'}
+            or bool(min_amount_raw or max_amount_raw)
+            or sort in {'amount_desc', 'amount_asc'}
+        )
+
+        if needs_payout_annotation:
+            commission_fallback = ExpressionWrapper(
+                F('total_price') * Value(Decimal('0.02')),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            )
+            commission_expr = Coalesce(
+                F('platform_fee'),
+                commission_fallback,
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            )
+
+            qs = qs.annotate(
+                effective_payout=Case(
+                    When(guide_payout_amount__gt=0, then=F('guide_payout_amount')),
+                    default=ExpressionWrapper(
+                        F('down_payment') - commission_expr,
+                        output_field=DecimalField(max_digits=12, decimal_places=2),
+                    ),
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                )
+            )
+
+            if financial_only:
+                qs = qs.filter(effective_payout__gt=0)
+
+        if payout_status == 'settled':
+            qs = qs.filter(is_payout_settled=True)
+        elif payout_status == 'pending':
+            qs = qs.filter(is_payout_settled=False)
+
+        def parse_iso_date(raw_value):
+            if not raw_value:
+                return None
+            try:
+                return datetime.fromisoformat(raw_value).date()
+            except ValueError:
+                try:
+                    return date.fromisoformat(raw_value)
+                except ValueError:
+                    return None
+
+        parsed_from = parse_iso_date(date_from_raw)
+        parsed_to = parse_iso_date(date_to_raw)
+
+        if parsed_from:
+            qs = qs.filter(created_at__date__gte=parsed_from)
+        if parsed_to:
+            qs = qs.filter(created_at__date__lte=parsed_to)
+
+        if search_term:
+            search_filter = (
+                Q(tourist__first_name__icontains=search_term)
+                | Q(tourist__last_name__icontains=search_term)
+                | Q(destination__name__icontains=search_term)
+                | Q(accommodation__title__icontains=search_term)
+            )
+
+            if search_term.isdigit():
+                search_filter = search_filter | Q(id=int(search_term))
+
+            qs = qs.filter(search_filter)
+
+        if min_amount_raw and needs_payout_annotation:
+            try:
+                qs = qs.filter(effective_payout__gte=Decimal(min_amount_raw))
+            except Exception:
+                pass
+
+        if max_amount_raw and needs_payout_annotation:
+            try:
+                qs = qs.filter(effective_payout__lte=Decimal(max_amount_raw))
+            except Exception:
+                pass
+
+        if sort == 'oldest':
+            return qs.order_by('created_at')
+        if sort == 'amount_desc' and needs_payout_annotation:
+            return qs.order_by('-effective_payout', '-created_at')
+        if sort == 'amount_asc' and needs_payout_annotation:
+            return qs.order_by('effective_payout', '-created_at')
+
+        return qs.order_by('-created_at')
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -560,6 +661,46 @@ class BookingViewSet(viewsets.ModelViewSet):
             print(f"Failed to send receipt email: {e}")
 
         return Response(self.get_serializer(booking).data)
+
+    @action(detail=True, methods=['post'])
+    def settle_payout(self, request, pk=None):
+        if not (request.user.is_staff or request.user.is_superuser):
+            return Response({'error': 'Only admins can settle payouts.'}, status=403)
+
+        booking = self.get_object()
+        if booking.status not in ['Confirmed', 'Completed']:
+            return Response({'error': 'Only confirmed or completed bookings can be settled.'}, status=400)
+
+        requested_channel = str(request.data.get('payout_channel') or booking.payout_channel or 'GCash').strip()
+        valid_channels = {choice[0] for choice in Booking.PAYOUT_CHANNEL_CHOICES}
+        if requested_channel not in valid_channels:
+            return Response({'error': 'Invalid payout channel.'}, status=400)
+
+        if Decimal(str(booking.guide_payout_amount or 0)) <= 0:
+            platform_fee = Decimal(str(booking.platform_fee or 0))
+            if platform_fee <= 0:
+                platform_fee = Decimal(str(booking.total_price or 0)) * Decimal('0.02')
+
+            down_payment = Decimal(str(booking.down_payment or 0))
+            booking.guide_payout_amount = max(Decimal('0.00'), down_payment - platform_fee)
+
+        raw_reference = str(request.data.get('payout_reference_id') or '').strip()
+
+        booking.is_payout_settled = True
+        booking.payout_settled_at = timezone.now()
+        booking.payout_channel = requested_channel
+        booking.payout_reference_id = raw_reference or None
+        booking.payout_processed_by = request.user
+        booking.save(update_fields=[
+            'is_payout_settled',
+            'payout_settled_at',
+            'payout_channel',
+            'payout_reference_id',
+            'payout_processed_by',
+            'guide_payout_amount',
+        ])
+
+        return Response(self.get_serializer(booking).data, status=200)
 
     def create_booking_alert(self, booking):
         if booking.status != 'Confirmed':

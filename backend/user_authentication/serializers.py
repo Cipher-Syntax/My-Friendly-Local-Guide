@@ -62,7 +62,9 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'password', 'confirm_password', 'agency_profile',
             'first_name', 'middle_name', 'last_name', 'date_joined',
-            'profile_picture', 'bio', 'phone_number', 'location', 'valid_id_image', 'personalization_profile', 'is_active',
+            'profile_picture', 'bio', 'phone_number',
+            'payout_account_type', 'payout_account_name', 'payout_account_number', 'payout_account_notes',
+            'location', 'valid_id_image', 'personalization_profile', 'is_active',
             'is_staff', 'is_superuser',
             
             'is_tourist', 'is_local_guide', 'guide_approved', 'has_accepted_terms',

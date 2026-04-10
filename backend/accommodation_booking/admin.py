@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils import timezone
 from .models import Accommodation, Booking
 
 # Register your models here.
@@ -26,11 +27,14 @@ class BookingAdmin(admin.ModelAdmin):
         'platform_fee',         # 2% App Commission
         'guide_payout_amount',  # Net amount to send to Guide
         'is_payout_settled',    # Checkbox
+        'payout_channel',
+        'payout_reference_id',
+        'payout_settled_at',
         'status', 
         'created_at'
     )
     
-    list_filter = ('status', 'is_payout_settled', 'check_in', 'created_at')
+    list_filter = ('status', 'is_payout_settled', 'payout_channel', 'check_in', 'created_at')
     search_fields = ('tourist__username', 'guide__username', 'agency__username', 'id')
     actions = ['mark_payout_as_sent']
 
@@ -53,7 +57,12 @@ class BookingAdmin(admin.ModelAdmin):
     # --- Admin Action to Mark Payouts ---
     @admin.action(description='Mark selected payouts as SENT to Guide')
     def mark_payout_as_sent(self, request, queryset):
-        rows_updated = queryset.update(is_payout_settled=True)
+        rows_updated = queryset.filter(is_payout_settled=False).update(
+            is_payout_settled=True,
+            payout_settled_at=timezone.now(),
+            payout_channel='GCash',
+            payout_processed_by=request.user,
+        )
         self.message_user(request, f"{rows_updated} booking payouts marked as settled.")
 
 admin.site.register(Booking, BookingAdmin)
