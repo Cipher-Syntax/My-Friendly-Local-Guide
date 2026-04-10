@@ -41,6 +41,8 @@ export default function PaymentsManagement() {
     const [refundProcessingId, setRefundProcessingId] = useState(null);
     const [refundAmountDrafts, setRefundAmountDrafts] = useState({});
     const [refundNoteDrafts, setRefundNoteDrafts] = useState({});
+    const [isRefundCompleteModalOpen, setIsRefundCompleteModalOpen] = useState(false);
+    const [selectedRefundForCompletion, setSelectedRefundForCompletion] = useState(null);
 
     const [stats, setStats] = useState({
         totalCollected: 0,
@@ -120,18 +122,24 @@ export default function PaymentsManagement() {
         setRefundCurrentPage(1);
     }, [refundSearchTerm, refundFilter]);
 
-    const processRefundRequest = async (refund, action) => {
-        if (!refund?.id) return;
+    const getRefundApprovedAmount = (refund) => {
+        if (!refund?.id) return 0;
 
         const draftAmountRaw = refundAmountDrafts[refund.id];
         const fallbackAmount = refund.approved_amount || refund.requested_amount || 0;
+        return Number(draftAmountRaw || fallbackAmount);
+    };
+
+    const processRefundRequest = async (refund, action) => {
+        if (!refund?.id) return false;
+
         const approvedAmount = action === 'approve' || action === 'complete'
-            ? Number(draftAmountRaw || fallbackAmount)
+            ? getRefundApprovedAmount(refund)
             : undefined;
 
         if ((action === 'approve' || action === 'complete') && (!approvedAmount || approvedAmount <= 0)) {
             showToast('Approved amount must be greater than zero.', 'error');
-            return;
+            return false;
         }
 
         const payload = {
@@ -147,11 +155,33 @@ export default function PaymentsManagement() {
             await api.post(`/api/payments/refunds/${refund.id}/process/`, payload);
             showToast(`Refund #${refund.id} updated: ${action}.`, 'success');
             await Promise.all([fetchRefundRequests(), fetchBookings()]);
+            return true;
         } catch (error) {
             console.error('Failed to process refund request:', error);
             showToast('Failed to process refund request.', 'error');
+            return false;
         } finally {
             setRefundProcessingId(null);
+        }
+    };
+
+    const openRefundCompleteModal = (refund) => {
+        if (!refund?.id) return;
+        setSelectedRefundForCompletion(refund);
+        setIsRefundCompleteModalOpen(true);
+    };
+
+    const closeRefundCompleteModal = () => {
+        setIsRefundCompleteModalOpen(false);
+        setSelectedRefundForCompletion(null);
+    };
+
+    const confirmRefundCompletion = async () => {
+        if (!selectedRefundForCompletion?.id) return;
+
+        const wasSuccessful = await processRefundRequest(selectedRefundForCompletion, 'complete');
+        if (wasSuccessful) {
+            closeRefundCompleteModal();
         }
     };
 
@@ -548,6 +578,61 @@ export default function PaymentsManagement() {
                                     className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg shadow-lg shadow-cyan-500/20 font-medium text-sm flex items-center gap-2 transition-all"
                                 >
                                     {isProcessing ? 'Processing...' : 'Yes, Mark as Settled'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isRefundCompleteModalOpen && selectedRefundForCompletion && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm p-4 transition-colors duration-300">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl transform transition-all scale-100 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-12 h-12 rounded-full bg-teal-100 dark:bg-teal-500/10 flex items-center justify-center flex-shrink-0">
+                                    <AlertTriangle className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Confirm Refund Completion</h3>
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm">Action cannot be undone.</p>
+                                </div>
+                            </div>
+
+                            <div className="mb-5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 p-4">
+                                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Refund Target</p>
+                                <p className="mt-2 text-sm text-slate-900 dark:text-white font-medium">
+                                    Refund #{selectedRefundForCompletion.id} • Booking #{selectedRefundForCompletion.booking_id || 'N/A'}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                                    Tourist: {getRefundTouristName(selectedRefundForCompletion)}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                                    Refund To: {getRefundTouristPayoutSummary(selectedRefundForCompletion)}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 font-semibold">
+                                    Approved Amount: {getRefundApprovedAmount(selectedRefundForCompletion).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                                </p>
+                            </div>
+
+                            <p className="text-slate-700 dark:text-slate-300 mb-6 leading-relaxed text-sm">
+                                Confirm only after refund transfer is complete. This marks the refund as completed, updates booking/payment status, and notifies the tourist/provider.
+                            </p>
+
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={closeRefundCompleteModal}
+                                    disabled={refundProcessingId === selectedRefundForCompletion.id}
+                                    className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-colors font-medium text-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmRefundCompletion}
+                                    disabled={refundProcessingId === selectedRefundForCompletion.id || getRefundApprovedAmount(selectedRefundForCompletion) <= 0}
+                                    className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg shadow-lg shadow-teal-500/20 font-medium text-sm flex items-center gap-2 transition-all disabled:opacity-50"
+                                >
+                                    {refundProcessingId === selectedRefundForCompletion.id ? 'Processing...' : 'Yes, Mark as Completed'}
                                 </button>
                             </div>
                         </div>
@@ -954,7 +1039,7 @@ export default function PaymentsManagement() {
                                                 {canComplete && (
                                                     <button
                                                         disabled={isBusy}
-                                                        onClick={() => processRefundRequest(refund, 'complete')}
+                                                        onClick={() => openRefundCompleteModal(refund)}
                                                         className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-teal-500 hover:bg-teal-600 text-white disabled:opacity-50"
                                                     >
                                                         Mark Completed
