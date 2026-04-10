@@ -265,6 +265,8 @@ export default function PaymentsManagement() {
     const refundStartIndex = (refundCurrentPage - 1) * refundItemsPerPage;
     const paginatedRefundRequests = filteredRefundRequests.slice(refundStartIndex, refundStartIndex + refundItemsPerPage);
 
+    console.log(paginatedRefundRequests)
+
     const refundStatusBadge = (statusValue) => {
         const normalized = String(statusValue || '').toLowerCase();
         if (normalized === 'requested') return 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20';
