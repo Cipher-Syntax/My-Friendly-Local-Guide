@@ -5,6 +5,7 @@ import LoginBackground from '../assets/login_background.png';
 import RegisterBackground from '../assets/register_background.png';
 import { FcGoogle } from "react-icons/fc";
 import api from '../api/api';
+import { EMAIL_REGEX, EMAIL_ERROR_MESSAGE } from '../utils/validation';
 
 const Form = ({ route, method }) => {
     const { register, handleSubmit, setValue, formState: { errors, isSubmitting },} = useForm();
@@ -113,7 +114,10 @@ const Form = ({ route, method }) => {
                             <input
                                 type="email"
                                 placeholder="Email"
-                                {...register('email', { required: 'Email is required' })}
+                                {...register('email', {
+                                    required: 'Email is required',
+                                    pattern: { value: EMAIL_REGEX, message: EMAIL_ERROR_MESSAGE }
+                                })}
                                 className="border 0 border-[#0F172A] placeholder:text-[12px] rounded-lg p-2 text-[12px] h-10 focus:outline-none focus:border-[#0F172A]"
                             />
                             {errors.email && (

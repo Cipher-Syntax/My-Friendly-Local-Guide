@@ -19,6 +19,7 @@ import AgencyTourPackages from '../components/agency/AgencyTourPackages';
 import AgencyAccommodations from '../components/agency/AgencyAccommodations';
 
 import { formatPHPhoneLocal, normalizePHPhone } from '../utils/phoneNumber';
+import { NAME_REGEX, NAME_ERROR_MESSAGE, EMAIL_REGEX, EMAIL_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../utils/validation';
 
 import { useAgencyDashboardData, availableLanguages } from '../hooks/useAgencyDashboardData';
 
@@ -249,18 +250,30 @@ export default function AgencyLayout() {
 
     const handleSaveGuide = async () => {
         try {
-            const normalizedPhone = normalizePHPhone(newGuideForm.phone);
-            if (!normalizedPhone) {
-                showToast("Please enter a valid PH mobile number for the guide.", "error");
+            const trimmedFullName = String(newGuideForm.fullName || '').trim();
+            if (!NAME_REGEX.test(trimmedFullName)) {
+                showToast(`Full Name: ${NAME_ERROR_MESSAGE}`, 'error');
                 return;
             }
 
-            const nameParts = newGuideForm.fullName.split(' ');
+            const trimmedEmail = String(newGuideForm.email || '').trim();
+            if (!EMAIL_REGEX.test(trimmedEmail)) {
+                showToast(`Email: ${EMAIL_ERROR_MESSAGE}`, 'error');
+                return;
+            }
+
+            const normalizedPhone = normalizePHPhone(newGuideForm.phone);
+            if (!normalizedPhone) {
+                showToast(`Phone: ${PHONE_ERROR_MESSAGE}`, 'error');
+                return;
+            }
+
+            const nameParts = trimmedFullName.split(' ');
             const payload = {
                 first_name: nameParts[0],
                 last_name: nameParts.slice(1).join(' ') || '.',
                 contact_number: normalizedPhone,
-                email: newGuideForm.email,
+                email: trimmedEmail,
                 specialization: newGuideForm.specialty,
                 languages: newGuideForm.languages,
                 is_active: true

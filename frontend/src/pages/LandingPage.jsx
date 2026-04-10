@@ -12,6 +12,7 @@ import Coastal from '../assets/coastal.jpg';
 import Cultural from '../assets/cultural.jpg';
 import Island from '../assets/island.jpg';
 import api from '../api/api'
+import { NAME_REGEX, NAME_ERROR_MESSAGE, EMAIL_REGEX, EMAIL_ERROR_MESSAGE } from '../utils/validation';
 
 const LandingPage = () => {
     const { theme, toggleTheme } = useTheme();
@@ -19,6 +20,7 @@ const LandingPage = () => {
 
     // Contact Form States
     const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
+    const [contactErrors, setContactErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState(null); // 'success' | 'error' | null
 
@@ -40,10 +42,33 @@ const LandingPage = () => {
 
     const handleContactSubmit = async (e) => {
         e.preventDefault();
+        const nextErrors = {};
+        const trimmedName = String(contactForm.name || '').trim();
+        const trimmedEmail = String(contactForm.email || '').trim();
+
+        if (!NAME_REGEX.test(trimmedName)) {
+            nextErrors.name = NAME_ERROR_MESSAGE;
+        }
+
+        if (!EMAIL_REGEX.test(trimmedEmail)) {
+            nextErrors.email = EMAIL_ERROR_MESSAGE;
+        }
+
+        if (Object.values(nextErrors).some(Boolean)) {
+            setContactErrors(nextErrors);
+            setSubmitStatus(null);
+            return;
+        }
+
+        setContactErrors({});
         setIsSubmitting(true);
         
         try {
-            await api.post('api/support/', contactForm)
+            await api.post('api/support/', {
+                ...contactForm,
+                name: trimmedName,
+                email: trimmedEmail,
+            })
             
             setSubmitStatus('success');
             setContactForm({ name: '', email: '', message: '' });
@@ -57,10 +82,15 @@ const LandingPage = () => {
     };
 
     const handleContactChange = (e) => {
+        const { name, value } = e.target;
         setContactForm(prev => ({
             ...prev,
-            [e.target.name]: e.target.value
+            [name]: value
         }));
+
+        if (contactErrors[name]) {
+            setContactErrors((prev) => ({ ...prev, [name]: '' }));
+        }
     };
 
     return (
@@ -317,6 +347,7 @@ const LandingPage = () => {
                                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition-all"
                                         placeholder="Juan Dela Cruz"
                                     />
+                                    {!!contactErrors.name && <p className="text-red-600 dark:text-red-400 text-xs font-semibold mt-2">{contactErrors.name}</p>}
                                 </div>
 
                                 <div>
@@ -331,6 +362,7 @@ const LandingPage = () => {
                                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition-all"
                                         placeholder="juan@example.com"
                                     />
+                                    {!!contactErrors.email && <p className="text-red-600 dark:text-red-400 text-xs font-semibold mt-2">{contactErrors.email}</p>}
                                 </div>
 
                                 <div>

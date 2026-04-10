@@ -3,6 +3,7 @@ import { Eye, EyeOff, Globe, ArrowRight, Loader2, Upload, CheckCircle, ShieldChe
 import { Link } from 'react-router-dom';
 import api from '../api/api';
 import { formatPHPhoneLocal, normalizePHPhone } from '../utils/phoneNumber';
+import { NAME_REGEX, NAME_ERROR_MESSAGE, EMAIL_REGEX, EMAIL_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../utils/validation';
 
 const ACCEPTED_LICENSE_FILE_REGEX = /^[A-Za-z0-9][A-Za-z0-9 ._-]*\.(pdf|png|jpe?g|webp|gif|bmp|heic|heif)$/i;
 
@@ -79,6 +80,11 @@ const AgencyRegister = () => {
                 return false;
             }
 
+            if (!EMAIL_REGEX.test(String(formData.email || '').trim())) {
+                setError(EMAIL_ERROR_MESSAGE);
+                return false;
+            }
+
             if (formData.password !== formData.confirmPassword) {
                 setError('Passwords do not match.');
                 return false;
@@ -91,9 +97,14 @@ const AgencyRegister = () => {
                 return false;
             }
 
+            if (!NAME_REGEX.test(String(formData.owner_name || '').trim())) {
+                setError(NAME_ERROR_MESSAGE);
+                return false;
+            }
+
             const normalizedPhone = normalizePHPhone(formData.phone);
             if (!normalizedPhone) {
-                setError('Please enter a valid PH mobile number.');
+                setError(PHONE_ERROR_MESSAGE);
                 return false;
             }
         }
@@ -150,7 +161,7 @@ const AgencyRegister = () => {
 
         const normalizedPhone = normalizePHPhone(formData.phone);
         if (!normalizedPhone) {
-            setError('Please enter a valid PH mobile number.');
+            setError(PHONE_ERROR_MESSAGE);
             return;
         }
 

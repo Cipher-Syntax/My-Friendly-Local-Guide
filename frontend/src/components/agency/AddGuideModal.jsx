@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Plus, User, Phone, Book, Languages, Loader2, Mail, Pencil, AlertCircle } from 'lucide-react';
-import { formatPHPhoneLocal } from '../../utils/phoneNumber';
+import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
+import { NAME_REGEX, NAME_ERROR_MESSAGE, EMAIL_REGEX, EMAIL_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../utils/validation';
 
 export default function AddGuideModal({
     isAddGuideModalOpen,
@@ -20,28 +21,24 @@ export default function AddGuideModal({
     const handleCreateProfile = async () => {
         setError('');
 
-        const name = newGuideForm.fullName || '';
-        if (!name.trim()) {
-            setError('Full Name is required.');
-            return;
-        }
-        if (!/[a-zA-ZñÑ]/.test(name) || !/^[a-zA-ZñÑ\s-]+$/.test(name)) {
-            setError('Please provide a valid name. Only letters, spaces, and hyphens (-) are allowed. Numbers and special characters are not permitted.');
+        const name = String(newGuideForm.fullName || '').trim();
+        if (!NAME_REGEX.test(name)) {
+            setError(NAME_ERROR_MESSAGE);
             return;
         }
 
-        if (!newGuideForm.phone || newGuideForm.phone.length < 10) {
-            setError('Please provide a valid phone number.');
+        if (!normalizePHPhone(newGuideForm.phone)) {
+            setError(PHONE_ERROR_MESSAGE);
             return;
         }
 
-        const email = newGuideForm.email || '';
+        const email = String(newGuideForm.email || '').trim();
         if (!email.trim()) {
             setError('Email is required.');
             return;
         }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            setError('Please provide a valid email address (e.g., guide@example.com).');
+        if (!EMAIL_REGEX.test(email)) {
+            setError(EMAIL_ERROR_MESSAGE);
             return;
         }
 

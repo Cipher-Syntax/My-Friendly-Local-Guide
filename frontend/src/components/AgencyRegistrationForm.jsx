@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { registerAgency } from '../api/auth';
 import { formatPHPhoneLocal, normalizePHPhone } from '../utils/phoneNumber';
+import { NAME_REGEX, NAME_ERROR_MESSAGE, EMAIL_REGEX, EMAIL_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../utils/validation';
 
 const AgencyRegistrationForm = () => {
 	const [formData, setFormData] = useState({
@@ -37,10 +38,28 @@ const AgencyRegistrationForm = () => {
 			return;
 		}
 
+		if (!EMAIL_REGEX.test(String(formData.email || '').trim())) {
+			setError(EMAIL_ERROR_MESSAGE);
+			setLoading(false);
+			return;
+		}
+
+		if (String(formData.first_name || '').trim() && !NAME_REGEX.test(String(formData.first_name).trim())) {
+			setError(`First Name: ${NAME_ERROR_MESSAGE}`);
+			setLoading(false);
+			return;
+		}
+
+		if (String(formData.last_name || '').trim() && !NAME_REGEX.test(String(formData.last_name).trim())) {
+			setError(`Last Name: ${NAME_ERROR_MESSAGE}`);
+			setLoading(false);
+			return;
+		}
+
 		try {
 			const normalizedPhone = normalizePHPhone(formData.phone_number);
 			if (formData.phone_number && !normalizedPhone) {
-				setError('Please enter a valid PH mobile number');
+				setError(PHONE_ERROR_MESSAGE);
 				setLoading(false);
 				return;
 			}

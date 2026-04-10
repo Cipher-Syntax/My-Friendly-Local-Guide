@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, KeyRound, Compass, Mountain, Shield, ArrowLeft, ArrowRight, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import api from '../api/api';
+import { EMAIL_REGEX, EMAIL_ERROR_MESSAGE } from '../utils/validation';
 
 const ForgotPassword = () => {
     const [email, setEmail] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+    const [emailError, setEmailError] = useState('');
     const [loading, setLoading] = useState(false);
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
@@ -34,10 +36,18 @@ const ForgotPassword = () => {
         setLoading(true);
         setMessage('');
         setError('');
+        setEmailError('');
+
+        const trimmedEmail = String(email || '').trim();
+        if (!EMAIL_REGEX.test(trimmedEmail)) {
+            setEmailError(EMAIL_ERROR_MESSAGE);
+            setLoading(false);
+            return;
+        }
 
         try {
             const response = await api.post('/api/password-reset/', {
-                email,
+                email: trimmedEmail,
                 is_web: true
             });
             setMessage(response.data.detail || 'Password reset link has been sent to your email.');
@@ -149,12 +159,16 @@ const ForgotPassword = () => {
                                     <input
                                         type="email"
                                         value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
+                                        onChange={(e) => {
+                                            setEmail(e.target.value);
+                                            if (emailError) setEmailError('');
+                                        }}
                                         required
                                         className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700/50 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-orange-500 dark:focus:border-orange-400/50 focus:ring-2 focus:ring-orange-500/20 transition-all duration-300 font-medium"
                                         placeholder="Enter your registered email"
                                     />
                                 </div>
+                                {!!emailError && <p className="text-red-600 dark:text-red-400 text-xs font-semibold mt-2 ml-1">{emailError}</p>}
                             </div>
 
                             <button

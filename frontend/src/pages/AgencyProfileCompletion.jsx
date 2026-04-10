@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, Upload, Briefcase, ArrowRight, AlertTriangle } from 'lucide-react';
 import api from '../api/api';
 import { normalizePHPhone, formatPHPhoneLocal } from '../utils/phoneNumber';
+import { NAME_REGEX, NAME_ERROR_MESSAGE, EMAIL_REGEX, EMAIL_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../utils/validation';
 
 const AgencyProfileCompletion = () => {
     const navigate = useNavigate();
@@ -69,9 +70,21 @@ const AgencyProfileCompletion = () => {
                 return;
             }
 
+            if (!NAME_REGEX.test(String(dataToSubmit.owner_name || '').trim())) {
+                setError(NAME_ERROR_MESSAGE);
+                setIsLoading(false);
+                return;
+            }
+
+            if (!EMAIL_REGEX.test(String(dataToSubmit.email || '').trim())) {
+                setError(EMAIL_ERROR_MESSAGE);
+                setIsLoading(false);
+                return;
+            }
+
             const normalizedPhone = normalizePHPhone(dataToSubmit.phone);
             if (!normalizedPhone) {
-                setError("Please provide a valid PH mobile number before submitting.");
+                setError(PHONE_ERROR_MESSAGE);
                 setIsLoading(false);
                 return;
             }

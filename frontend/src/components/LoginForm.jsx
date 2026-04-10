@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { loginAdmin, loginAgency } from '../api/auth';
+import { EMAIL_REGEX, EMAIL_ERROR_MESSAGE } from '../utils/validation';
 
 const LoginForm = () => {
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
+	const [emailError, setEmailError] = useState('');
 	const [error, setError] = useState(null);
 	const [loading, setLoading] = useState(false);
 
@@ -12,14 +14,22 @@ const LoginForm = () => {
 		e.preventDefault();
 		setLoading(true);
 		setError(null);
+		setEmailError('');
+
+		const trimmedEmail = String(email || '').trim();
+		if (!EMAIL_REGEX.test(trimmedEmail)) {
+			setEmailError(EMAIL_ERROR_MESSAGE);
+			setLoading(false);
+			return;
+		}
 
 		try {
-			let response = await loginAdmin(email, password);
+			let response = await loginAdmin(trimmedEmail, password);
 
 			if (response.access) {
 				console.log('Admin login successful');
 			} else {
-				response = await loginAgency(email, password);
+				response = await loginAgency(trimmedEmail, password);
 
 				if (response.access) {
 					console.log('Agency login successful');
@@ -44,10 +54,14 @@ const LoginForm = () => {
 						type="email"
 						id="email"
 						value={email}
-						onChange={(e) => setEmail(e.target.value)}
+						onChange={(e) => {
+							setEmail(e.target.value);
+							if (emailError) setEmailError('');
+						}}
 						style={{ width: '100%', padding: '0.5rem', marginTop: '0.5rem' }}
 						required
 					/>
+					{emailError && <p style={{ color: 'red', marginTop: '0.5rem' }}>{emailError}</p>}
 				</div>
 				<div style={{ marginBottom: '1rem' }}>
 					<label htmlFor="password">Password</label>
@@ -55,7 +69,7 @@ const LoginForm = () => {
 						type="password"
 						id="password"
 						value={password}
-						onChange={(e) => setPassword(e.g.target.value)}
+						onChange={(e) => setPassword(e.target.value)}
 						style={{ width: '100%', padding: '0.5rem', marginTop: '0.5rem' }}
 						required
 					/>
