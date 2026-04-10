@@ -1130,8 +1130,23 @@ class RefundRequestProcessView(APIView):
 
             gateway_response = None
             gateway_refund_id = None
+            payment_amount = Decimal(payment.amount or 0).quantize(Decimal('0.01'))
+            previously_refunded = Decimal(payment.refunded_amount or 0).quantize(Decimal('0.01'))
+            remaining_refundable = (payment_amount - previously_refunded).quantize(Decimal('0.01'))
+            if remaining_refundable < 0:
+                remaining_refundable = Decimal('0.00')
 
-            if payment.gateway_payment_id:
+            already_fully_refunded = remaining_refundable <= Decimal('0.00') or payment.status == 'refunded'
+
+            if final_amount > remaining_refundable and not already_fully_refunded:
+                raise DRFValidationError({
+                    'detail': (
+                        f"Approved amount exceeds remaining refundable value (PHP {remaining_refundable}). "
+                        "Please adjust the approved amount before marking as completed."
+                    )
+                })
+
+            if payment.gateway_payment_id and not already_fully_refunded:
                 try:
                     gateway_result = create_gateway_refund(
                         payment_id=payment.gateway_payment_id,
@@ -1142,12 +1157,26 @@ class RefundRequestProcessView(APIView):
                     gateway_refund_id = gateway_result.get('refund_id')
                     gateway_response = gateway_result.get('raw')
                 except RuntimeError as exc:
-                    raise DRFValidationError({'detail': str(exc)})
+                    error_message = str(exc)
+                    if 'remaining refundable value' in error_message.lower():
+                        raise DRFValidationError({
+                            'detail': (
+                                f"{error_message} Remaining refundable amount is PHP {remaining_refundable}. "
+                                "Update the approved amount and try again."
+                            )
+                        })
+                    raise DRFValidationError({'detail': error_message})
             else:
-                gateway_response = {
-                    'manual_processing': True,
-                    'note': 'Gateway payment ID missing. Completed manually by admin.',
-                }
+                if already_fully_refunded:
+                    gateway_response = {
+                        'manual_processing': True,
+                        'note': 'No new gateway refund created because the payment is already fully refunded.',
+                    }
+                else:
+                    gateway_response = {
+                        'manual_processing': True,
+                        'note': 'Gateway payment ID missing. Completed manually by admin.',
+                    }
 
             refund_request.status = 'completed'
             refund_request.approved_amount = final_amount
@@ -1172,9 +1201,16 @@ class RefundRequestProcessView(APIView):
             )
 
             payment.refund_status = 'completed'
-            payment.refunded_amount = final_amount
+            new_refunded_total = previously_refunded
+            if not already_fully_refunded:
+                new_refunded_total = (previously_refunded + final_amount).quantize(Decimal('0.01'))
+            if new_refunded_total > payment_amount:
+                new_refunded_total = payment_amount
+
+            payment.refunded_amount = new_refunded_total
             payment.refunded_at = now
-            payment.status = 'refunded'
+            if new_refunded_total >= payment_amount:
+                payment.status = 'refunded'
             payment.save(update_fields=['refund_status', 'refunded_amount', 'refunded_at', 'status'])
 
             if booking and booking.status != 'Refunded':

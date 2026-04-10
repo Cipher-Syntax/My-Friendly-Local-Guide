@@ -130,15 +130,46 @@ export default function PaymentsManagement() {
         return Number(draftAmountRaw || fallbackAmount);
     };
 
+    const getRefundRemainingAmount = (refund) => {
+        if (!refund) return 0;
+
+        const remainingFromApi = Number(refund.remaining_refundable_amount);
+        if (Number.isFinite(remainingFromApi)) {
+            return Math.max(0, remainingFromApi);
+        }
+
+        const paymentAmount = Number(refund.payment_amount || 0);
+        const refundedAmount = Number(refund.payment_refunded_amount || 0);
+        if (!Number.isFinite(paymentAmount) || !Number.isFinite(refundedAmount)) {
+            return 0;
+        }
+
+        return Math.max(0, paymentAmount - refundedAmount);
+    };
+
+    const formatCurrency = (value) => {
+        const numeric = Number(value || 0);
+        return numeric.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
+    };
+
     const processRefundRequest = async (refund, action) => {
         if (!refund?.id) return false;
 
         const approvedAmount = action === 'approve' || action === 'complete'
             ? getRefundApprovedAmount(refund)
             : undefined;
+        const remainingAmount = getRefundRemainingAmount(refund);
 
         if ((action === 'approve' || action === 'complete') && (!approvedAmount || approvedAmount <= 0)) {
             showToast('Approved amount must be greater than zero.', 'error');
+            return false;
+        }
+
+        if ((action === 'approve' || action === 'complete') && approvedAmount > remainingAmount) {
+            showToast(
+                `Approved amount (${formatCurrency(approvedAmount)}) is greater than remaining refundable value (${formatCurrency(remainingAmount)}).`,
+                'error'
+            );
             return false;
         }
 
@@ -158,7 +189,10 @@ export default function PaymentsManagement() {
             return true;
         } catch (error) {
             console.error('Failed to process refund request:', error);
-            showToast('Failed to process refund request.', 'error');
+            const backendMessage = error?.response?.data?.detail
+                || error?.response?.data?.approved_amount?.[0]
+                || 'Failed to process refund request.';
+            showToast(backendMessage, 'error');
             return false;
         } finally {
             setRefundProcessingId(null);
@@ -611,7 +645,10 @@ export default function PaymentsManagement() {
                                     Refund To: {getRefundTouristPayoutSummary(selectedRefundForCompletion)}
                                 </p>
                                 <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 font-semibold">
-                                    Approved Amount: {getRefundApprovedAmount(selectedRefundForCompletion).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                                    Approved Amount: {formatCurrency(getRefundApprovedAmount(selectedRefundForCompletion))}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 font-semibold">
+                                    Remaining Refundable: {formatCurrency(getRefundRemainingAmount(selectedRefundForCompletion))}
                                 </p>
                             </div>
 
@@ -629,7 +666,11 @@ export default function PaymentsManagement() {
                                 </button>
                                 <button
                                     onClick={confirmRefundCompletion}
-                                    disabled={refundProcessingId === selectedRefundForCompletion.id || getRefundApprovedAmount(selectedRefundForCompletion) <= 0}
+                                    disabled={
+                                        refundProcessingId === selectedRefundForCompletion.id
+                                        || getRefundApprovedAmount(selectedRefundForCompletion) <= 0
+                                        || getRefundApprovedAmount(selectedRefundForCompletion) > getRefundRemainingAmount(selectedRefundForCompletion)
+                                    }
                                     className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg shadow-lg shadow-teal-500/20 font-medium text-sm flex items-center gap-2 transition-all disabled:opacity-50"
                                 >
                                     {refundProcessingId === selectedRefundForCompletion.id ? 'Processing...' : 'Yes, Mark as Completed'}
@@ -965,6 +1006,9 @@ export default function PaymentsManagement() {
                                                 App: {approvedAmount > 0
                                                     ? approvedAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })
                                                     : 'Pending'}
+                                            </div>
+                                            <div className="text-xs text-slate-500 mt-1">
+                                                Rem: {formatCurrency(getRefundRemainingAmount(refund))}
                                             </div>
                                         </td>
                                         <td className="p-4">

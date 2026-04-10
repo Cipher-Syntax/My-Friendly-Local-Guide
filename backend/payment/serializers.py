@@ -126,6 +126,8 @@ class RefundRequestSerializer(serializers.ModelSerializer):
     booking_id = serializers.IntegerField(source='booking.id', read_only=True)
     booking_label = serializers.SerializerMethodField()
     payment_amount = serializers.DecimalField(source='payment.amount', max_digits=10, decimal_places=2, read_only=True)
+    payment_refunded_amount = serializers.DecimalField(source='payment.refunded_amount', max_digits=10, decimal_places=2, read_only=True)
+    remaining_refundable_amount = serializers.SerializerMethodField()
     payment_status = serializers.CharField(source='payment.status', read_only=True)
     proof_attachment_url = serializers.SerializerMethodField()
 
@@ -158,6 +160,8 @@ class RefundRequestSerializer(serializers.ModelSerializer):
             'gateway_refund_id',
             'gateway_response',
             'payment_amount',
+            'payment_refunded_amount',
+            'remaining_refundable_amount',
             'payment_status',
         ]
         read_only_fields = [
@@ -169,6 +173,8 @@ class RefundRequestSerializer(serializers.ModelSerializer):
             'gateway_refund_id',
             'gateway_response',
             'payment_amount',
+            'payment_refunded_amount',
+            'remaining_refundable_amount',
             'payment_status',
             'proof_attachment_url',
         ]
@@ -234,6 +240,19 @@ class RefundRequestSerializer(serializers.ModelSerializer):
             return str(accommodation.title)
 
         return f"Booking #{getattr(booking, 'id', 'N/A')}"
+
+    def get_remaining_refundable_amount(self, obj):
+        payment = getattr(obj, 'payment', None)
+        if not payment:
+            return None
+
+        try:
+            remaining = (Decimal(payment.amount or 0) - Decimal(payment.refunded_amount or 0)).quantize(Decimal('0.01'))
+            if remaining < 0:
+                remaining = Decimal('0.00')
+            return str(remaining)
+        except Exception:
+            return None
 
 
 class RefundRequestCreateSerializer(serializers.Serializer):
