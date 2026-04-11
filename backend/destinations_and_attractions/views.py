@@ -2,13 +2,12 @@ from rest_framework import viewsets, permissions, status, generics #type: ignore
 from rest_framework.views import APIView #type: ignore
 from rest_framework.response import Response #type: ignore
 from rest_framework.parsers import MultiPartParser, FormParser #type: ignore
-from rest_framework.decorators import api_view #type: ignore
 from django_filters.rest_framework import DjangoFilterBackend #type: ignore
 from django.contrib.auth import get_user_model
 from django.db.models import Q, Count
 from datetime import date
 
-from .models import Destination, Attraction, TourPackage, TourStop
+from .models import Destination, DestinationCategory, Attraction, TourPackage, TourStop
 from .serializers import (
     DestinationSerializer, 
     DestinationListSerializer, 
@@ -37,10 +36,73 @@ class IsGuideOrAgency(permissions.BasePermission):
         return is_guide or is_agency
 
 
-@api_view(['GET'])
-def get_category_choices(request):
-    categories = [choice[0] for choice in Destination.CATEGORY_CHOICES]
-    return Response(categories)
+class CategoryChoicesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _build_category_choices(self):
+        defaults = [choice[0] for choice in Destination.CATEGORY_CHOICES]
+        custom = list(DestinationCategory.objects.values_list('name', flat=True))
+        used = list(Destination.objects.order_by().values_list('category', flat=True).distinct())
+
+        categories = []
+        seen = set()
+
+        for source in (defaults, custom, used):
+            for raw in source:
+                category = str(raw or '').strip()
+                if not category:
+                    continue
+
+                key = category.lower()
+                if key in seen:
+                    continue
+
+                seen.add(key)
+                categories.append(category)
+
+        return categories
+
+    def get(self, request):
+        return Response(self._build_category_choices())
+
+    def post(self, request):
+        if not request.user.is_staff:
+            return Response({'detail': 'Only admins can add categories.'}, status=status.HTTP_403_FORBIDDEN)
+
+        raw_name = request.data.get('name') or request.data.get('category') or ''
+        name = str(raw_name).strip()
+
+        if not name:
+            return Response({'detail': 'Category name is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(name) > 50:
+            return Response({'detail': 'Category name must be 50 characters or less.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing_custom = DestinationCategory.objects.filter(name__iexact=name).first()
+        if existing_custom:
+            category_name = existing_custom.name
+            created = False
+        else:
+            existing_known = next(
+                (category for category in self._build_category_choices() if category.lower() == name.lower()),
+                None,
+            )
+            if existing_known:
+                category_name = existing_known
+                created = False
+            else:
+                created_entry = DestinationCategory.objects.create(name=name)
+                category_name = created_entry.name
+                created = True
+
+        return Response(
+            {
+                'detail': 'Category added successfully.' if created else 'Category already exists.',
+                'category': category_name,
+                'categories': self._build_category_choices(),
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
 class DestinationViewSet(viewsets.ModelViewSet):
     queryset = Destination.objects.all().prefetch_related('images', 'attractions')

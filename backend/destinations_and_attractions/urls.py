@@ -7,6 +7,7 @@ from .views import (
     DestinationViewSet, 
     AttractionViewSet, 
     DestinationAttractionListView,
+    CategoryChoicesView,
     CreateTourView,
     MyToursListView,
     ToursByDestinationListView,
@@ -14,7 +15,6 @@ from .views import (
     GuideListView,
     GuideToursListView,
     GuideDestinationsListView,
-    get_category_choices # Imported the new view here
 )
 
 router = DefaultRouter()
@@ -24,7 +24,7 @@ router.register(r'attractions', AttractionViewSet, basename='attraction')
 urlpatterns = [
     path('', include(router.urls)),
     
-    path('categories/', get_category_choices, name='category-choices'),
+    path('categories/', CategoryChoicesView.as_view(), name='category-choices'),
     
     path(
         'destinations/<int:destination_pk>/attractions/', 

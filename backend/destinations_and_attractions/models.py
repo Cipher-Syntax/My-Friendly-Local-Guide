@@ -4,6 +4,17 @@ from django.core.exceptions import ValidationError #type: ignore
 
 User = settings.AUTH_USER_MODEL 
 
+
+class DestinationCategory(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
 class Destination(models.Model):
     CATEGORY_CHOICES = [
         ('Cultural', 'Cultural'),

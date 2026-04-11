@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, Image as ImageIcon, Eye, Trash2, AlertTriangle, MapPin, Star, XCircle, Plus, Filter, Landmark, CheckCircle, AlertCircle, Loader2, Upload, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import api from '../../api/api';
 
+const OTHER_CATEGORY_VALUE = '__other_category__';
+
 export default function ContentManagement() {
     const [destinations, setDestinations] = useState([]);
     const [categoryChoices, setCategoryChoices] = useState([]);
@@ -21,6 +23,11 @@ export default function ContentManagement() {
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
+
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
+    const [categoryModalTarget, setCategoryModalTarget] = useState('create');
 
     const [isAttractionModalOpen, setIsAttractionModalOpen] = useState(false);
     const [newAttraction, setNewAttraction] = useState({
@@ -47,19 +54,35 @@ export default function ContentManagement() {
         }, 3000);
     };
 
+    const mergeCategoryChoices = useCallback((categories) => {
+        const normalized = [];
+        const seen = new Set();
+
+        (categories || []).forEach((raw) => {
+            const category = String(raw || '').trim();
+            if (!category) return;
+
+            const key = category.toLowerCase();
+            if (seen.has(key)) return;
+
+            seen.add(key);
+            normalized.push(category);
+        });
+
+        return normalized;
+    }, []);
+
     const fetchCategories = useCallback(async () => {
         try {
             const response = await api.get('api/categories/');
-            setCategoryChoices(response.data);
-
-            if (response.data.length > 0) {
-                setNewSpot(prev => ({ ...prev, category: response.data[0] }));
-            }
+            const categories = mergeCategoryChoices(response.data);
+            setCategoryChoices(categories);
+            setNewSpot(prev => ({ ...prev, category: prev.category || categories[0] || '' }));
         } catch (error) {
             console.error("Failed to fetch categories:", error);
             showToast("Failed to load categories.", "error");
         }
-    }, []);
+    }, [mergeCategoryChoices]);
 
     const fetchDestinations = useCallback(async () => {
         try {
@@ -91,6 +114,60 @@ export default function ContentManagement() {
         }
     }, []);
 
+    const setCategoryForTarget = useCallback((target, category) => {
+        if (target === 'edit') {
+            setEditingSpot(prev => (prev ? { ...prev, category } : prev));
+            return;
+        }
+
+        setNewSpot(prev => ({ ...prev, category }));
+    }, []);
+
+    const openCategoryModal = useCallback((target) => {
+        setCategoryModalTarget(target);
+        setNewCategoryName('');
+        setIsCategoryModalOpen(true);
+    }, []);
+
+    const handleCategorySelection = useCallback((target, value) => {
+        if (value === OTHER_CATEGORY_VALUE) {
+            openCategoryModal(target);
+            return;
+        }
+
+        setCategoryForTarget(target, value);
+    }, [openCategoryModal, setCategoryForTarget]);
+
+    const handleAddCategory = useCallback(async () => {
+        const categoryName = String(newCategoryName || '').trim();
+        if (!categoryName) {
+            showToast('Please enter a category name.', 'error');
+            return;
+        }
+
+        setIsAddingCategory(true);
+        try {
+            const response = await api.post('api/categories/', { name: categoryName });
+            const savedCategory = String(response.data?.category || categoryName).trim();
+
+            setCategoryChoices(prev => mergeCategoryChoices([
+                ...prev,
+                ...(response.data?.categories || []),
+                savedCategory,
+            ]));
+            setCategoryForTarget(categoryModalTarget, savedCategory);
+
+            setIsCategoryModalOpen(false);
+            setNewCategoryName('');
+            showToast(response.data?.detail || 'Category added successfully.', 'success');
+        } catch (error) {
+            console.error('Failed to add category:', error);
+            showToast(error?.response?.data?.detail || 'Failed to add category.', 'error');
+        } finally {
+            setIsAddingCategory(false);
+        }
+    }, [categoryModalTarget, mergeCategoryChoices, newCategoryName, setCategoryForTarget]);
+
     useEffect(() => {
         fetchCategories();
         fetchDestinations();
@@ -107,12 +184,17 @@ export default function ContentManagement() {
             return;
         }
 
+        if (!newSpot.category) {
+            showToast("Please select a category.", "error");
+            return;
+        }
+
         setIsCreating(true);
         try {
             const formData = new FormData();
             formData.append('name', newSpot.name);
             formData.append('description', newSpot.description);
-            formData.append('category', newSpot.category || categoryChoices[0]);
+            formData.append('category', newSpot.category);
             formData.append('location', newSpot.location);
             formData.append('average_rating', newSpot.rating);
             formData.append('is_featured', newSpot.is_featured);
@@ -197,6 +279,12 @@ export default function ContentManagement() {
 
     const handleUpdate = async () => {
         if (!editingSpot) return;
+
+        if (!editingSpot.category) {
+            showToast("Please select a category.", "error");
+            return;
+        }
+
         setIsCreating(true);
         try {
             const formData = new FormData();
@@ -560,8 +648,14 @@ export default function ContentManagement() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Category</label>
-                                    <select value={newSpot.category} onChange={(e) => setNewSpot({ ...newSpot, category: e.target.value })} className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer transition-colors">
+                                    <select
+                                        value={newSpot.category || ''}
+                                        onChange={(e) => handleCategorySelection('create', e.target.value)}
+                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer transition-colors"
+                                    >
+                                        <option value="" disabled>Select Category</option>
                                         {categoryChoices.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                        <option value={OTHER_CATEGORY_VALUE}>Other... (Add New)</option>
                                     </select>
                                 </div>
                                 <div>
@@ -630,6 +724,64 @@ export default function ContentManagement() {
                                     </>
                                 ) : (
                                     'Create Destination'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Category Modal */}
+            {isCategoryModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-colors duration-300">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95">
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 flex items-center justify-between bg-white dark:bg-slate-800 rounded-t-2xl transition-colors">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Add New Category</h3>
+                            <button
+                                onClick={() => setIsCategoryModalOpen(false)}
+                                className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                                disabled={isAddingCategory}
+                            >
+                                <XCircle className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="px-6 py-5 space-y-3">
+                            <p className="text-sm text-slate-600 dark:text-slate-300">
+                                Enter a new destination category name. It will immediately become available in the category dropdown.
+                            </p>
+                            <input
+                                type="text"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                placeholder="e.g. Food Trip"
+                                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
+                            />
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
+                            <button
+                                onClick={() => setIsCategoryModalOpen(false)}
+                                className="px-5 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium transition-colors"
+                                disabled={isAddingCategory}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleAddCategory}
+                                disabled={isAddingCategory}
+                                className={`px-5 py-2 rounded-lg flex items-center gap-2 font-medium transition-all ${isAddingCategory
+                                    ? 'bg-cyan-500/50 text-white/70 cursor-not-allowed'
+                                    : 'bg-cyan-500 hover:bg-cyan-600 text-white shadow-lg shadow-cyan-500/20'
+                                    }`}
+                            >
+                                {isAddingCategory ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    'Add Category'
                                 )}
                             </button>
                         </div>
@@ -709,8 +861,14 @@ export default function ContentManagement() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Category</label>
-                                    <select value={editingSpot.category} onChange={(e) => setEditingSpot({ ...editingSpot, category: e.target.value })} className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer transition-colors">
+                                    <select
+                                        value={editingSpot.category || ''}
+                                        onChange={(e) => handleCategorySelection('edit', e.target.value)}
+                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer transition-colors"
+                                    >
+                                        <option value="" disabled>Select Category</option>
                                         {categoryChoices.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                        <option value={OTHER_CATEGORY_VALUE}>Other... (Add New)</option>
                                     </select>
                                 </div>
                                 <div>

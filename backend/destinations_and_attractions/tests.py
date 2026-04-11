@@ -96,6 +96,36 @@ class DestinationsApiTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertIn("Cultural", response.json())
 
+	def test_non_admin_cannot_add_category(self):
+		self.client.force_authenticate(user=self.user)
+		response = self.client.post(reverse("category-choices"), {"name": "Eco Tourism"}, format="json")
+		self.assertEqual(response.status_code, 403)
+
+	def test_admin_can_add_category(self):
+		self.client.force_authenticate(user=self.admin)
+		create_response = self.client.post(reverse("category-choices"), {"name": "Eco Tourism"}, format="json")
+		self.assertEqual(create_response.status_code, 201)
+		self.assertEqual(create_response.json().get("category"), "Eco Tourism")
+
+		list_response = self.client.get(reverse("category-choices"))
+		self.assertEqual(list_response.status_code, 200)
+		self.assertIn("Eco Tourism", list_response.json())
+
+	def test_admin_can_create_destination_with_custom_category(self):
+		self.client.force_authenticate(user=self.admin)
+		response = self.client.post(
+			reverse("destination-list"),
+			{
+				"name": "Gourmet Trail",
+				"description": "Food and local delicacies",
+				"category": "Food Trip",
+				"location": "Davao City",
+			},
+			format="json",
+		)
+		self.assertEqual(response.status_code, 201)
+		self.assertEqual(response.json().get("category"), "Food Trip")
+
 	def test_destination_list_is_public(self):
 		response = self.client.get(reverse("destination-list"))
 		self.assertEqual(response.status_code, 200)

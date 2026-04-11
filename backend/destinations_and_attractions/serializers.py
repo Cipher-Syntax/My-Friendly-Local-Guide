@@ -25,6 +25,8 @@ class AttractionSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description', 'photo']
 
 class DestinationSerializer(serializers.ModelSerializer):
+    # Accept custom admin-defined categories instead of enforcing static model choices.
+    category = serializers.CharField(max_length=50)
     images = DestinationImageSerializer(many=True, read_only=True)
     attractions = AttractionSerializer(many=True, read_only=True)
     
@@ -44,6 +46,12 @@ class DestinationSerializer(serializers.ModelSerializer):
             'images', 'uploaded_images', 'existing_images', 'attractions', 'is_featured'
         ]
         read_only_fields = ['average_rating']
+
+    def validate_category(self, value):
+        normalized = str(value or '').strip()
+        if not normalized:
+            raise serializers.ValidationError('Category is required.')
+        return normalized
 
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
