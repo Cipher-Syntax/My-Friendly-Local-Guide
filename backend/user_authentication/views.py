@@ -193,14 +193,22 @@ class ResendVerificationEmailView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, *args, **kwargs):
-        email = request.data.get('email')
-        if not email:
-            return Response({"detail": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+        identifier = str(
+            request.data.get('identifier')
+            or request.data.get('email')
+            or request.data.get('username')
+            or ''
+        ).strip()
 
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return Response({"detail": "User with this email does not exist."}, status=status.HTTP_404_NOT_FOUND)
+        if not identifier:
+            return Response({"detail": "Username or email is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(email__iexact=identifier).first()
+        if not user:
+            user = User.objects.filter(username__iexact=identifier).first()
+
+        if not user:
+            return Response({"detail": "No account found with that username or email."}, status=status.HTTP_404_NOT_FOUND)
 
         if user.is_active:
             return Response({"detail": "Account is already verified."}, status=status.HTTP_400_BAD_REQUEST)
