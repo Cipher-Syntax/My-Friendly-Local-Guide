@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { IoIosArrowRoundForward } from "react-icons/io";
 import FeaturePlace1 from '../assets/featured1.png';
 import FeaturePlace2 from '../assets/featured2.png';
@@ -9,9 +9,11 @@ import DiscoverPlace2 from '../assets/discover2.png';
 import DiscoverPlace3 from '../assets/discover3.png';
 import DiscoverPlace4 from '../assets/discover4.png';
 import { NavigationBar } from '../components'
+import api from '../api/api';
 
 const FeaturedPlaces = () => {
-    const [isActive, setisActive] = useState(2);
+    const [isActive, setisActive] = useState(null);
+    const [discoverItems, setDiscoverItems] = useState([]);
 
     const FeatureCards = [
         { id: 1, image: FeaturePlace1 },
@@ -22,12 +24,46 @@ const FeaturedPlaces = () => {
         { id: 6, image: FeaturePlace3 },
     ];
 
-    const DiscoverWhatYouWant = [
-        { id: 1, image: DiscoverPlace1, name: "BEACHES" },
-        { id: 2, image: DiscoverPlace2, name: "MOUNTAINS" },
-        { id: 3, image: DiscoverPlace3, name: "RIVERS" },
-        { id: 4, image: DiscoverPlace4, name: "CITY"},
-    ]
+    useEffect(() => {
+        const fetchDiscoverCategories = async () => {
+            try {
+                const response = await api.get('api/destinations/');
+                const destinations = Array.isArray(response?.data)
+                    ? response.data
+                    : (Array.isArray(response?.data?.results) ? response.data.results : []);
+
+                const categories = [];
+                const seen = new Set();
+
+                destinations.forEach((destination) => {
+                    const category = String(destination?.category || '').trim();
+                    if (!category) return;
+
+                    const key = category.toLowerCase();
+                    if (seen.has(key)) return;
+
+                    seen.add(key);
+                    categories.push(category.toUpperCase());
+                });
+
+                const images = [DiscoverPlace1, DiscoverPlace2, DiscoverPlace3, DiscoverPlace4];
+                const nextItems = categories.map((name, index) => ({
+                    id: index + 1,
+                    image: images[index % images.length],
+                    name,
+                }));
+
+                setDiscoverItems(nextItems);
+                setisActive(nextItems.length > 0 ? nextItems[0].id : null);
+            } catch (error) {
+                console.error('Failed to load discover categories:', error);
+                setDiscoverItems([]);
+                setisActive(null);
+            }
+        };
+
+        fetchDiscoverCategories();
+    }, []);
 
     return (
         <section className="mt-10 mb-30">
@@ -61,7 +97,7 @@ const FeaturedPlaces = () => {
 
                 <div className="flex h-[350px] w-full overflow-hidden">
                     {
-                        DiscoverWhatYouWant.map((item) => (
+                        discoverItems.map((item) => (
                             <div key={item.id} onClick={() => setisActive(item.id)} className={`relative cursor-pointer transition-all duration-500 ease-in-out overflow-hidden ${isActive === item.id ? "flex-[4]" : "flex-[1]"}`}>
                                 <img src={item.image} alt={item.name} className={`object-cover w-full h-full transition duration-500 ${ isActive === item.id ? "brightness-100" : "brightness-75"}`}/>
                                 <div className="absolute inset-0 flex justify-center items-center">
@@ -88,6 +124,10 @@ const FeaturedPlaces = () => {
                         ))
                     }
                 </div>
+
+                {discoverItems.length === 0 && (
+                    <p className="text-center mt-3 text-sm text-slate-500">No categories available yet.</p>
+                )}
 
             </div>
 
