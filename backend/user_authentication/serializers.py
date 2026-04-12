@@ -68,6 +68,7 @@ class UserSerializer(serializers.ModelSerializer):
             'is_staff', 'is_superuser',
             
             'is_tourist', 'is_local_guide', 'guide_approved', 'has_accepted_terms',
+            'push_enabled', 'email_enabled',
             'is_guide_visible', 
 
             'guide_tier', 'subscription_end_date',

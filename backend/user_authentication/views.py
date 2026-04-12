@@ -15,8 +15,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView 
 from rest_framework.exceptions import PermissionDenied, ValidationError 
 from rest_framework_simplejwt.views import TokenObtainPairView 
-from system_management_module.models import SystemAlert
+from system_management_module.models import SystemAlert, PushDeviceToken
 from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
+from system_management_module.services.email_preferences import send_preference_aware_email
 
 from .serializers import (
     UserSerializer, 
@@ -266,6 +267,13 @@ class UpdateUserView(generics.RetrieveUpdateAPIView):
     
     def get_object(self):
         return self.request.user
+
+    def perform_update(self, serializer):
+        previous_push_enabled = bool(getattr(self.request.user, 'push_enabled', True))
+        user = serializer.save()
+
+        if previous_push_enabled and not bool(getattr(user, 'push_enabled', True)):
+            PushDeviceToken.objects.filter(user=user, is_active=True).update(is_active=False)
 
 class AdminUpdateUserView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
@@ -608,7 +616,7 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
             </body>
             </html>
             """
-            send_mail(
+            send_preference_aware_email(
                 subject="New Individual Guide Application Submitted",
                 message=plain_message,
                 from_email=settings.DEFAULT_FROM_EMAIL,

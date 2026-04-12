@@ -1,10 +1,10 @@
 from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from .models import Agency, TouristGuide
-from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth import get_user_model 
 from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
+from system_management_module.services.email_preferences import send_preference_aware_email
 
 User = get_user_model() 
 
@@ -41,7 +41,7 @@ def sync_guides_with_agency_approval(sender, instance, created, **kwargs):
         old_status = getattr(instance, '_old_status', None)
         
         if instance.status == 'Approved' and old_status != 'Approved':
-            send_mail(
+            send_preference_aware_email(
                 subject=f"Account Approved: Welcome to the LocalYnk Agency Portal!",
                 message=(
                     f"Dear {instance.owner_name} ({instance.business_name}),\n\n"

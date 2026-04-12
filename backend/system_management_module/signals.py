@@ -1,10 +1,10 @@
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.conf import settings
-from django.core.mail import send_mail
 from django.core.exceptions import ObjectDoesNotExist
 from .models import SystemAlert
 from .services.push_notifications import send_push_to_user, build_alert_push_data
+from .services.email_preferences import send_preference_aware_email
 
 try:
     from payment.models import Booking
@@ -219,7 +219,7 @@ def create_alert_for_booking_status(sender, instance, created, **kwargs):
                 </html>
                 """
 
-                send_mail(
+                send_preference_aware_email(
                     subject='Booking Accepted - Proceed to Payment',
                     message=plain_message,
                     from_email=settings.DEFAULT_FROM_EMAIL,

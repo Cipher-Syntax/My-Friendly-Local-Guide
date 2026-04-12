@@ -3,10 +3,10 @@ from rest_framework.response import Response #type: ignore
 from django.db import transaction #type: ignore
 from django.db.models import Q, Sum #type: ignore
 from rest_framework.views import APIView #type: ignore
-from django.core.mail import send_mail #type: ignore
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import ValidationError #type: ignore
+from .services.email_preferences import send_preference_aware_email
 
 from .models import GuideReviewRequest, SystemAlert
 from .models import PushDeviceToken
@@ -110,7 +110,7 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
                 </html>
                 """
 
-                send_mail(
+                send_preference_aware_email(
                     subject="New Guide Application - Action Required",
                     message=plain_message,
                     from_email=settings.DEFAULT_FROM_EMAIL,
@@ -248,6 +248,12 @@ class PushTokenRegisterView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        if not getattr(request.user, 'push_enabled', True):
+            PushDeviceToken.objects.filter(user=request.user, is_active=True).update(is_active=False)
+            return Response({
+                'detail': 'Push notifications are disabled for this user. Token registration skipped.',
+            }, status=status.HTTP_200_OK)
+
         serializer = PushTokenRegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 

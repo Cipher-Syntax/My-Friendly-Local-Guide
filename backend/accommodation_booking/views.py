@@ -7,7 +7,6 @@ from django.db.models import Q, F, Value, DecimalField, ExpressionWrapper, Case,
 from django.db.models.functions import Coalesce #type: ignore
 from datetime import date, timedelta, datetime
 from django.utils import timezone #type: ignore
-from django.core.mail import send_mail #type: ignore
 from django.conf import settings
 from decimal import Decimal
 import json
@@ -16,6 +15,7 @@ from .models import Accommodation, Booking
 from .serializers import AccommodationSerializer, BookingSerializer
 from system_management_module.models import SystemAlert
 from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
+from system_management_module.services.email_preferences import send_preference_aware_email
 from destinations_and_attractions.models import TourPackage  
 from backend.pagination import OptionalPageNumberPagination
 
@@ -480,13 +480,13 @@ class BookingViewSet(viewsets.ModelViewSet):
                 </html>
                 """
 
-                send_mail(
-                    subject,
-                    plain_message,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [provider.email],
+                send_preference_aware_email(
+                    subject=subject,
+                    message=plain_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[provider.email],
                     fail_silently=True,
-                    html_message=html_message
+                    html_message=html_message,
                 )
             except Exception as e:
                 print(f"Failed to send request notification email: {e}")
@@ -651,7 +651,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         """
 
         try:
-            send_mail(
+            send_preference_aware_email(
                 subject=f"Receipt: Your LocaLynk Trip to {booking.destination or 'your destination'}",
                 message=plain_text_receipt,
                 from_email=settings.DEFAULT_FROM_EMAIL,

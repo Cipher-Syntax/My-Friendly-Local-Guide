@@ -14,7 +14,6 @@ from django.core.exceptions import ValidationError as ModelValidationError #type
 from django.shortcuts import get_object_or_404 #type: ignore
 from django.apps import apps #type: ignore
 from requests.exceptions import RequestException #type: ignore
-from django.core.mail import send_mail #type: ignore
 from django.contrib.auth import get_user_model
 from django.utils import timezone #type: ignore
 from django.db import transaction #type: ignore
@@ -33,6 +32,7 @@ from .serializers import (
 )
 from system_management_module.models import SystemAlert
 from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
+from system_management_module.services.email_preferences import send_preference_aware_email
 from user_authentication.phone_utils import normalize_ph_phone
 
 from .paymongo import create_checkout_session, retrieve_checkout_session, create_refund as create_gateway_refund
@@ -271,7 +271,7 @@ def _safe_send_mail(subject, plain_message, recipient_list, html_message=None):
     if not recipient_list:
         return
     try:
-        send_mail(
+        send_preference_aware_email(
             subject=subject,
             message=plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
@@ -649,7 +649,7 @@ class PaymentWebhookView(APIView):
                         </body>
                         </html>
                         """
-                        send_mail(subject, plain_content, settings.DEFAULT_FROM_EMAIL, [payment.payer.email], html_message=html_content)
+                        _safe_send_mail(subject, plain_content, [payment.payer.email], html_message=html_content)
                     except Exception as e:
                         print(f"Error sending HTML receipt: {e}")
 
@@ -743,12 +743,11 @@ class PaymentWebhookView(APIView):
                             </body>
                             </html>
                             """
-                            send_mail(
-                                p_subject, 
-                                p_plain_message, 
-                                settings.DEFAULT_FROM_EMAIL, 
+                            _safe_send_mail(
+                                p_subject,
+                                p_plain_message,
                                 [provider.email],
-                                html_message=p_html_message
+                                html_message=p_html_message,
                             )
                         except Exception as e:
                             print(f"Error notifying provider: {e}")

@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
 from django.conf import settings
+from system_management_module.services.email_preferences import send_preference_aware_email
 from .models import Message
 from .serializers import MessageSerializer
 from backend.pagination import OptionalPageNumberPagination
@@ -386,7 +387,7 @@ def send_support_email(request):
         )
         
         # Send to User (Mobile OR Web)
-        send_mail(
+        send_preference_aware_email(
             subject=user_subject,
             message=user_plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,

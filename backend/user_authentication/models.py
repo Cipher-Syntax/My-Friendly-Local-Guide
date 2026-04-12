@@ -14,6 +14,14 @@ class User(AbstractUser):
     is_local_guide = models.BooleanField(default=False)
     guide_approved = models.BooleanField(default=False)
     has_accepted_terms = models.BooleanField(default=False)
+    push_enabled = models.BooleanField(
+        default=True,
+        help_text="If false, user will not receive app push notifications."
+    )
+    email_enabled = models.BooleanField(
+        default=True,
+        help_text="If false, user will not receive app activity emails."
+    )
 
     guide_tier = models.CharField(max_length=10, choices=[('free', 'Free'), ('paid', 'Paid')], default='free')
     booking_count = models.IntegerField(default=0)

@@ -1,8 +1,8 @@
 from rest_framework import generics, permissions #type: ignore
 from rest_framework.exceptions import PermissionDenied, ValidationError #type: ignore
-from django.core.mail import send_mail #type: ignore
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from system_management_module.services.email_preferences import send_preference_aware_email
 
 from .models import Agency, TouristGuide
 from .serializers import AgencySerializer, AgencyApprovalSerializer, TouristGuideSerializer
@@ -81,7 +81,7 @@ class AgencyRegisterView(generics.CreateAPIView):
             </html>
             """
             
-            send_mail(
+            send_preference_aware_email(
                 subject="New Agency Registration Request",
                 message=plain_message,
                 from_email=settings.DEFAULT_FROM_EMAIL,

@@ -1,9 +1,9 @@
 from django.db.models.signals import pre_save, post_save, post_delete #type: ignore
 from django.dispatch import receiver #type: ignore
-from django.core.mail import send_mail #type: ignore
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
+from system_management_module.services.email_preferences import send_preference_aware_email
 from .models import GuideApplication
 
 User = get_user_model()
@@ -70,7 +70,7 @@ def notify_guide_approval(sender, instance, created, **kwargs):
         </html>
         """
 
-        send_mail(
+        send_preference_aware_email(
             subject="Your Guide Application is Approved!",
             message=plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,

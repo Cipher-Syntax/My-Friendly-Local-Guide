@@ -1,7 +1,7 @@
 from django.db import models
 from django.conf import settings
-from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
+from system_management_module.services.email_preferences import send_preference_aware_email
 
 User = get_user_model()
 
@@ -88,7 +88,7 @@ class GuideReviewRequest(models.Model):
                     related_object_id=self.pk
                 )
                 try:
-                    send_mail(
+                    send_preference_aware_email(
                         subject="LocaLynk: Application Approved!",
                         message=f"Congratulations {self.applicant.first_name}!\n\nYour application to become a Local Guide has been approved. Log in to start accepting bookings.",
                         from_email=settings.DEFAULT_FROM_EMAIL,
@@ -108,7 +108,7 @@ class GuideReviewRequest(models.Model):
                     related_object_id=self.pk
                 )
                 try:
-                    send_mail(
+                    send_preference_aware_email(
                         subject="LocaLynk: Application Status Update",
                         message=f"Hello {self.applicant.first_name},\n\nYour application was not approved.\nReason: {self.admin_notes or 'Verification failed'}.\nPlease update your profile/documents and try again.",
                         from_email=settings.DEFAULT_FROM_EMAIL,

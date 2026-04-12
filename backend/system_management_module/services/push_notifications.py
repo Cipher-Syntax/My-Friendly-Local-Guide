@@ -86,6 +86,9 @@ def send_push_to_user(user, title, body, data=None, event_key=None):
     if not user:
         return 0
 
+    if not getattr(user, 'push_enabled', True):
+        return 0
+
     tokens = PushDeviceToken.objects.filter(user=user, is_active=True)
     if not tokens.exists():
         return 0
