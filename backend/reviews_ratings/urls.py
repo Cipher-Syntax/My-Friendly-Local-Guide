@@ -4,7 +4,7 @@ from .views import ReviewViewSet, DestinationReviewViewSet, trigger_review_remin
 
 router = DefaultRouter()
 router.register(r'reviews', ReviewViewSet, basename='review')
-router.register(r'destination_reviews', DestinationReviewViewSet)
+router.register(r'destination_reviews', DestinationReviewViewSet, basename='destination-review')
 
 urlpatterns = [
     path('', include(router.urls)),
