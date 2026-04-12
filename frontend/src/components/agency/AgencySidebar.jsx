@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, Wallet, Settings, Map, Home, MessageSquare, History } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, Wallet, Settings, Map, Home, MessageSquare, History, BarChart3 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, unreadMessages = 0 }) {
@@ -24,6 +24,7 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
 
     const menuItems = [
         { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+        { id: 'analytics', icon: BarChart3, label: 'Reports & Analytics' },
         { id: 'bookings', icon: BookOpen, label: 'Bookings Management' },
         { id: 'booking_history', icon: History, label: 'Booking History' },
         { id: 'tours', icon: Map, label: 'My Tour Packages' }, // NEW TAB

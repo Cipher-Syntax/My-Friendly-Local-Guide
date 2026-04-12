@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert, Settings, PhilippinePeso, Map, Home, MessageSquare, History } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert, Settings, PhilippinePeso, Map, Home, MessageSquare, History, BarChart3 } from 'lucide-react';
 import api from '../api/api';
 
 import AgencySidebar from '../components/agency/AgencySidebar';
@@ -14,6 +14,7 @@ import AgencyMessages from '../components/agency/AgencyMessages';
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
 import AgencyBookingHistory from '../components/agency/AgencyBookingHistory';
+import AgencyReportsAnalytics from '../components/agency/AgencyReportsAnalytics';
 
 // NEW IMPORTS
 import AgencyTourPackages from '../components/agency/AgencyTourPackages';
@@ -624,6 +625,7 @@ export default function AgencyLayout() {
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
                                         {activeTab === 'dashboard' && <LayoutDashboard className="w-5 h-5 text-white" />}
+                                        {activeTab === 'analytics' && <BarChart3 className="w-5 h-5 text-white" />}
                                         {activeTab === 'bookings' && <BookOpen className="w-5 h-5 text-white" />}
                                         {activeTab === 'booking_history' && <History className="w-5 h-5 text-white" />}
                                         {activeTab === 'tours' && <Map className="w-5 h-5 text-white" />}
@@ -636,6 +638,7 @@ export default function AgencyLayout() {
                                     </div>
                                     <h2 className="text-lg md:text-xl font-bold text-white/90 drop-shadow-md">
                                         {activeTab === 'dashboard' ? 'Dashboard Overview' :
+                                            activeTab === 'analytics' ? 'Reports & Analytics' :
                                             activeTab === 'bookings' ? 'Bookings Management' :
                                                 activeTab === 'booking_history' ? 'Booking History' :
                                                 activeTab === 'tours' ? 'My Tour Packages' :
@@ -667,6 +670,12 @@ export default function AgencyLayout() {
                                     tourGuides={guides}
                                     bookings={bookings}
                                     getStatusBg={getStatusBg}
+                                />
+                            )}
+                            {activeTab === 'analytics' && (
+                                <AgencyReportsAnalytics
+                                    bookings={bookings}
+                                    guides={guides}
                                 />
                             )}
                             {activeTab === 'bookings' && (
