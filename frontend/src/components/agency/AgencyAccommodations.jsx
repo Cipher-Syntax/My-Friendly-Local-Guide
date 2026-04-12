@@ -20,7 +20,7 @@ export default function AgencyAccommodations() {
     const [transportFilter, setTransportFilter] = useState('all');
     const [sortBy, setSortBy] = useState('newest');
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 6;
+    const [itemsPerPage, setItemsPerPage] = useState(6);
 
     useEffect(() => {
         const fetchAccommodations = async () => {
@@ -278,13 +278,29 @@ export default function AgencyAccommodations() {
                     ))}
                     </div>
 
-                    {totalPages > 1 && (
+                    {processedAccommodations.length > 0 && (
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700/50 rounded-2xl p-4 shadow-sm">
                             <span className="text-sm text-slate-600 dark:text-slate-400">
                                 Showing <span className="font-semibold text-slate-900 dark:text-white">{showingFrom}</span> to <span className="font-semibold text-slate-900 dark:text-white">{showingTo}</span> of <span className="font-semibold text-slate-900 dark:text-white">{processedAccommodations.length}</span> accommodations
                             </span>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Per page</span>
+                                    <select
+                                        value={itemsPerPage}
+                                        onChange={(e) => {
+                                            setItemsPerPage(Number(e.target.value));
+                                            setCurrentPage(1);
+                                        }}
+                                        className="px-2 py-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-cyan-500"
+                                    >
+                                        <option value={6}>6</option>
+                                        <option value={12}>12</option>
+                                        <option value={18}>18</option>
+                                    </select>
+                                </div>
+
                                 <button
                                     onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                                     disabled={currentPage === 1}
