@@ -218,6 +218,8 @@ export default function AgencyReportsAnalytics({ bookings = [], guides = [] }) {
                         <Calendar className="w-4 h-4 text-blue-500" />
                     </div>
                     <p className="text-3xl font-black text-slate-900 dark:text-white">{completionRate.toFixed(1)}%</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Formula: Completed bookings / Total bookings</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5">{completedCount} / {scopedBookings.length}</p>
                 </div>
 
                 <div className="bg-white/70 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl p-5">
