@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert, Settings, PhilippinePeso, Map, Home, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, Loader2, CheckCircle, AlertCircle, XCircle, AlertTriangle, DollarSign, Star, Clock, ShieldAlert, Settings, PhilippinePeso, Map, Home, MessageSquare, History } from 'lucide-react';
 import api from '../api/api';
 
 import AgencySidebar from '../components/agency/AgencySidebar';
@@ -13,6 +13,7 @@ import AgencySettings from '../components/agency/AgencySettings';
 import AgencyMessages from '../components/agency/AgencyMessages';
 import AddGuideModal from '../components/agency/AddGuideModal';
 import ManageGuidesModal from '../components/agency/ManageGuidesModal';
+import AgencyBookingHistory from '../components/agency/AgencyBookingHistory';
 
 // NEW IMPORTS
 import AgencyTourPackages from '../components/agency/AgencyTourPackages';
@@ -388,19 +389,6 @@ export default function AgencyLayout() {
         }
     };
 
-    const deleteBooking = async (bookingId) => {
-        try {
-            await api.delete(`api/bookings/${bookingId}/`);
-            setBookings(prev => prev.filter(b => b.id !== bookingId));
-            showToast('Booking deleted successfully.', 'success');
-        } catch (error) {
-            console.error('Delete booking error:', error);
-            const msg = error.response?.data?.error || 'Failed to delete booking.';
-            showToast(msg, 'error');
-            throw error;
-        }
-    };
-
     const getComputedGuides = () => {
         if (selectedBookingId && isManageGuidesModalOpen) {
             const currentBooking = bookings.find(b => b.id === selectedBookingId);
@@ -637,6 +625,7 @@ export default function AgencyLayout() {
                                     <div className="p-2 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
                                         {activeTab === 'dashboard' && <LayoutDashboard className="w-5 h-5 text-white" />}
                                         {activeTab === 'bookings' && <BookOpen className="w-5 h-5 text-white" />}
+                                        {activeTab === 'booking_history' && <History className="w-5 h-5 text-white" />}
                                         {activeTab === 'tours' && <Map className="w-5 h-5 text-white" />}
                                         {activeTab === 'accommodations' && <Home className="w-5 h-5 text-white" />}
                                         {activeTab === 'guides' && <UsersRound className="w-5 h-5 text-white" />}
@@ -648,6 +637,7 @@ export default function AgencyLayout() {
                                     <h2 className="text-lg md:text-xl font-bold text-white/90 drop-shadow-md">
                                         {activeTab === 'dashboard' ? 'Dashboard Overview' :
                                             activeTab === 'bookings' ? 'Bookings Management' :
+                                                activeTab === 'booking_history' ? 'Booking History' :
                                                 activeTab === 'tours' ? 'My Tour Packages' :
                                                     activeTab === 'accommodations' ? 'My Accommodations' :
                                                         activeTab === 'guides' ? 'Tour Guide Management' :
@@ -686,7 +676,6 @@ export default function AgencyLayout() {
                                     getStatusBg={getStatusBg}
                                     updateBookingStatus={updateBookingStatus}
                                     confirmPayment={confirmPayment}
-                                    deleteBooking={deleteBooking}
                                     openMessageWithTourist={openMessageWithTourist}
                                     openManageGuidesModal={(id) => {
                                         setSelectedBookingId(id);
@@ -694,6 +683,12 @@ export default function AgencyLayout() {
                                     }}
                                     agencyTier={user?.guide_tier}
                                     freeBookingLimit={config.bookingLimit}
+                                />
+                            )}
+                            {activeTab === 'booking_history' && (
+                                <AgencyBookingHistory
+                                    bookings={bookings}
+                                    getStatusBg={getStatusBg}
                                 />
                             )}
                             {activeTab === 'tours' && <AgencyTourPackages />}

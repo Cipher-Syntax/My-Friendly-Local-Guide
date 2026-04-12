@@ -1,12 +1,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2, Search, ChevronLeft, ChevronRight, Eye, Trash2, MessageSquare, Images, CreditCard, User } from 'lucide-react';
+import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2, Search, ChevronLeft, ChevronRight, Eye, MessageSquare, Images, CreditCard, User } from 'lucide-react';
 import api from '../../api/api';
 
-export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, confirmPayment, openManageGuidesModal, agencyTier, freeBookingLimit, deleteBooking, openMessageWithTourist = () => { } }) {
+export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, confirmPayment, openManageGuidesModal, agencyTier, freeBookingLimit, openMessageWithTourist = () => { } }) {
     const [filterStatus, setFilterStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(5);
     const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
 
     // State for Accept & Meetup Modal
@@ -26,10 +26,6 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedBookingForView, setSelectedBookingForView] = useState(null);
     const [stopDetailsModalOpen, setStopDetailsModalOpen] = useState(false);
-
-    // State for Delete Modal
-    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-    const [selectedBookingForDelete, setSelectedBookingForDelete] = useState(null);
 
     const acceptedBookingsCount = bookings.filter(b => b.status === 'accepted').length;
     const isLimitReached = agencyTier === 'free' && acceptedBookingsCount >= freeBookingLimit;
@@ -520,19 +516,6 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                                             statusString === 'accepted' ? 'Waiting for downpayment...' : 'Action Locked'}
                                                     </span>
                                                 )}
-
-                                                {/* DELETE BUTTON */}
-                                                <div className="border-t border-slate-200 dark:border-slate-700/50 pt-2 mt-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedBookingForDelete(booking);
-                                                            setDeleteModalOpen(true);
-                                                        }}
-                                                        className="flex items-center justify-center gap-1 w-full px-3 py-1.5 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg text-xs font-bold transition-colors"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" /> Delete Booking
-                                                    </button>
-                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -1007,51 +990,6 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                 </div>
             )}
 
-            {/* DELETE CONFIRMATION MODAL */}
-            {deleteModalOpen && selectedBookingForDelete && (
-                <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 flex items-center gap-3 bg-red-50 dark:bg-red-900/20">
-                            <div className="p-2 bg-red-100 dark:bg-red-500/20 rounded-full">
-                                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                            </div>
-                            <h3 className="text-lg font-bold text-red-700 dark:text-red-400">Delete Booking</h3>
-                            <button onClick={() => setDeleteModalOpen(false)} className="ml-auto text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
-                                <XCircle className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="p-6 text-center space-y-3">
-                            <p className="text-sm text-slate-600 dark:text-slate-300">
-                                Are you sure you want to permanently delete <span className="font-bold">{getBookingName(selectedBookingForDelete)}</span>? This action cannot be undone.
-                            </p>
-                        </div>
-                        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900/50">
-                            <button onClick={() => setDeleteModalOpen(false)} className="px-4 py-2 font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
-                                Cancel
-                            </button>
-                            <button
-                                onClick={async () => {
-                                    if (deleteBooking) {
-                                        try {
-                                            await deleteBooking(selectedBookingForDelete.id);
-                                            showToast("Booking deleted successfully.", "success");
-                                        } catch {
-                                            showToast("Failed to delete booking.", "error");
-                                        }
-                                    } else {
-                                        showToast("Delete function not provided by parent component.", "error");
-                                    }
-                                    setDeleteModalOpen(false);
-                                    setSelectedBookingForDelete(null);
-                                }}
-                                className="px-4 py-2 font-bold rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors shadow-sm shadow-red-500/30"
-                            >
-                                Yes, Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </>
     );
 }
