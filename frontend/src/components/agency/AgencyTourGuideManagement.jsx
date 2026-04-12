@@ -1,5 +1,5 @@
-import React from 'react';
-import { Search, Plus, Star, Phone, Mail, Trash2, Pencil } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Search, Plus, Star, Phone, Mail, Trash2, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
 export default function AgencyTourGuideManagement({
@@ -14,6 +14,26 @@ export default function AgencyTourGuideManagement({
     totalGuidesCount
 }) {
     const isAddGuideDisabled = !isPremium && totalGuidesCount >= guideLimit;
+    const [currentPage, setCurrentPage] = useState(1);
+    const [guidesPerPage, setGuidesPerPage] = useState(6);
+
+    const totalGuides = filteredGuides.length;
+    const totalPages = Math.max(1, Math.ceil(totalGuides / guidesPerPage));
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
+    const paginatedGuides = useMemo(() => {
+        const start = (currentPage - 1) * guidesPerPage;
+        const end = start + guidesPerPage;
+        return filteredGuides.slice(start, end);
+    }, [filteredGuides, currentPage, guidesPerPage]);
+
+    const startItem = totalGuides === 0 ? 0 : (currentPage - 1) * guidesPerPage + 1;
+    const endItem = Math.min(currentPage * guidesPerPage, totalGuides);
 
     return (
         <div className="space-y-4 transition-colors duration-300">
@@ -25,7 +45,10 @@ export default function AgencyTourGuideManagement({
                             type="text"
                             placeholder="Search guides by name, specialty, or language..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setCurrentPage(1);
+                            }}
                             className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
                         />
                     </div>
@@ -44,8 +67,29 @@ export default function AgencyTourGuideManagement({
                 </button>
             </div>
 
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white/50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3">
+                <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">
+                    Showing {startItem}-{endItem} of {totalGuides} guide{totalGuides === 1 ? '' : 's'}
+                </p>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Per page</span>
+                    <select
+                        value={guidesPerPage}
+                        onChange={(e) => {
+                            setGuidesPerPage(Number(e.target.value));
+                            setCurrentPage(1);
+                        }}
+                        className="px-2 py-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-cyan-500"
+                    >
+                        <option value={6}>6</option>
+                        <option value={12}>12</option>
+                        <option value={18}>18</option>
+                    </select>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredGuides.map((guide) => (
+                {paginatedGuides.map((guide) => (
                     <div key={guide.id} className="bg-white dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-6 hover:border-cyan-400 dark:hover:border-cyan-500/50 transition-all relative group shadow-sm hover:shadow-md">
                         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
                             <button
@@ -108,6 +152,32 @@ export default function AgencyTourGuideManagement({
                         </div>
                     </div>
                 ))}
+            </div>
+
+            {totalGuides === 0 && (
+                <div className="bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-xl p-6 text-center text-slate-500 dark:text-slate-400 font-medium">
+                    No guides found for your current search.
+                </div>
+            )}
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+                <button
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage <= 1 || totalGuides === 0}
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                >
+                    <ChevronLeft className="w-4 h-4" /> Prev
+                </button>
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Page {totalGuides === 0 ? 0 : currentPage} of {totalGuides === 0 ? 0 : totalPages}
+                </span>
+                <button
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage >= totalPages || totalGuides === 0}
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                >
+                    Next <ChevronRight className="w-4 h-4" />
+                </button>
             </div>
         </div>
     );
