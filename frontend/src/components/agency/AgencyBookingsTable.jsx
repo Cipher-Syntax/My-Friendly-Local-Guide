@@ -18,6 +18,10 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [selectedBookingForPayment, setSelectedBookingForPayment] = useState(null);
 
+    // State for Decline Confirmation Modal
+    const [declineModalOpen, setDeclineModalOpen] = useState(false);
+    const [selectedBookingForDecline, setSelectedBookingForDecline] = useState(null);
+
     // State for View Details Modal
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedBookingForView, setSelectedBookingForView] = useState(null);
@@ -272,6 +276,18 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
         }
     };
 
+    const handleDeclineConfirm = async () => {
+        if (!selectedBookingForDecline) return;
+
+        try {
+            await updateBookingStatus(selectedBookingForDecline.id, 'declined');
+            setDeclineModalOpen(false);
+            setSelectedBookingForDecline(null);
+        } catch {
+            showToast("Failed to decline booking. Please try again.", "error");
+        }
+    };
+
     return (
         <>
             {/* MAIN TABLE CONTAINER */}
@@ -461,7 +477,10 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                                             Accept
                                                         </button>
                                                         <button
-                                                            onClick={() => updateBookingStatus(booking.id, 'declined')}
+                                                            onClick={() => {
+                                                                setSelectedBookingForDecline(booking);
+                                                                setDeclineModalOpen(true);
+                                                            }}
                                                             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors w-[80px] bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-red-500 hover:text-white`}
                                                         >
                                                             Decline
@@ -677,6 +696,56 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                             </button>
                             <button onClick={handlePaymentConfirm} className="px-4 py-2 font-bold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-colors">
                                 Yes, Payment Received
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DECLINE CONFIRMATION MODAL */}
+            {declineModalOpen && selectedBookingForDecline && (
+                <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 flex items-center gap-3 bg-red-50 dark:bg-red-900/20">
+                            <div className="p-2 bg-red-100 dark:bg-red-500/20 rounded-full">
+                                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                            </div>
+                            <h3 className="text-lg font-bold text-red-700 dark:text-red-400">Decline Booking</h3>
+                            <button
+                                onClick={() => {
+                                    setDeclineModalOpen(false);
+                                    setSelectedBookingForDecline(null);
+                                }}
+                                className="ml-auto text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                            >
+                                <XCircle className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 text-center space-y-3">
+                            <p className="text-sm text-slate-600 dark:text-slate-300">
+                                Are you sure you want to decline <span className="font-bold">{getBookingName(selectedBookingForDecline)}</span>?
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                The tourist will be notified that this booking request was declined.
+                            </p>
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900/50">
+                            <button
+                                onClick={() => {
+                                    setDeclineModalOpen(false);
+                                    setSelectedBookingForDecline(null);
+                                }}
+                                className="px-4 py-2 font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeclineConfirm}
+                                className="px-4 py-2 font-bold rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors shadow-sm shadow-red-500/30"
+                            >
+                                Yes, Decline
                             </button>
                         </div>
                     </div>
