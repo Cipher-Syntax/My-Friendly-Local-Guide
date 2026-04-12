@@ -12,6 +12,21 @@ export default function AgencyBookingHistory({ bookings = [], getStatusBg }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(5);
 
+    const getTouristDisplayName = (booking) => {
+        const tourist = booking?.tourist_detail || {};
+        const profileName = [tourist?.first_name, tourist?.last_name].filter(Boolean).join(' ').trim();
+
+        return (
+            profileName ||
+            booking?.tourist_name ||
+            booking?.tourist_full_name ||
+            booking?.tourist_display_name ||
+            booking?.tourist_username ||
+            tourist?.username ||
+            'Guest'
+        );
+    };
+
     const historicalBookings = useMemo(() => {
         return bookings.filter((booking) => HISTORY_STATUSES.includes(String(booking?.status || '').toLowerCase()));
     }, [bookings]);
@@ -55,11 +70,15 @@ export default function AgencyBookingHistory({ bookings = [], getStatusBg }) {
 
             if (!normalizedSearch) return true;
 
+            const touristDisplayName = getTouristDisplayName(booking);
+            const touristUsername = booking?.tourist_username || booking?.tourist_detail?.username;
+
             const haystack = [
                 booking?.name,
                 booking?.destination_detail?.name,
                 booking?.accommodation_detail?.title,
-                booking?.tourist_username,
+                touristDisplayName,
+                touristUsername,
                 booking?.status,
                 booking?.check_in,
                 booking?.check_out,
@@ -167,7 +186,7 @@ export default function AgencyBookingHistory({ bookings = [], getStatusBg }) {
             return [
                 booking?.id || '',
                 bookingTitle,
-                booking?.tourist_username || 'Guest',
+                getTouristDisplayName(booking),
                 String(booking?.status || '').replace('_', ' '),
                 booking?.check_in || '',
                 booking?.check_out || '',
@@ -373,6 +392,8 @@ export default function AgencyBookingHistory({ bookings = [], getStatusBg }) {
 
                             {paginatedHistory.map((booking) => {
                                 const bookingTitle = booking?.destination_detail?.name || booking?.accommodation_detail?.title || booking?.name || `Booking #${booking?.id}`;
+                                const touristDisplayName = getTouristDisplayName(booking);
+                                const touristUsername = booking?.tourist_username || booking?.tourist_detail?.username || '';
 
                                 return (
                                     <tr key={booking.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
@@ -383,9 +404,14 @@ export default function AgencyBookingHistory({ bookings = [], getStatusBg }) {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 text-sm">
-                                                <User className="w-3.5 h-3.5 text-slate-400" />
-                                                <span>{booking?.tourist_username || 'Guest'}</span>
+                                            <div className="flex items-start gap-2 text-slate-700 dark:text-slate-300 text-sm">
+                                                <User className="w-3.5 h-3.5 text-slate-400 mt-0.5" />
+                                                <div>
+                                                    <p className="font-medium">{touristDisplayName}</p>
+                                                    {touristUsername && touristUsername !== touristDisplayName && (
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">@{touristUsername}</p>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
