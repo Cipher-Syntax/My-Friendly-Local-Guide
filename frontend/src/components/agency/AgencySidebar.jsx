@@ -24,15 +24,15 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
 
     const menuItems = [
         { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-        { id: 'analytics', icon: BarChart3, label: 'Reports & Analytics' },
         { id: 'bookings', icon: BookOpen, label: 'Bookings Management' },
-        { id: 'booking_history', icon: History, label: 'Booking History' },
-        { id: 'tours', icon: Map, label: 'My Tour Packages' }, // NEW TAB
-        { id: 'accommodations', icon: Home, label: 'My Accommodations' }, // NEW TAB
-        { id: 'guides', icon: UsersRound, label: 'Tour Guide Management' },
         { id: 'messages', icon: MessageSquare, label: 'Messages' },
-        { id: 'reviews', icon: Star, label: 'Reviews & Ratings' },
+        { id: 'guides', icon: UsersRound, label: 'Guide Management' },
+        { id: 'tours', icon: Map, label: 'My Tour Packages' },
+        { id: 'accommodations', icon: Home, label: 'My Accommodation' },
         { id: 'earnings', icon: Wallet, label: 'Earnings & Payments' },
+        { id: 'analytics', icon: BarChart3, label: 'Reports & Analytics' },
+        { id: 'booking_history', icon: History, label: 'Booking History' },
+        { id: 'reviews', icon: Star, label: 'Reviews & Ratings' },
         { id: 'settings', icon: Settings, label: 'Agency Settings' },
     ];
 

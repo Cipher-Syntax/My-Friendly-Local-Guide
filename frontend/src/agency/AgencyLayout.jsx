@@ -419,10 +419,20 @@ export default function AgencyLayout() {
     };
 
     const computedGuides = getComputedGuides();
-    const filteredGuides = computedGuides.filter(g =>
-        g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        g.specialty?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const normalizedGuideSearch = String(searchTerm || '').trim().toLowerCase();
+    const filteredGuides = computedGuides.filter((g) => {
+        if (!normalizedGuideSearch) return true;
+
+        const languageSearchBlob = Array.isArray(g.languages)
+            ? g.languages.join(' ').toLowerCase()
+            : '';
+
+        return (
+            g.name.toLowerCase().includes(normalizedGuideSearch) ||
+            g.specialty?.toLowerCase().includes(normalizedGuideSearch) ||
+            languageSearchBlob.includes(normalizedGuideSearch)
+        );
+    });
 
     const getGuideNames = (ids) => ids.map(id => guides.find(g => g.id === id)?.name).filter(Boolean);
     const getStatusBg = (status) => {

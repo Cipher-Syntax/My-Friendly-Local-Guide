@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Plus, Star, Phone, Mail, Trash2, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Plus, Phone, Mail, Trash2, Pencil, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
 export default function AgencyTourGuideManagement({
@@ -7,7 +7,7 @@ export default function AgencyTourGuideManagement({
     setSearchTerm,
     filteredGuides,
     openAddGuideModal,
-    openEditGuideModal, // Added edit handler prop
+    openEditGuideModal, 
     handleRemoveGuide,
     isPremium,
     guideLimit,
@@ -16,8 +16,44 @@ export default function AgencyTourGuideManagement({
     const isAddGuideDisabled = !isPremium && totalGuidesCount >= guideLimit;
     const [currentPage, setCurrentPage] = useState(1);
     const [guidesPerPage, setGuidesPerPage] = useState(6);
+    const [specialtyFilter, setSpecialtyFilter] = useState('all');
+    const [languageFilter, setLanguageFilter] = useState('all');
+    const [availabilityFilter, setAvailabilityFilter] = useState('all');
 
-    const totalGuides = filteredGuides.length;
+    const specialtyOptions = useMemo(() => {
+        const values = filteredGuides
+            .map((guide) => String(guide?.specialty || '').trim())
+            .filter(Boolean);
+
+        return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+    }, [filteredGuides]);
+
+    const languageOptions = useMemo(() => {
+        const values = filteredGuides
+            .flatMap((guide) => Array.isArray(guide?.languages) ? guide.languages : [])
+            .map((language) => String(language || '').trim())
+            .filter(Boolean);
+
+        return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+    }, [filteredGuides]);
+
+    const guideListAfterFilters = useMemo(() => {
+        return filteredGuides.filter((guide) => {
+            const specialty = String(guide?.specialty || '').trim();
+            const languages = Array.isArray(guide?.languages) ? guide.languages.map((language) => String(language || '').trim()) : [];
+            const isAvailable = Boolean(guide?.available);
+
+            const specialtyPass = specialtyFilter === 'all' ? true : specialty === specialtyFilter;
+            const languagePass = languageFilter === 'all' ? true : languages.includes(languageFilter);
+            const availabilityPass = availabilityFilter === 'all'
+                ? true
+                : (availabilityFilter === 'available' ? isAvailable : !isAvailable);
+
+            return specialtyPass && languagePass && availabilityPass;
+        });
+    }, [filteredGuides, specialtyFilter, languageFilter, availabilityFilter]);
+
+    const totalGuides = guideListAfterFilters.length;
     const totalPages = Math.max(1, Math.ceil(totalGuides / guidesPerPage));
 
     useEffect(() => {
@@ -29,8 +65,8 @@ export default function AgencyTourGuideManagement({
     const paginatedGuides = useMemo(() => {
         const start = (currentPage - 1) * guidesPerPage;
         const end = start + guidesPerPage;
-        return filteredGuides.slice(start, end);
-    }, [filteredGuides, currentPage, guidesPerPage]);
+        return guideListAfterFilters.slice(start, end);
+    }, [guideListAfterFilters, currentPage, guidesPerPage]);
 
     const startItem = totalGuides === 0 ? 0 : (currentPage - 1) * guidesPerPage + 1;
     const endItem = Math.min(currentPage * guidesPerPage, totalGuides);
@@ -67,11 +103,71 @@ export default function AgencyTourGuideManagement({
                 </button>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white/50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3">
-                <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">
-                    Showing {startItem}-{endItem} of {totalGuides} guide{totalGuides === 1 ? '' : 's'}
-                </p>
-                <div className="flex items-center gap-2">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white/50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 mr-1">
+                        <Filter className="w-4 h-4" />
+                        <span className="text-xs font-semibold uppercase tracking-wide">Filters</span>
+                    </div>
+
+                    <select
+                        value={specialtyFilter}
+                        onChange={(e) => {
+                            setSpecialtyFilter(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-cyan-500"
+                    >
+                        <option value="all">All Specialties</option>
+                        {specialtyOptions.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={languageFilter}
+                        onChange={(e) => {
+                            setLanguageFilter(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-cyan-500"
+                    >
+                        <option value="all">All Languages</option>
+                        {languageOptions.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={availabilityFilter}
+                        onChange={(e) => {
+                            setAvailabilityFilter(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-cyan-500"
+                    >
+                        <option value="all">All Availability</option>
+                        <option value="available">Available</option>
+                        <option value="inactive">Unavailable</option>
+                    </select>
+
+                    <button
+                        onClick={() => {
+                            setSpecialtyFilter('all');
+                            setLanguageFilter('all');
+                            setAvailabilityFilter('all');
+                            setCurrentPage(1);
+                        }}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                    >
+                        Reset
+                    </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">
+                        Showing {startItem}-{endItem} of {totalGuides} guide{totalGuides === 1 ? '' : 's'}
+                    </p>
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Per page</span>
                     <select
                         value={guidesPerPage}
@@ -126,11 +222,6 @@ export default function AgencyTourGuideManagement({
                         </div>
 
                         <div className="space-y-2 mb-4">
-                            <div className="flex items-center gap-2">
-                                <Star className="w-4 h-4 text-yellow-500 dark:text-yellow-400 fill-yellow-500 dark:fill-yellow-400" />
-                                <span className="text-slate-900 dark:text-white text-sm font-bold">{guide.rating}</span>
-                                <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">({guide.tours} tours)</span>
-                            </div>
                             <div className="flex flex-wrap gap-1 mt-2">
                                 {guide.languages.map((lang, idx) => (
                                     <span key={idx} className="px-2.5 py-1 bg-slate-50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 text-xs font-medium rounded border border-slate-200 dark:border-transparent">
@@ -156,7 +247,7 @@ export default function AgencyTourGuideManagement({
 
             {totalGuides === 0 && (
                 <div className="bg-white/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-xl p-6 text-center text-slate-500 dark:text-slate-400 font-medium">
-                    No guides found for your current search.
+                    No guides match your current search and filter selection.
                 </div>
             )}
 
