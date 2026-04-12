@@ -17,6 +17,7 @@ from .serializers import AccommodationSerializer, BookingSerializer
 from system_management_module.models import SystemAlert
 from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
 from destinations_and_attractions.models import TourPackage  
+from backend.pagination import OptionalPageNumberPagination
 
 from rest_framework.views import APIView
 
@@ -213,6 +214,7 @@ class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser, JSONParser)
+    pagination_class = OptionalPageNumberPagination
 
     def get_queryset(self):
         user = self.request.user

@@ -31,6 +31,7 @@ from .serializers import (
 from .models import GuideApplication, FavoriteGuide
 from .utils import verify_google_token
 from rest_framework_simplejwt.tokens import RefreshToken 
+from backend.pagination import OptionalPageNumberPagination
 
 User = get_user_model()
 
@@ -625,6 +626,7 @@ class GuideApplicationSubmissionView(generics.CreateAPIView):
 class ApprovedLocalGuideListView(generics.ListAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny] 
+    pagination_class = OptionalPageNumberPagination
     
     def get_queryset(self):
         return User.objects.filter(

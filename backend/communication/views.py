@@ -11,6 +11,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from .models import Message
 from .serializers import MessageSerializer
+from backend.pagination import OptionalPageNumberPagination
 
 User = get_user_model()
 
@@ -77,6 +78,7 @@ def _messages_visible_to_user(user):
 
 class ConversationListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = OptionalPageNumberPagination
 
     def list(self, request, *args, **kwargs):
         user = request.user
@@ -127,7 +129,12 @@ class ConversationListView(generics.ListAPIView):
             key=lambda item: item.get('last_message_ts') or 0,
             reverse=True,
         )
-        
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(data, request, view=self)
+        if page is not None:
+            return paginator.get_paginated_response(page)
+
         return Response(data)
 
 

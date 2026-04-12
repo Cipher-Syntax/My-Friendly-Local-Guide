@@ -23,6 +23,7 @@ from .serializers import (
     PushTokenUnregisterSerializer,
 )
 from user_authentication.phone_utils import normalize_ph_phone
+from backend.pagination import OptionalPageNumberPagination
 
 User = get_user_model()
 
@@ -170,6 +171,7 @@ class GuideReviewRequestViewSet(viewsets.ModelViewSet):
 class UserAlertListView(generics.ListAPIView):
     serializer_class = SystemAlertSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = OptionalPageNumberPagination
 
     def get_queryset(self):
         user = self.request.user

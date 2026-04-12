@@ -17,6 +17,7 @@ from .serializers import (
 )
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser # Add this at the top of your file if not there
+from backend.pagination import OptionalPageNumberPagination
 
 User = get_user_model()
 
@@ -107,6 +108,7 @@ class CategoryChoicesView(APIView):
 class DestinationViewSet(viewsets.ModelViewSet):
     queryset = Destination.objects.all().prefetch_related('images', 'attractions')
     permission_classes = [IsAdminOrReadOnly]
+    pagination_class = OptionalPageNumberPagination
 
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['is_featured', 'category']
@@ -214,6 +216,7 @@ class TourDetailView(generics.RetrieveUpdateDestroyAPIView):
 class GuideListView(generics.ListAPIView):
     serializer_class = GuideSerializer
     permission_classes = [permissions.AllowAny]
+    pagination_class = OptionalPageNumberPagination
 
     def get_queryset(self):
         queryset = User.objects.filter(

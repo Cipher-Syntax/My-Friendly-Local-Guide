@@ -10,12 +10,14 @@ from .serializers import ReviewSerializer, DestinationReviewSerializer
 from user_authentication.models import User 
 from destinations_and_attractions.models import Destination
 from system_management_module.models import SystemAlert
+from backend.pagination import OptionalPageNumberPagination
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
  
     serializer_class = ReviewSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    pagination_class = OptionalPageNumberPagination
 
     def get_queryset(self):
         queryset = Review.objects.all().order_by('-timestamp')
@@ -71,7 +73,17 @@ class DestinationReviewViewSet(viewsets.ModelViewSet):
    
     serializer_class = DestinationReviewSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    queryset = DestinationReview.objects.all().order_by('-timestamp')
+    pagination_class = OptionalPageNumberPagination
+
+    def get_queryset(self):
+        queryset = DestinationReview.objects.all().order_by('-timestamp')
+        destination_id = self.request.query_params.get('destination')
+        if destination_id:
+            try:
+                queryset = queryset.filter(destination_id=int(destination_id))
+            except (TypeError, ValueError):
+                return DestinationReview.objects.none()
+        return queryset
 
     def perform_create(self, serializer):
         destination = serializer.validated_data['destination']
