@@ -471,7 +471,7 @@ class BookingViewSet(viewsets.ModelViewSet):
                             <p>The tourist is currently processing their down payment. We will notify you again once the payment is confirmed.</p>
                             
                             <div style="text-align: center;">
-                                <a href="{getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')}/login" class="btn">View Dashboard</a>
+                                <a href="{getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')}/portal" class="btn">View Dashboard</a>
                             </div>
                         </div>
                         <div class="footer">&copy; 2026 LocaLynk Partner Network.</div>

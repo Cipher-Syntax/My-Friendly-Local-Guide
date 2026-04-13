@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { PhilippinePeso, Clock, CheckCircle, Receipt, ArrowRight } from 'lucide-react';
+import { PhilippinePeso, Clock, CheckCircle, Receipt, ArrowRight, Download } from 'lucide-react';
 
 const DEFAULT_FILTERS = {
     searchTerm: '',
@@ -13,6 +13,29 @@ const DEFAULT_FILTERS = {
 const toNumber = (value) => {
     const parsed = parseFloat(value || 0);
     return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const escapeCsv = (value) => {
+    const text = String(value ?? '');
+    if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+        return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+};
+
+const downloadCsv = (fileName, headers, rows) => {
+    const csv = [headers.join(','), ...rows.map((row) => row.map(escapeCsv).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    window.URL.revokeObjectURL(url);
 };
 
 export default function AgencyEarnings({ bookings }) {
@@ -168,6 +191,47 @@ export default function AgencyEarnings({ bookings }) {
         setAppliedFilters(DEFAULT_FILTERS);
     };
 
+    const handleExportEarningsCsv = () => {
+        if (filteredBookings.length === 0) return;
+
+        const headers = [
+            'Booking ID',
+            'Tourist',
+            'Destination',
+            'Booking Status',
+            'Payout Status',
+            'Payout Amount',
+            'Total Booking Price',
+            'Downpayment',
+            'Commission',
+            'Remaining Balance',
+            'Created At',
+            'Payout Channel',
+            'Payout Reference',
+            'Payout Settled At',
+        ];
+
+        const rows = filteredBookings.map((booking) => [
+            booking?.id || '',
+            booking?.touristDisplayName || '',
+            booking?.destinationLabel || '',
+            String(booking?.status || '').replace('_', ' '),
+            booking?.is_payout_settled ? 'Settled' : 'Pending',
+            toNumber(booking?.payoutAmount).toFixed(2),
+            toNumber(booking?.totalBookingPrice).toFixed(2),
+            toNumber(booking?.downPayment).toFixed(2),
+            toNumber(booking?.commission).toFixed(2),
+            toNumber(booking?.balance).toFixed(2),
+            booking?.created_at || '',
+            booking?.payout_channel || '',
+            booking?.payout_reference_id || '',
+            booking?.payout_settled_at || '',
+        ]);
+
+        const dateStr = new Date().toISOString().slice(0, 10);
+        downloadCsv(`agency-earnings-payouts-${dateStr}.csv`, headers, rows);
+    };
+
     return (
         <div className="space-y-6 transition-colors duration-300">
            
@@ -217,11 +281,20 @@ export default function AgencyEarnings({ bookings }) {
             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">Quick Filters</h3>
-                    {hasPendingFilterChanges && (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
-                            Changes not applied
-                        </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {hasPendingFilterChanges && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                                Changes not applied
+                            </span>
+                        )}
+                        <button
+                            onClick={handleExportEarningsCsv}
+                            disabled={filteredBookings.length === 0}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <Download className="w-3.5 h-3.5" /> Export CSV
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">

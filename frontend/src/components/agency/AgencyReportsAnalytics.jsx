@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { BarChart3, TrendingUp, PieChart as PieChartIcon, Calendar, Users } from 'lucide-react';
+import { BarChart3, TrendingUp, PieChart as PieChartIcon, Calendar, Users, Download } from 'lucide-react';
 import {
     ResponsiveContainer,
     CartesianGrid,
@@ -64,6 +64,29 @@ const ChartTooltip = ({ active, payload, label }) => {
             ))}
         </div>
     );
+};
+
+const escapeCsv = (value) => {
+    const text = String(value ?? '');
+    if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+        return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+};
+
+const downloadCsv = (fileName, headers, rows) => {
+    const csv = [headers.join(','), ...rows.map((row) => row.map(escapeCsv).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    window.URL.revokeObjectURL(url);
 };
 
 export default function AgencyReportsAnalytics({ bookings = [], guides = [] }) {
@@ -170,6 +193,45 @@ export default function AgencyReportsAnalytics({ bookings = [], guides = [] }) {
 
     const averageBookingValue = scopedBookings.length === 0 ? 0 : totalRevenue / scopedBookings.length;
 
+    const handleExportAnalyticsCsv = () => {
+        if (scopedBookings.length === 0) return;
+
+        const headers = [
+            'Booking ID',
+            'Created Date',
+            'Check In',
+            'Check Out',
+            'Tourist',
+            'Destination',
+            'Status',
+            'Total Price',
+            'Month Bucket',
+        ];
+
+        const rows = scopedBookings.map((booking) => {
+            const bookingDate = getBookingDate(booking);
+            const touristDisplay = booking?.tourist_username
+                || [booking?.tourist_detail?.first_name, booking?.tourist_detail?.last_name].filter(Boolean).join(' ')
+                || 'Guest';
+            const destinationLabel = booking?.destination_detail?.name || booking?.accommodation_detail?.title || booking?.location || 'Unknown';
+
+            return [
+                booking?.id || '',
+                booking?.created_at || '',
+                booking?.check_in || '',
+                booking?.check_out || '',
+                touristDisplay,
+                destinationLabel,
+                String(booking?.status || '').replace('_', ' '),
+                toAmount(booking?.total_price).toFixed(2),
+                bookingDate ? getMonthLabel(bookingDate) : '',
+            ];
+        });
+
+        const dateStr = new Date().toISOString().slice(0, 10);
+        downloadCsv(`agency-reports-analytics-${timeframe}-${dateStr}.csv`, headers, rows);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -193,6 +255,15 @@ export default function AgencyReportsAnalytics({ bookings = [], guides = [] }) {
                         </button>
                     ))}
                 </div>
+
+                <button
+                    onClick={handleExportAnalyticsCsv}
+                    disabled={scopedBookings.length === 0}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
