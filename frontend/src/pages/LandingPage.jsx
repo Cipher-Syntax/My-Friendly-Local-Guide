@@ -244,7 +244,7 @@ const LandingPage = () => {
                     <div className="zam-marquee rounded-full border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
                         <div className="zam-marquee-track zam-marquee-fast py-3">
                             {[...marqueeFacts, ...marqueeFacts].map((fact, index) => (
-                                <div key={`${fact}-${index}`} className="mx-2 rounded-full px-4 py-1.5 text-sm font-bold text-slate-700 dark:text-slate-100" style={{ backgroundColor: 'rgba(255,255,255,0.72)' }}>
+                                <div key={`${fact}-${index}`} className="mx-2 rounded-full px-4 py-1.5 text-sm font-bold text-slate-700 dark:text-slate-800" style={{ backgroundColor: 'rgba(255,255,255,0.72)' }}>
                                     {fact}
                                 </div>
                             ))}
