@@ -50,6 +50,9 @@ export default function AgencyLayout() {
         actionLabel: 'Confirm'
     });
 
+    const [showSetupReminderModal, setShowSetupReminderModal] = useState(false);
+    const [setupReminderDismissedForSession, setSetupReminderDismissedForSession] = useState(false);
+
     const { availableSpecialties } = useAgencyDashboardData();
 
     const [guides, setGuides] = useState([]);
@@ -489,6 +492,49 @@ export default function AgencyLayout() {
     const logo = agencyProfile.logo || null;
     const businessName = agencyProfile.business_name || 'Agency Management';
 
+    const hasLogo = Boolean(agencyProfile?.logo);
+    const hasOperatingDays = Array.isArray(agencyProfile?.available_days) && agencyProfile.available_days.length > 0;
+    const hasOperatingHours = Boolean(agencyProfile?.opening_time) && Boolean(agencyProfile?.closing_time);
+    const hasVisibilityStatus = typeof agencyProfile?.is_guide_visible === 'boolean';
+
+    const isAgencySetupComplete = hasLogo && hasOperatingDays && hasOperatingHours && hasVisibilityStatus;
+
+    const setupChecklist = useMemo(() => ([
+        { label: 'Agency logo uploaded', done: hasLogo },
+        { label: 'Operating days selected', done: hasOperatingDays },
+        { label: 'Opening and closing time set', done: hasOperatingHours },
+        { label: 'Visibility status configured', done: hasVisibilityStatus },
+    ]), [hasLogo, hasOperatingDays, hasOperatingHours, hasVisibilityStatus]);
+
+    useEffect(() => {
+        if (loading) return;
+
+        if (isApproved !== 'Approved') {
+            setShowSetupReminderModal(false);
+            return;
+        }
+
+        if (isAgencySetupComplete) {
+            setShowSetupReminderModal(false);
+            return;
+        }
+
+        if (!setupReminderDismissedForSession) {
+            setShowSetupReminderModal(true);
+        }
+    }, [loading, isApproved, isAgencySetupComplete, setupReminderDismissedForSession]);
+
+    const openSettingsFromSetupReminder = () => {
+        setShowSetupReminderModal(false);
+        setSetupReminderDismissedForSession(true);
+        setActiveTab('settings');
+    };
+
+    const dismissSetupReminder = () => {
+        setShowSetupReminderModal(false);
+        setSetupReminderDismissedForSession(true);
+    };
+
     const filteredFormLanguages = useMemo(() => availableLanguages.filter(lang =>
         lang.toLowerCase().includes((newGuideForm.languageSearchTerm || '').toLowerCase()) &&
         !newGuideForm.languages.includes(lang)
@@ -547,8 +593,60 @@ export default function AgencyLayout() {
                 </div>
             )}
 
+            {showSetupReminderModal && (
+                <div className="fixed inset-0 z-[10001] bg-slate-900/45 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden">
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50">
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <Settings className="w-5 h-5 text-cyan-500" />
+                                Complete Agency Setup
+                            </h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                Finish these required settings so your agency profile is fully ready.
+                            </p>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div className="space-y-3">
+                                {setupChecklist.map((item) => (
+                                    <div key={item.label} className="flex items-center gap-3 text-sm">
+                                        {item.done ? (
+                                            <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                        ) : (
+                                            <AlertCircle className="w-4 h-4 text-amber-500" />
+                                        )}
+                                        <span className={item.done ? 'text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-slate-100 font-semibold'}>
+                                            {item.label}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 rounded-xl p-3 text-xs text-cyan-700 dark:text-cyan-300">
+                                If you choose Maybe Later, this reminder will appear again on your next login until setup is complete.
+                            </div>
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900/40">
+                            <button
+                                onClick={dismissSetupReminder}
+                                className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                            >
+                                Maybe Later
+                            </button>
+                            <button
+                                onClick={openSettingsFromSetupReminder}
+                                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-lg transition-colors"
+                            >
+                                Setup Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {toast.show && (
-                <div className={`fixed top-6 right-6 z-[100] px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
+                <div className={`fixed top-6 right-6 z-[11000] px-6 py-4 rounded-lg shadow-2xl border flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${toast.type === 'success'
                     ? 'bg-white dark:bg-slate-800 border-green-200 dark:border-green-500/50 text-green-600 dark:text-green-400'
                     : 'bg-white dark:bg-slate-800 border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-400'
                     }`}>

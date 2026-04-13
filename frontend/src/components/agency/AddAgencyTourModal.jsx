@@ -147,19 +147,83 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
     const validateStep = (step) => {
         setError('');
         if (step === 1) {
+            const trimmedName = String(formData.name || '').trim();
+            const trimmedDescription = String(formData.description || '').trim();
+            const trimmedDuration = String(formData.duration || '').trim();
+            const parsedDurationDays = parseInt(formData.durationDays, 10);
             const parsedMaxGuests = parseInt(formData.maxGroupSize, 10);
-            if (!formData.destination_id || !formData.name || !formData.description) {
-                setError("Please fill in the Destination, Tour Name, and Description.");
+
+            if (!formData.destination_id) {
+                setError("Please select a destination.");
                 return false;
             }
+
+            if (!trimmedName) {
+                setError("Please fill in the tour name.");
+                return false;
+            }
+
+            if (!trimmedDescription) {
+                setError("Please fill in the tour description.");
+                return false;
+            }
+
+            if (!trimmedDuration) {
+                setError("Please fill in the duration label.");
+                return false;
+            }
+
+            if (!Number.isFinite(parsedDurationDays) || parsedDurationDays < 1) {
+                setError("Please set a valid package days value (at least 1).");
+                return false;
+            }
+
             if (!Number.isFinite(parsedMaxGuests) || parsedMaxGuests < 1) {
                 setError("Please set a valid Max Guests value (at least 1).");
                 return false;
             }
         }
-        if (step === 3 && (!formData.pricePerDay || timeline.length === 0)) {
-            setError("Please set a base price and add at least one item to the itinerary.");
-            return false;
+
+        if (step === 2) {
+            const trimmedWhatToBring = String(formData.whatToBring || '').trim();
+            if (!trimmedWhatToBring) {
+                setError("Please fill in 'What to Bring'.");
+                return false;
+            }
+
+            if (!stops.length) {
+                setError("Please add at least one stop.");
+                return false;
+            }
+
+            for (let i = 0; i < stops.length; i += 1) {
+                const stop = stops[i] || {};
+                const stopName = String(stop.name || '').trim();
+                const hasImage = Boolean(stop.file) || Boolean(stop.preview);
+
+                if (!stopName) {
+                    setError(`Please provide a name for Stop ${i + 1}.`);
+                    return false;
+                }
+
+                if (!hasImage) {
+                    setError(`Please upload an image for Stop ${i + 1}.`);
+                    return false;
+                }
+            }
+        }
+
+        if (step === 3) {
+            const parsedPrice = Number.parseFloat(formData.pricePerDay);
+            if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+                setError("Please set a valid base price per day.");
+                return false;
+            }
+
+            if (timeline.length === 0) {
+                setError("Please add at least one item to the itinerary.");
+                return false;
+            }
         }
         return true;
     };

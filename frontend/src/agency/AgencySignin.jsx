@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Building2, User, Lock, ArrowRight, Loader2, Globe, CheckCircle, RefreshCcw } from 'lucide-react';
+import { Eye, EyeOff, Compass, Mountain, Waves, TreePine, Building2, User, Lock, ArrowRight, ArrowLeft, Loader2, Globe, CheckCircle, RefreshCcw } from 'lucide-react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { jwtDecode } from "jwt-decode";
 import api from '../api/api';
@@ -235,6 +235,14 @@ const Agencysignin = () => {
 
     return (
         <div className="min-h-screen zam-shell bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-orange-500/30 transition-colors duration-300">
+
+            <Link
+                to="/portal"
+                className="absolute top-4 left-4 z-20 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/85 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 transition-colors shadow-sm"
+            >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-sm font-semibold">Back to Portal</span>
+            </Link>
 
             <div className="absolute inset-0 zam-vinta-overlay opacity-25 pointer-events-none" />
 
