@@ -341,6 +341,85 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         return qs.order_by('-created_at')
 
+    @action(detail=False, methods=['get'], url_path='agency-concurrent-bookings')
+    def agency_concurrent_bookings(self, request):
+        agency_id_raw = request.query_params.get('agency_id')
+        if not agency_id_raw:
+            return Response({'detail': 'agency_id is required.'}, status=400)
+
+        try:
+            agency_id = int(agency_id_raw)
+        except (TypeError, ValueError):
+            return Response({'detail': 'agency_id must be a valid integer.'}, status=400)
+
+        if agency_id <= 0:
+            return Response({'detail': 'agency_id must be a positive integer.'}, status=400)
+
+        def parse_iso_date(raw_value):
+            if not raw_value:
+                return None
+            try:
+                return date.fromisoformat(str(raw_value))
+            except (TypeError, ValueError):
+                return None
+
+        check_in = parse_iso_date(request.query_params.get('check_in'))
+        check_out = parse_iso_date(request.query_params.get('check_out'))
+
+        if not check_in:
+            return Response({'detail': 'check_in is required in YYYY-MM-DD format.'}, status=400)
+
+        if not check_out:
+            check_out = check_in
+
+        if check_out < check_in:
+            return Response({'detail': 'check_out cannot be earlier than check_in.'}, status=400)
+
+        queryset = Booking.objects.select_related('tourist').filter(
+            agency_id=agency_id,
+            check_in__lte=check_out,
+            check_out__gte=check_in,
+            status__in=['Accepted', 'Pending_Payment', 'Confirmed', 'Completed'],
+        )
+
+        destination_id_raw = request.query_params.get('destination_id')
+        if destination_id_raw:
+            try:
+                destination_id = int(destination_id_raw)
+            except (TypeError, ValueError):
+                return Response({'detail': 'destination_id must be a valid integer.'}, status=400)
+
+            if destination_id > 0:
+                queryset = queryset.filter(destination_id=destination_id)
+
+        exclude_booking_id_raw = request.query_params.get('exclude_booking_id')
+        if exclude_booking_id_raw:
+            try:
+                exclude_booking_id = int(exclude_booking_id_raw)
+            except (TypeError, ValueError):
+                return Response({'detail': 'exclude_booking_id must be a valid integer.'}, status=400)
+
+            if exclude_booking_id > 0:
+                queryset = queryset.exclude(id=exclude_booking_id)
+
+        # The manifest is intended to show "other people" already booked on the same dates.
+        queryset = queryset.exclude(tourist=request.user).order_by('check_in', 'id')
+
+        response_data = [
+            {
+                'id': booking.id,
+                'tourist_username': booking.tourist.username if booking.tourist else 'Guest',
+                'num_guests': booking.num_guests,
+                'check_in': booking.check_in,
+                'check_out': booking.check_out,
+                'meetup_location': booking.meetup_location,
+                'status': booking.status,
+            }
+            for booking in queryset
+        ]
+
+        return Response(response_data)
+
     def perform_create(self, serializer):
         user = self.request.user
 

@@ -188,6 +188,145 @@ class AccommodationBookingApiTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 
 
+class AgencyConcurrentBookingsApiTests(TestCase):
+	def setUp(self):
+		self.client = APIClient()
+		self.requesting_tourist = User.objects.create_user(username="tourist_requester", password="Pass12345")
+		self.other_tourist = User.objects.create_user(username="tourist_other", password="Pass12345")
+		self.another_tourist = User.objects.create_user(username="tourist_another", password="Pass12345")
+		self.agency_user = User.objects.create_user(
+			username="agency_manifest_owner",
+			password="Pass12345",
+			is_staff=True,
+		)
+		self.other_agency_user = User.objects.create_user(
+			username="agency_other_owner",
+			password="Pass12345",
+			is_staff=True,
+		)
+
+		self.destination = Destination.objects.create(
+			name="Siargao",
+			description="Island destination",
+			category="Islands",
+			location="Surigao del Norte",
+		)
+		self.other_destination = Destination.objects.create(
+			name="Bohol",
+			description="Chocolate hills",
+			category="Nature",
+			location="Bohol",
+		)
+
+		self.window_start = date.today() + timedelta(days=6)
+		self.window_end = date.today() + timedelta(days=8)
+
+		self.overlap_a = Booking.objects.create(
+			tourist=self.other_tourist,
+			agency=self.agency_user,
+			destination=self.destination,
+			check_in=date.today() + timedelta(days=5),
+			check_out=date.today() + timedelta(days=7),
+			num_guests=2,
+			status="Confirmed",
+		)
+		self.overlap_b = Booking.objects.create(
+			tourist=self.another_tourist,
+			agency=self.agency_user,
+			destination=self.destination,
+			check_in=date.today() + timedelta(days=7),
+			check_out=date.today() + timedelta(days=9),
+			num_guests=3,
+			status="Accepted",
+		)
+		self.my_overlap = Booking.objects.create(
+			tourist=self.requesting_tourist,
+			agency=self.agency_user,
+			destination=self.destination,
+			check_in=date.today() + timedelta(days=6),
+			check_out=date.today() + timedelta(days=7),
+			num_guests=1,
+			status="Confirmed",
+		)
+		self.non_overlap = Booking.objects.create(
+			tourist=self.other_tourist,
+			agency=self.agency_user,
+			destination=self.destination,
+			check_in=date.today() + timedelta(days=20),
+			check_out=date.today() + timedelta(days=21),
+			num_guests=1,
+			status="Confirmed",
+		)
+		self.other_agency_overlap = Booking.objects.create(
+			tourist=self.other_tourist,
+			agency=self.other_agency_user,
+			destination=self.destination,
+			check_in=date.today() + timedelta(days=6),
+			check_out=date.today() + timedelta(days=7),
+			num_guests=2,
+			status="Confirmed",
+		)
+		self.other_destination_overlap = Booking.objects.create(
+			tourist=self.other_tourist,
+			agency=self.agency_user,
+			destination=self.other_destination,
+			check_in=date.today() + timedelta(days=6),
+			check_out=date.today() + timedelta(days=7),
+			num_guests=2,
+			status="Confirmed",
+		)
+
+	def test_manifest_requires_authentication(self):
+		response = self.client.get(
+			reverse("booking-agency-concurrent-bookings"),
+			{
+				"agency_id": self.agency_user.id,
+				"check_in": self.window_start.isoformat(),
+				"check_out": self.window_end.isoformat(),
+			},
+		)
+		self.assertEqual(response.status_code, 401)
+
+	def test_manifest_returns_overlapping_bookings_for_selected_agency(self):
+		self.client.force_authenticate(user=self.requesting_tourist)
+		response = self.client.get(
+			reverse("booking-agency-concurrent-bookings"),
+			{
+				"agency_id": self.agency_user.id,
+				"check_in": self.window_start.isoformat(),
+				"check_out": self.window_end.isoformat(),
+				"destination_id": self.destination.id,
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		returned_ids = {item["id"] for item in response.data}
+
+		self.assertIn(self.overlap_a.id, returned_ids)
+		self.assertIn(self.overlap_b.id, returned_ids)
+		self.assertNotIn(self.my_overlap.id, returned_ids)
+		self.assertNotIn(self.non_overlap.id, returned_ids)
+		self.assertNotIn(self.other_agency_overlap.id, returned_ids)
+		self.assertNotIn(self.other_destination_overlap.id, returned_ids)
+
+	def test_manifest_respects_exclude_booking_id(self):
+		self.client.force_authenticate(user=self.requesting_tourist)
+		response = self.client.get(
+			reverse("booking-agency-concurrent-bookings"),
+			{
+				"agency_id": self.agency_user.id,
+				"check_in": self.window_start.isoformat(),
+				"check_out": self.window_end.isoformat(),
+				"exclude_booking_id": self.overlap_a.id,
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		returned_ids = {item["id"] for item in response.data}
+		self.assertNotIn(self.overlap_a.id, returned_ids)
+		self.assertIn(self.overlap_b.id, returned_ids)
+
+
 class AccommodationModelTests(TestCase):
 	def test_accommodation_string_representation(self):
 		# Keep this as a pure unit test: __str__ does not require DB save or file upload.
