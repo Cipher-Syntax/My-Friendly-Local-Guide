@@ -347,7 +347,8 @@ class BookingSerializer(serializers.ModelSerializer):
                 'contact_number': guide.contact_number,
                 'email': guide.email,          
                 'languages': guide.languages,  
-                'specialization': guide.specialization,
+                'specializations': guide.specializations or ([guide.specialization] if guide.specialization else []),
+                'specialization': guide.specialization or ((guide.specializations or [None])[0]),
                 'profile_picture': pic_url
             })
         return guides_data

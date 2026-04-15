@@ -22,7 +22,13 @@ export default function AgencyTourGuideManagement({
 
     const specialtyOptions = useMemo(() => {
         const values = filteredGuides
-            .map((guide) => String(guide?.specialty || '').trim())
+            .flatMap((guide) => {
+                if (Array.isArray(guide?.specialties) && guide.specialties.length > 0) {
+                    return guide.specialties;
+                }
+                return [guide?.specialty || ''];
+            })
+            .map((specialty) => String(specialty || '').trim())
             .filter(Boolean);
 
         return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
@@ -39,11 +45,13 @@ export default function AgencyTourGuideManagement({
 
     const guideListAfterFilters = useMemo(() => {
         return filteredGuides.filter((guide) => {
-            const specialty = String(guide?.specialty || '').trim();
+            const specialties = Array.isArray(guide?.specialties) && guide.specialties.length > 0
+                ? guide.specialties.map((specialty) => String(specialty || '').trim()).filter(Boolean)
+                : [String(guide?.specialty || '').trim()].filter(Boolean);
             const languages = Array.isArray(guide?.languages) ? guide.languages.map((language) => String(language || '').trim()) : [];
             const isAvailable = Boolean(guide?.available);
 
-            const specialtyPass = specialtyFilter === 'all' ? true : specialty === specialtyFilter;
+            const specialtyPass = specialtyFilter === 'all' ? true : specialties.includes(specialtyFilter);
             const languagePass = languageFilter === 'all' ? true : languages.includes(languageFilter);
             const availabilityPass = availabilityFilter === 'all'
                 ? true
@@ -216,14 +224,18 @@ export default function AgencyTourGuideManagement({
                                             <div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
                                         )}
                                     </div>
-                                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">{guide.specialty}</p>
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                                        {Array.isArray(guide.specialties) && guide.specialties.length > 0
+                                            ? guide.specialties.join(', ')
+                                            : (guide.specialty || 'General')}
+                                    </p>
                                 </div>
                             </div>
                         </div>
 
                         <div className="space-y-2 mb-4">
                             <div className="flex flex-wrap gap-1 mt-2">
-                                {guide.languages.map((lang, idx) => (
+                                {(Array.isArray(guide.languages) ? guide.languages : []).map((lang, idx) => (
                                     <span key={idx} className="px-2.5 py-1 bg-slate-50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 text-xs font-medium rounded border border-slate-200 dark:border-transparent">
                                         {lang}
                                     </span>

@@ -90,7 +90,12 @@ class User(AbstractUser):
     solo_price_per_day = models.DecimalField(max_digits=10, decimal_places=2, default=1500.00)
     multiple_additional_fee_per_head = models.DecimalField(max_digits=10, decimal_places=2, default=100.00)
     
-    languages = models.JSONField(default=list, blank=True) 
+    languages = models.JSONField(default=list, blank=True)
+    specialties = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of guiding specialties"
+    )
     specialty = models.CharField(max_length=100, blank=True, null=True)
 
     def apply_as_guide(self):

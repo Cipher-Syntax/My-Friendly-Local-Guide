@@ -11,6 +11,66 @@ from backend.location_policy import validate_zds_location_payload
 
 User = get_user_model()
 
+
+def _normalize_string_list(raw_value):
+    if raw_value is None:
+        source = []
+    elif isinstance(raw_value, (list, tuple, set)):
+        source = list(raw_value)
+    elif isinstance(raw_value, str):
+        source = raw_value.split(',')
+    else:
+        source = [raw_value]
+
+    normalized = []
+    seen = set()
+
+    for value in source:
+        token = str(value or '').strip()
+        if not token:
+            continue
+
+        key = token.lower()
+        if key in seen:
+            continue
+
+        seen.add(key)
+        normalized.append(token)
+
+    return normalized
+
+
+def _resolve_specialties_payload(data, instance=None):
+    has_specialties = 'specialties' in data
+    has_specialty = 'specialty' in data
+
+    existing_specialties = _normalize_string_list(getattr(instance, 'specialties', [])) if instance else []
+    existing_specialty = str(getattr(instance, 'specialty', '') or '').strip() if instance else ''
+
+    specialties = list(existing_specialties)
+    specialty = existing_specialty
+
+    if has_specialties:
+        specialties = _normalize_string_list(data.get('specialties'))
+
+    if has_specialty:
+        incoming_specialty = str(data.get('specialty') or '').strip()
+        specialty = incoming_specialty
+
+        if incoming_specialty and not has_specialties:
+            specialties = _normalize_string_list([incoming_specialty])
+
+    if has_specialties and not has_specialty:
+        specialty = specialties[0] if specialties else ''
+
+    if has_specialty and not specialty and specialties:
+        specialty = specialties[0]
+
+    if specialty and not specialties:
+        specialties = _normalize_string_list([specialty])
+
+    return specialties, (specialty or None)
+
 class FeaturedPlaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = FeaturedPlace
@@ -73,7 +133,7 @@ class UserSerializer(serializers.ModelSerializer):
             'is_guide_visible', 
 
             'guide_tier', 'subscription_end_date',
-            'guide_rating', 'experience_years', 'languages', 'specialty', 'tour_itinerary',
+            'guide_rating', 'experience_years', 'languages', 'specialties', 'specialty', 'tour_itinerary',
             'price_per_day', 'solo_price_per_day', 'multiple_additional_fee_per_head',
             'available_days', 'specific_available_dates',
 
@@ -96,9 +156,12 @@ class UserSerializer(serializers.ModelSerializer):
         return obj.get_full_name()
 
     def get_setup_progress(self, obj):
+        primary_specialty = str(obj.specialty or '').strip()
+        specialty_list = _normalize_string_list(getattr(obj, 'specialties', []))
+        has_specialty = bool(primary_specialty or specialty_list)
+
         has_info = bool(
-            obj.specialty and 
-            obj.specialty.strip() != "" and 
+            has_specialty and
             obj.price_per_day is not None
         )
         
@@ -137,6 +200,14 @@ class UserSerializer(serializers.ModelSerializer):
         if password or confirm_password:
             if password != confirm_password:
                 raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
+
+        if 'languages' in data:
+            data['languages'] = _normalize_string_list(data.get('languages'))
+
+        if 'specialties' in data or 'specialty' in data:
+            specialties, specialty = _resolve_specialties_payload(data, self.instance)
+            data['specialties'] = specialties
+            data['specialty'] = specialty
 
         location_keys = {'location', 'municipality', 'latitude', 'longitude'}
         if any(key in data for key in location_keys):

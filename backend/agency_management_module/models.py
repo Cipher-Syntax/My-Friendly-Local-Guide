@@ -47,6 +47,7 @@ class TouristGuide(models.Model):
     contact_number = models.CharField(max_length=20)
     profile_picture = models.ImageField(upload_to="agency/guides/profiles/", blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
+    specializations = models.JSONField(default=list, blank=True)
     specialization = models.CharField(max_length=255, blank=True, null=True)
     languages = models.JSONField(default=list, blank=True)
     

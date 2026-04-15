@@ -2,6 +2,66 @@ from rest_framework import serializers #type: ignore
 from .models import Agency, TouristGuide
 from user_authentication.phone_utils import normalize_ph_phone
 
+
+def _normalize_string_list(raw_value):
+    if raw_value is None:
+        source = []
+    elif isinstance(raw_value, (list, tuple, set)):
+        source = list(raw_value)
+    elif isinstance(raw_value, str):
+        source = raw_value.split(',')
+    else:
+        source = [raw_value]
+
+    normalized = []
+    seen = set()
+
+    for value in source:
+        token = str(value or '').strip()
+        if not token:
+            continue
+
+        key = token.lower()
+        if key in seen:
+            continue
+
+        seen.add(key)
+        normalized.append(token)
+
+    return normalized
+
+
+def _resolve_specializations_payload(data, instance=None):
+    has_specializations = 'specializations' in data
+    has_specialization = 'specialization' in data
+
+    existing_specializations = _normalize_string_list(getattr(instance, 'specializations', [])) if instance else []
+    existing_specialization = str(getattr(instance, 'specialization', '') or '').strip() if instance else ''
+
+    specializations = list(existing_specializations)
+    specialization = existing_specialization
+
+    if has_specializations:
+        specializations = _normalize_string_list(data.get('specializations'))
+
+    if has_specialization:
+        incoming_specialization = str(data.get('specialization') or '').strip()
+        specialization = incoming_specialization
+
+        if incoming_specialization and not has_specializations:
+            specializations = _normalize_string_list([incoming_specialization])
+
+    if has_specializations and not has_specialization:
+        specialization = specializations[0] if specializations else ''
+
+    if has_specialization and not specialization and specializations:
+        specialization = specializations[0]
+
+    if specialization and not specializations:
+        specializations = _normalize_string_list([specialization])
+
+    return specializations, (specialization or None)
+
 class AgencySerializer(serializers.ModelSerializer):
     profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
     rating = serializers.FloatField(source='user.guide_rating', read_only=True, default=0.0)
@@ -48,6 +108,19 @@ class TouristGuideSerializer(serializers.ModelSerializer):
 
     def validate_contact_number(self, value):
         return normalize_ph_phone(value, "contact_number")
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        if 'languages' in attrs:
+            attrs['languages'] = _normalize_string_list(attrs.get('languages'))
+
+        if 'specializations' in attrs or 'specialization' in attrs:
+            specializations, specialization = _resolve_specializations_payload(attrs, self.instance)
+            attrs['specializations'] = specializations
+            attrs['specialization'] = specialization
+
+        return attrs
 
 class AgencyApprovalSerializer(serializers.ModelSerializer):
     class Meta:

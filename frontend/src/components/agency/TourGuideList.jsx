@@ -58,7 +58,11 @@ export default function TourGuideList({ searchTerm, setSearchTerm, filteredGuide
                                                     <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" title="Available" />
                                                 )}
                                             </div>
-                                            <p className="text-slate-400 text-xs">{guide.specialty}</p>
+                                            <p className="text-slate-400 text-xs">
+                                                {Array.isArray(guide.specialties) && guide.specialties.length > 0
+                                                    ? guide.specialties.join(', ')
+                                                    : (guide.specialty || 'General')}
+                                            </p>
                                             <div className="flex items-center gap-1 mt-1">
                                                 <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
                                                 <span className="text-yellow-500 text-xs font-medium">{guide.rating}</span>
@@ -70,7 +74,7 @@ export default function TourGuideList({ searchTerm, setSearchTerm, filteredGuide
                                     <div className="space-y-2 text-xs">
                                         <div className="flex items-center gap-2 text-slate-400">
                                             <Award className="w-3 h-3" />
-                                            <span className="truncate">{guide.languages.join(', ')}</span>
+                                            <span className="truncate">{Array.isArray(guide.languages) ? guide.languages.join(', ') : ''}</span>
                                         </div>
                                         <div className="flex items-center gap-2 text-slate-400">
                                             <Phone className="w-3 h-3" />

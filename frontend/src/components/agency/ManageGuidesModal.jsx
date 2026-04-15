@@ -25,13 +25,44 @@ export default function ManageGuidesModal({
     };
 
     // SUPER-SAFE SPECIALTY EXTRACTION
-    const getGuideSpecialty = (guide) => {
-        if (!guide) return '';
-        let spec = guide.specialization || guide.specialty || '';
-        if (typeof spec === 'object' && spec !== null) {
-            return spec.name || spec.title || '';
+    const getGuideSpecialties = (guide) => {
+        if (!guide) return [];
+        const raw =
+            (Array.isArray(guide.specializations) && guide.specializations.length > 0 && guide.specializations) ||
+            (Array.isArray(guide.specialties) && guide.specialties.length > 0 && guide.specialties) ||
+            guide.specialization ||
+            guide.specialty ||
+            [];
+
+        const source = Array.isArray(raw) ? raw : [raw];
+        const normalized = [];
+        const seen = new Set();
+
+        source.forEach((value) => {
+            let token = value;
+            if (typeof token === 'object' && token !== null) {
+                token = token.name || token.title || '';
+            }
+
+            const text = String(token || '').trim();
+            if (!text) return;
+
+            const key = text.toLowerCase();
+            if (seen.has(key)) return;
+
+            seen.add(key);
+            normalized.push(text);
+        });
+
+        return normalized;
+    };
+
+    const getGuideSpecialtyDisplay = (guide) => {
+        const specialties = getGuideSpecialties(guide);
+        if (!specialties.length) {
+            return 'General';
         }
-        return String(spec);
+        return specialties.join(', ');
     };
 
     const bookingCategory = getBookingCategory(currentSelectedBooking);
@@ -66,11 +97,11 @@ export default function ManageGuidesModal({
         );
 
         availableGuides.sort((a, b) => {
-            const aSpec = getGuideSpecialty(a);
-            const bSpec = getGuideSpecialty(b);
+            const aSpecs = getGuideSpecialties(a);
+            const bSpecs = getGuideSpecialties(b);
 
-            const aMatch = isCategoryMatch(bookingCategory, aSpec);
-            const bMatch = isCategoryMatch(bookingCategory, bSpec);
+            const aMatch = aSpecs.some((spec) => isCategoryMatch(bookingCategory, spec));
+            const bMatch = bSpecs.some((spec) => isCategoryMatch(bookingCategory, spec));
 
             if (aMatch && !bMatch) return -1;
             if (!aMatch && bMatch) return 1;
@@ -148,8 +179,8 @@ export default function ManageGuidesModal({
                 <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
                     {filteredGuides.map(guide => {
                         const isAssigned = currentAssignedIds.includes(guide.id);
-                        const guideSpec = getGuideSpecialty(guide);
-                        const isRecommendedMatch = isCategoryMatch(bookingCategory, guideSpec);
+                        const guideSpec = getGuideSpecialtyDisplay(guide);
+                        const isRecommendedMatch = getGuideSpecialties(guide).some((spec) => isCategoryMatch(bookingCategory, spec));
 
                         return (
                             <div

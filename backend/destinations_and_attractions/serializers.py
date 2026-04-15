@@ -278,7 +278,7 @@ class GuideSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'first_name', 'last_name', 'guide_name',
             'location', 'guide_rating', 'available_days', 
-            'languages', 'specialty', 'experience_years', 
+            'languages', 'specialties', 'specialty', 'experience_years', 
             'price_per_day', 'profile_picture', 'tours',
             'is_guide_visible', 'guide_tier', 'booking_count',
             'active_bookings_count', 'is_busy'

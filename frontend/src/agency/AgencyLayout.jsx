@@ -67,8 +67,9 @@ export default function AgencyLayout() {
     const [editingGuideId, setEditingGuideId] = useState(null);
 
     const [newGuideForm, setNewGuideForm] = useState({
-        fullName: '', specialty: '', languages: [], phone: '', email: '',
-        languageSearchTerm: '', showLanguageDropdown: false
+        fullName: '', specialties: [], languages: [], phone: '', email: '',
+        languageSearchTerm: '', showLanguageDropdown: false,
+        specialtySearchTerm: '', showSpecialtyDropdown: false
     });
 
     const showToast = (message, type = 'success') => {
@@ -154,9 +155,14 @@ export default function AgencyLayout() {
 
                 const formattedGuides = guidesRes.data.map(g => ({
                     ...g,
+                    specialties: Array.isArray(g.specializations) && g.specializations.length > 0
+                        ? g.specializations
+                        : (g.specialization ? [g.specialization] : []),
                     id: g.id,
                     name: `${g.first_name} ${g.last_name}`,
-                    specialty: g.specialization,
+                    specialty: (Array.isArray(g.specializations) && g.specializations.length > 0
+                        ? g.specializations[0]
+                        : g.specialization) || '',
                     languages: g.languages || [],
                     rating: 5.0,
                     tours: 0,
@@ -279,7 +285,8 @@ export default function AgencyLayout() {
                 last_name: nameParts.slice(1).join(' ') || '.',
                 contact_number: normalizedPhone,
                 email: trimmedEmail,
-                specialization: newGuideForm.specialty,
+                specializations: newGuideForm.specialties,
+                specialization: (newGuideForm.specialties || [])[0] || '',
                 languages: newGuideForm.languages,
                 is_active: true
             };
@@ -294,7 +301,17 @@ export default function AgencyLayout() {
 
             setIsAddGuideModalOpen(false);
             setEditingGuideId(null);
-            setNewGuideForm({ fullName: '', specialty: '', languages: [], phone: '', email: '', languageSearchTerm: '', showLanguageDropdown: false });
+            setNewGuideForm({
+                fullName: '',
+                specialties: [],
+                languages: [],
+                phone: '',
+                email: '',
+                languageSearchTerm: '',
+                showLanguageDropdown: false,
+                specialtySearchTerm: '',
+                showSpecialtyDropdown: false,
+            });
             fetchData();
         } catch (error) {
             console.error("Save Guide Error:", error);
@@ -429,10 +446,13 @@ export default function AgencyLayout() {
         const languageSearchBlob = Array.isArray(g.languages)
             ? g.languages.join(' ').toLowerCase()
             : '';
+        const specialtySearchBlob = Array.isArray(g.specialties)
+            ? g.specialties.join(' ').toLowerCase()
+            : (g.specialty || '').toLowerCase();
 
         return (
             g.name.toLowerCase().includes(normalizedGuideSearch) ||
-            g.specialty?.toLowerCase().includes(normalizedGuideSearch) ||
+            specialtySearchBlob.includes(normalizedGuideSearch) ||
             languageSearchBlob.includes(normalizedGuideSearch)
         );
     });
@@ -539,6 +559,11 @@ export default function AgencyLayout() {
         lang.toLowerCase().includes((newGuideForm.languageSearchTerm || '').toLowerCase()) &&
         !newGuideForm.languages.includes(lang)
     ), [newGuideForm.languageSearchTerm, newGuideForm.languages]);
+
+    const filteredFormSpecialties = useMemo(() => availableSpecialties.filter(spec =>
+        spec.toLowerCase().includes((newGuideForm.specialtySearchTerm || '').toLowerCase()) &&
+        !(newGuideForm.specialties || []).includes(spec)
+    ), [availableSpecialties, newGuideForm.specialtySearchTerm, newGuideForm.specialties]);
 
     if (loading) {
         return (
@@ -817,19 +842,35 @@ export default function AgencyLayout() {
                                     filteredGuides={filteredGuides}
                                     openAddGuideModal={() => {
                                         setEditingGuideId(null);
-                                        setNewGuideForm({ fullName: '', specialty: '', languages: [], phone: '', email: '', languageSearchTerm: '', showLanguageDropdown: false });
+                                        setNewGuideForm({
+                                            fullName: '',
+                                            specialties: [],
+                                            languages: [],
+                                            phone: '',
+                                            email: '',
+                                            languageSearchTerm: '',
+                                            showLanguageDropdown: false,
+                                            specialtySearchTerm: '',
+                                            showSpecialtyDropdown: false,
+                                        });
                                         setIsAddGuideModalOpen(true);
                                     }}
                                     openEditGuideModal={(guide) => {
                                         setEditingGuideId(guide.id);
+                                        const guideSpecialties = Array.isArray(guide.specialties) && guide.specialties.length > 0
+                                            ? guide.specialties
+                                            : (guide.specialty ? [guide.specialty] : []);
+
                                         setNewGuideForm({
                                             fullName: guide.name,
-                                            specialty: guide.specialty || '',
+                                            specialties: guideSpecialties,
                                             languages: guide.languages || [],
                                             phone: guide.phone || '',
                                             email: guide.email || '',
                                             languageSearchTerm: '',
-                                            showLanguageDropdown: false
+                                            showLanguageDropdown: false,
+                                            specialtySearchTerm: '',
+                                            showSpecialtyDropdown: false,
                                         });
                                         setIsAddGuideModalOpen(true);
                                     }}
@@ -877,8 +918,11 @@ export default function AgencyLayout() {
                 newGuideForm={newGuideForm}
                 setNewGuideForm={setNewGuideForm}
                 filteredLanguages={filteredFormLanguages}
+                filteredSpecialties={filteredFormSpecialties}
                 handleAddLanguage={(lang) => !newGuideForm.languages.includes(lang) && setNewGuideForm(prev => ({ ...prev, languages: [...prev.languages, lang] }))}
                 handleRemoveLanguage={(lang) => setNewGuideForm(prev => ({ ...prev, languages: prev.languages.filter(l => l !== lang) }))}
+                handleAddSpecialty={(spec) => !(newGuideForm.specialties || []).includes(spec) && setNewGuideForm(prev => ({ ...prev, specialties: [...(prev.specialties || []), spec] }))}
+                handleRemoveSpecialty={(spec) => setNewGuideForm(prev => ({ ...prev, specialties: (prev.specialties || []).filter(s => s !== spec) }))}
                 handleSubmitNewGuide={handleSaveGuide}
                 availableSpecialties={availableSpecialties}
                 isEditMode={!!editingGuideId}
