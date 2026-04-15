@@ -871,6 +871,35 @@ export default function PaymentsManagement() {
                             </div>
 
                             <div className="mb-5">
+                                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold mb-2">Policy Timing Guide</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="rounded-lg border border-emerald-200 dark:border-emerald-700/50 bg-emerald-50 dark:bg-emerald-900/10 p-3">
+                                        <p className="text-[11px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 font-semibold">Tourist Cancellation - Early</p>
+                                        <p className="mt-1 text-sm font-bold text-emerald-800 dark:text-emerald-300">80% Refund</p>
+                                        <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-300/80">Applies when request is more than 7 days before check-in.</p>
+                                    </div>
+
+                                    <div className="rounded-lg border border-amber-200 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/10 p-3">
+                                        <p className="text-[11px] uppercase tracking-wide text-amber-700 dark:text-amber-400 font-semibold">Tourist Cancellation - Near Cutoff</p>
+                                        <p className="mt-1 text-sm font-bold text-amber-800 dark:text-amber-300">50% Refund</p>
+                                        <p className="mt-1 text-xs text-amber-700/80 dark:text-amber-300/80">Applies when request is 3 to 7 days before check-in.</p>
+                                    </div>
+
+                                    <div className="rounded-lg border border-rose-200 dark:border-rose-700/50 bg-rose-50 dark:bg-rose-900/10 p-3">
+                                        <p className="text-[11px] uppercase tracking-wide text-rose-700 dark:text-rose-400 font-semibold">Tourist Cancellation - Blocked Window</p>
+                                        <p className="mt-1 text-sm font-bold text-rose-800 dark:text-rose-300">Not Allowed</p>
+                                        <p className="mt-1 text-xs text-rose-700/80 dark:text-rose-300/80">Requests inside 3 days before check-in are not accepted.</p>
+                                    </div>
+
+                                    <div className="rounded-lg border border-sky-200 dark:border-sky-700/50 bg-sky-50 dark:bg-sky-900/10 p-3">
+                                        <p className="text-[11px] uppercase tracking-wide text-sky-700 dark:text-sky-400 font-semibold">Provider/System Fault</p>
+                                        <p className="mt-1 text-sm font-bold text-sky-800 dark:text-sky-300">100% Refund</p>
+                                        <p className="mt-1 text-xs text-sky-700/80 dark:text-sky-300/80">Full downpayment refund when provider or system caused the issue.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mb-5">
                                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold mb-2">Reason for Refund</p>
                                 <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/40 p-4">
                                     <p className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-words">
