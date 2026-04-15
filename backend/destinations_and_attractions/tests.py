@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -7,6 +8,7 @@ from rest_framework.test import APIClient
 
 from .models import Destination, TourPackage, LocationCorrectionRequest
 from .serializers import TourPackageSerializer
+from .views import _get_previous_day_window
 
 User = get_user_model()
 
@@ -257,3 +259,144 @@ class DestinationsApiTests(TestCase):
 		self.assertEqual(response.json().get("status"), "approved")
 		self.destination.refresh_from_db()
 		self.assertEqual(self.destination.location, "Pagadian City Plaza")
+
+
+class DestinationHighlightsApiTests(TestCase):
+	def setUp(self):
+		self.client = APIClient()
+		self.guide = User.objects.create_user(
+			username="highlights_guide",
+			password="Pass12345",
+			is_local_guide=True,
+			guide_approved=True,
+		)
+		self.destination = Destination.objects.create(
+			name="Dakak",
+			description="Beach destination",
+			category="Beaches",
+			location="Zamboanga City",
+			municipality="Zamboanga City",
+			latitude="7.050000",
+			longitude="122.050000",
+		)
+		self.other_destination = Destination.objects.create(
+			name="Lakewood",
+			description="Mountain lake",
+			category="Nature",
+			location="Zamboanga City",
+			municipality="Zamboanga City",
+			latitude="7.070000",
+			longitude="122.020000",
+		)
+
+	def _create_tour_package(self, *, destination, name, created_at):
+		package = TourPackage.objects.create(
+			guide=self.guide,
+			main_destination=destination,
+			name=name,
+			description="Sample",
+			duration="1 day",
+			duration_days=1,
+			max_group_size=6,
+			price_per_day="2500.00",
+			solo_price="3000.00",
+		)
+		TourPackage.objects.filter(id=package.id).update(created_at=created_at)
+		package.refresh_from_db()
+		return package
+
+	def _manila_day_bounds(self):
+		start_yesterday, start_today, _ = _get_previous_day_window()
+		return start_yesterday, start_today
+
+	def test_tours_by_destination_supports_previous_day_filter(self):
+		start_yesterday, start_today = self._manila_day_bounds()
+
+		yesterday_package = self._create_tour_package(
+			destination=self.destination,
+			name="Yesterday Tour",
+			created_at=start_yesterday + timedelta(hours=6),
+		)
+		self._create_tour_package(
+			destination=self.destination,
+			name="Older Tour",
+			created_at=start_yesterday - timedelta(hours=2),
+		)
+		self._create_tour_package(
+			destination=self.destination,
+			name="Today Tour",
+			created_at=start_today + timedelta(hours=3),
+		)
+
+		response = self.client.get(
+			reverse("tours-by-destination", kwargs={"destination_id": self.destination.id}),
+			{"new_packages": "yesterday"},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		payload = response.json()
+		items = payload if isinstance(payload, list) else payload.get("results", [])
+		returned_ids = {item["id"] for item in items}
+
+		self.assertEqual(returned_ids, {yesterday_package.id})
+
+	def test_destination_highlights_returns_counts_and_limited_latest_packages(self):
+		start_yesterday, start_today = self._manila_day_bounds()
+
+		latest_pkg = self._create_tour_package(
+			destination=self.destination,
+			name="Newest Yesterday",
+			created_at=start_today - timedelta(minutes=5),
+		)
+		second_pkg = self._create_tour_package(
+			destination=self.destination,
+			name="Second Yesterday",
+			created_at=start_today - timedelta(hours=1),
+		)
+		self._create_tour_package(
+			destination=self.destination,
+			name="Third Yesterday",
+			created_at=start_yesterday + timedelta(hours=9),
+		)
+		self._create_tour_package(
+			destination=self.destination,
+			name="Fourth Yesterday",
+			created_at=start_yesterday + timedelta(hours=3),
+		)
+		self._create_tour_package(
+			destination=self.destination,
+			name="Today Package",
+			created_at=start_today + timedelta(hours=4),
+		)
+		self._create_tour_package(
+			destination=self.other_destination,
+			name="Other Destination Yesterday",
+			created_at=start_yesterday + timedelta(hours=10),
+		)
+
+		response = self.client.get(
+			reverse("destination-new-package-highlights"),
+			{
+				"destination_ids": f"{self.destination.id},{self.other_destination.id}",
+				"limit_per_destination": 2,
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		payload = response.json()
+		self.assertEqual(payload.get("target_date"), start_yesterday.date().isoformat())
+
+		counts = payload.get("destination_counts", {})
+		self.assertEqual(counts.get(str(self.destination.id)), 4, payload)
+		self.assertEqual(counts.get(str(self.other_destination.id)), 1, payload)
+
+		destination_entry = next(
+			(item for item in payload.get("destinations", []) if item.get("destination_id") == self.destination.id),
+			None,
+		)
+		self.assertIsNotNone(destination_entry)
+		self.assertEqual(destination_entry.get("new_packages_count"), 4)
+
+		packages = destination_entry.get("packages", [])
+		self.assertEqual(len(packages), 2)
+		self.assertEqual([pkg.get("id") for pkg in packages], [latest_pkg.id, second_pkg.id])

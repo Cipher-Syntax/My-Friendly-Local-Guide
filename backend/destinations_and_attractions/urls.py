@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from .views import (
+    DestinationNewPackageHighlightsView,
     DestinationViewSet, 
     AttractionViewSet, 
     DestinationAttractionListView,
@@ -26,6 +27,11 @@ router.register(r'destinations', DestinationViewSet, basename='destination')
 router.register(r'attractions', AttractionViewSet, basename='attraction')
 
 urlpatterns = [
+    path(
+        'destinations/new-package-highlights/',
+        DestinationNewPackageHighlightsView.as_view(),
+        name='destination-new-package-highlights',
+    ),
     path('', include(router.urls)),
     
     path('categories/', CategoryChoicesView.as_view(), name='category-choices'),

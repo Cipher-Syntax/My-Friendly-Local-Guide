@@ -10,7 +10,8 @@ from django.db import transaction
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone #type: ignore
-from datetime import date
+from datetime import date, timedelta
+from zoneinfo import ZoneInfo
 from urllib.parse import quote
 
 import requests
@@ -36,6 +37,65 @@ from backend.location_policy import (
 )
 
 User = get_user_model()
+
+HIGHLIGHTS_TIMEZONE = ZoneInfo('Asia/Manila')
+DEFAULT_DESTINATION_HIGHLIGHT_LIMIT = 3
+MAX_DESTINATION_HIGHLIGHT_LIMIT = 10
+
+
+def _get_previous_day_window(reference_time=None):
+    localized_now = timezone.localtime(reference_time or timezone.now(), HIGHLIGHTS_TIMEZONE)
+    start_today = localized_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start_previous_day = start_today - timedelta(days=1)
+    return start_previous_day, start_today, start_previous_day.date()
+
+
+def _is_previous_day_requested(raw_value):
+    normalized = str(raw_value or '').strip().lower()
+    return normalized in {'1', 'true', 'yes', 'y', 'on', 'yesterday', 'previous_day'}
+
+
+def _parse_positive_int(raw_value, *, default, minimum=1, maximum=None):
+    try:
+        parsed = int(raw_value)
+    except (TypeError, ValueError):
+        parsed = default
+
+    if parsed < minimum:
+        parsed = minimum
+
+    if maximum is not None and parsed > maximum:
+        parsed = maximum
+
+    return parsed
+
+
+def _parse_destination_id_list(raw_values):
+    destination_ids = []
+    seen = set()
+
+    for value in raw_values:
+        chunk = str(value or '').strip()
+        if not chunk:
+            continue
+
+        for item in chunk.split(','):
+            token = item.strip()
+            if not token:
+                continue
+
+            try:
+                destination_id = int(token)
+            except (TypeError, ValueError):
+                continue
+
+            if destination_id <= 0 or destination_id in seen:
+                continue
+
+            seen.add(destination_id)
+            destination_ids.append(destination_id)
+
+    return destination_ids
 
 
 def _resolve_correction_target(validated_data):
@@ -493,6 +553,123 @@ class DestinationAttractionListView(generics.ListAPIView):
         return Attraction.objects.filter(destination__pk=destination_pk)
 
 
+class DestinationNewPackageHighlightsView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        requested_destination_ids = request.query_params.getlist('destination_ids')
+        single_destination_id = request.query_params.get('destination_id')
+        if single_destination_id:
+            requested_destination_ids.append(single_destination_id)
+
+        destination_ids = _parse_destination_id_list(requested_destination_ids)
+
+        per_destination_limit = _parse_positive_int(
+            request.query_params.get('limit_per_destination'),
+            default=DEFAULT_DESTINATION_HIGHLIGHT_LIMIT,
+            minimum=1,
+            maximum=MAX_DESTINATION_HIGHLIGHT_LIMIT,
+        )
+
+        start_previous_day, start_today, target_date = _get_previous_day_window()
+
+        highlight_queryset = TourPackage.objects.filter(
+            main_destination__isnull=False,
+            is_active=True,
+            created_at__gte=start_previous_day,
+            created_at__lt=start_today,
+        ).select_related(
+            'main_destination',
+            'guide',
+            'agency__user',
+        )
+
+        if destination_ids:
+            highlight_queryset = highlight_queryset.filter(main_destination_id__in=destination_ids)
+
+        highlight_queryset = highlight_queryset.order_by('main_destination_id', '-created_at', '-id')
+
+        counts_by_destination = {
+            item['main_destination_id']: item['total']
+            for item in highlight_queryset.order_by().values('main_destination_id').annotate(total=Count('id'))
+        }
+
+        payload_by_destination = {}
+
+        for package in highlight_queryset:
+            destination_id = package.main_destination_id
+            if not destination_id:
+                continue
+
+            if destination_id not in payload_by_destination:
+                payload_by_destination[destination_id] = {
+                    'destination_id': destination_id,
+                    'destination_name': package.main_destination.name if package.main_destination else '',
+                    'new_packages_count': int(counts_by_destination.get(destination_id, 0)),
+                    'packages': [],
+                }
+
+            destination_entry = payload_by_destination[destination_id]
+
+            if len(destination_entry['packages']) >= per_destination_limit:
+                continue
+
+            owner_type = 'guide'
+            owner_name = ''
+            guide_id = package.guide_id
+            agency_user_id = None
+
+            if package.agency_id:
+                owner_type = 'agency'
+                owner_name = str(getattr(package.agency, 'business_name', '') or '').strip()
+                guide_id = None
+                agency_user_id = getattr(package.agency, 'user_id', None)
+            elif package.guide_id:
+                full_name = package.guide.get_full_name() if package.guide else ''
+                owner_name = str(full_name or '').strip() or str(getattr(package.guide, 'username', '') or '').strip()
+
+            if not owner_name:
+                owner_name = 'Local Provider'
+
+            destination_entry['packages'].append(
+                {
+                    'id': package.id,
+                    'name': package.name,
+                    'duration_days': package.duration_days,
+                    'created_at': package.created_at,
+                    'owner_type': owner_type,
+                    'owner_name': owner_name,
+                    'guide_id': guide_id,
+                    'agency_user_id': agency_user_id,
+                    'destination_id': destination_id,
+                    'destination_name': destination_entry['destination_name'],
+                }
+            )
+
+        ordered_destinations = sorted(
+            payload_by_destination.values(),
+            key=lambda item: (
+                -(item.get('new_packages_count') or 0),
+                str(item.get('destination_name') or '').lower(),
+            ),
+        )
+
+        destination_counts = {
+            str(destination_id): int(count)
+            for destination_id, count in counts_by_destination.items()
+        }
+
+        return Response(
+            {
+                'timezone': str(HIGHLIGHTS_TIMEZONE),
+                'target_date': target_date.isoformat(),
+                'per_destination_limit': per_destination_limit,
+                'destination_counts': destination_counts,
+                'destinations': ordered_destinations,
+            }
+        )
+
+
 class CreateTourView(generics.CreateAPIView):
     queryset = TourPackage.objects.all()
     serializer_class = TourPackageSerializer
@@ -524,7 +701,13 @@ class ToursByDestinationListView(generics.ListAPIView):
 
     def get_queryset(self):
         destination_id = self.kwargs['destination_id']
-        return TourPackage.objects.filter(main_destination__id=destination_id, is_active=True)
+        queryset = TourPackage.objects.filter(main_destination__id=destination_id, is_active=True)
+
+        if _is_previous_day_requested(self.request.query_params.get('new_packages')):
+            start_previous_day, start_today, _ = _get_previous_day_window()
+            queryset = queryset.filter(created_at__gte=start_previous_day, created_at__lt=start_today)
+
+        return queryset.order_by('-created_at', '-id')
 
 class GuideToursListView(generics.ListAPIView):
     serializer_class = TourPackageSerializer
