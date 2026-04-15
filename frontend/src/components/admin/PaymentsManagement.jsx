@@ -169,6 +169,30 @@ export default function PaymentsManagement() {
         return numeric.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
     };
 
+    const getRefundPolicyBaseAmount = (refund) => {
+        const paymentAmount = Number(refund?.payment_amount ?? 0);
+        if (Number.isFinite(paymentAmount) && paymentAmount > 0) {
+            return paymentAmount;
+        }
+
+        const requestedAmount = Number(refund?.requested_amount ?? 0);
+        if (Number.isFinite(requestedAmount) && requestedAmount > 0) {
+            return requestedAmount;
+        }
+
+        return 0;
+    };
+
+    const getRefundPolicyComputedAmount = (refund, multiplier) => {
+        const baseAmount = getRefundPolicyBaseAmount(refund);
+        const numericMultiplier = Number(multiplier || 0);
+        if (!Number.isFinite(baseAmount) || !Number.isFinite(numericMultiplier)) {
+            return 0;
+        }
+
+        return Math.max(0, Number((baseAmount * numericMultiplier).toFixed(2)));
+    };
+
     const processRefundRequest = async (refund, action) => {
         if (!refund?.id) return false;
 
@@ -872,16 +896,23 @@ export default function PaymentsManagement() {
 
                             <div className="mb-5">
                                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold mb-2">Policy Timing Guide</p>
+                                <p className="text-[11px] text-slate-600 dark:text-slate-300 mb-2">
+                                    Based on downpayment: {formatCurrency(getRefundPolicyBaseAmount(selectedRefundForView))}
+                                </p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div className="rounded-lg border border-emerald-200 dark:border-emerald-700/50 bg-emerald-50 dark:bg-emerald-900/10 p-3">
                                         <p className="text-[11px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 font-semibold">Tourist Cancellation - Early</p>
-                                        <p className="mt-1 text-sm font-bold text-emerald-800 dark:text-emerald-300">80% Refund</p>
+                                        <p className="mt-1 text-sm font-bold text-emerald-800 dark:text-emerald-300">
+                                            80% Refund • {formatCurrency(getRefundPolicyComputedAmount(selectedRefundForView, 0.8))}
+                                        </p>
                                         <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-300/80">Applies when request is more than 7 days before check-in.</p>
                                     </div>
 
                                     <div className="rounded-lg border border-amber-200 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/10 p-3">
                                         <p className="text-[11px] uppercase tracking-wide text-amber-700 dark:text-amber-400 font-semibold">Tourist Cancellation - Near Cutoff</p>
-                                        <p className="mt-1 text-sm font-bold text-amber-800 dark:text-amber-300">50% Refund</p>
+                                        <p className="mt-1 text-sm font-bold text-amber-800 dark:text-amber-300">
+                                            50% Refund • {formatCurrency(getRefundPolicyComputedAmount(selectedRefundForView, 0.5))}
+                                        </p>
                                         <p className="mt-1 text-xs text-amber-700/80 dark:text-amber-300/80">Applies when request is 3 to 7 days before check-in.</p>
                                     </div>
 
@@ -893,7 +924,9 @@ export default function PaymentsManagement() {
 
                                     <div className="rounded-lg border border-sky-200 dark:border-sky-700/50 bg-sky-50 dark:bg-sky-900/10 p-3">
                                         <p className="text-[11px] uppercase tracking-wide text-sky-700 dark:text-sky-400 font-semibold">Provider/System Fault</p>
-                                        <p className="mt-1 text-sm font-bold text-sky-800 dark:text-sky-300">100% Refund</p>
+                                        <p className="mt-1 text-sm font-bold text-sky-800 dark:text-sky-300">
+                                            100% Refund • {formatCurrency(getRefundPolicyComputedAmount(selectedRefundForView, 1))}
+                                        </p>
                                         <p className="mt-1 text-xs text-sky-700/80 dark:text-sky-300/80">Full downpayment refund when provider or system caused the issue.</p>
                                     </div>
                                 </div>
@@ -1259,11 +1292,15 @@ export default function PaymentsManagement() {
 
                                 const notesDraft = refundNoteDrafts[refund.id] ?? (refund.admin_notes || '');
                                 const policyReasonDraft = refundPolicyReasonDrafts[refund.id] ?? '';
+                                const policyBaseAmount = getRefundPolicyBaseAmount(refund);
+                                const policyAmount100 = getRefundPolicyComputedAmount(refund, 1);
+                                const policyAmount80 = getRefundPolicyComputedAmount(refund, 0.8);
+                                const policyAmount50 = getRefundPolicyComputedAmount(refund, 0.5);
                                 const policyHint =
                                     policyReasonDraft === 'provider_system_fault'
-                                        ? 'Auto amount: 100% of downpayment.'
+                                        ? `Auto amount: ${formatCurrency(policyAmount100)} (100%).`
                                         : policyReasonDraft === 'tourist_cancellation'
-                                            ? 'Auto amount: 80% early request or 50% near cutoff.'
+                                            ? `Auto amount: ${formatCurrency(policyAmount80)} (80% early) or ${formatCurrency(policyAmount50)} (50% near cutoff).`
                                             : 'Select policy reason before approving.';
 
                                 return (
@@ -1339,6 +1376,14 @@ export default function PaymentsManagement() {
                                             </select>
                                             <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
                                                 {canApproveReject ? policyHint : `Approved Amount: ${formatCurrency(getRefundApprovedAmount(refund))}`}
+                                            </div>
+                                            <div className="mt-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 p-2 text-[10px] text-slate-600 dark:text-slate-300 space-y-0.5">
+                                                <div className="font-semibold text-slate-700 dark:text-slate-200">
+                                                    Policy Amount Preview (Base: {formatCurrency(policyBaseAmount)})
+                                                </div>
+                                                <div>100% Provider/System Fault: {formatCurrency(policyAmount100)}</div>
+                                                <div>80% Tourist Cancellation (Early): {formatCurrency(policyAmount80)}</div>
+                                                <div>50% Tourist Cancellation (Near Cutoff): {formatCurrency(policyAmount50)}</div>
                                             </div>
                                         </td>
                                         <td className="p-4">
