@@ -241,6 +241,46 @@ class RefundApiTests(TestCase):
 		self.assertEqual(self.payment.refund_status, "completed")
 		self.assertEqual(self.booking.status, "Refunded")
 
+	def test_admin_reject_requires_notes(self):
+		refund = RefundRequest.objects.create(
+			payment=self.payment,
+			booking=self.booking,
+			requested_by=self.tourist,
+			reason="Need refund decision.",
+			requested_amount=Decimal("1800.00"),
+			proof_attachment=self._proof_file("proof-reject-note.png"),
+		)
+
+		self.client.force_authenticate(user=self.admin)
+		response = self.client.post(
+			reverse("refund-process", args=[refund.id]),
+			{"action": "reject"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("admin_notes", response.json())
+
+	def test_admin_partial_refund_requires_notes(self):
+		refund = RefundRequest.objects.create(
+			payment=self.payment,
+			booking=self.booking,
+			requested_by=self.tourist,
+			reason="Partial eligibility case.",
+			requested_amount=Decimal("2400.00"),
+			proof_attachment=self._proof_file("proof-partial-note.png"),
+		)
+
+		self.client.force_authenticate(user=self.admin)
+		response = self.client.post(
+			reverse("refund-process", args=[refund.id]),
+			{"action": "approve", "approved_amount": "1200.00"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("admin_notes", response.json())
+
 	def test_tourist_can_view_own_refund_detail(self):
 		refund = RefundRequest.objects.create(
 			payment=self.payment,

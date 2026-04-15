@@ -1053,6 +1053,7 @@ class RefundRequestProcessView(APIView):
         payment = refund_request.payment
         booking = refund_request.booking
         now = timezone.now()
+        payment_amount = Decimal(payment.amount or 0).quantize(Decimal('0.01'))
 
         default_amount = refund_request.approved_amount or refund_request.requested_amount
         final_amount = serializer.validated_data.get('approved_amount', default_amount)
@@ -1063,6 +1064,12 @@ class RefundRequestProcessView(APIView):
                 raise DRFValidationError({'approved_amount': 'Approved amount must be greater than zero.'})
             if final_amount > payment.amount:
                 raise DRFValidationError({'approved_amount': 'Approved amount cannot exceed paid downpayment.'})
+
+        if action == 'reject' and not admin_notes:
+            raise DRFValidationError({'admin_notes': 'Admin notes are required when rejecting a refund.'})
+
+        if action in ('approve', 'complete') and final_amount < payment_amount and not admin_notes:
+            raise DRFValidationError({'admin_notes': 'Admin notes are required when processing a partial refund.'})
 
         if action == 'under_review':
             if refund_request.status != 'requested':
@@ -1129,7 +1136,6 @@ class RefundRequestProcessView(APIView):
 
             gateway_response = None
             gateway_refund_id = None
-            payment_amount = Decimal(payment.amount or 0).quantize(Decimal('0.01'))
             previously_refunded = Decimal(payment.refunded_amount or 0).quantize(Decimal('0.01'))
             remaining_refundable = (payment_amount - previously_refunded).quantize(Decimal('0.01'))
             if remaining_refundable < 0:

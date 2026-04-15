@@ -159,6 +159,26 @@ export default function PaymentsManagement() {
             ? getRefundApprovedAmount(refund)
             : undefined;
         const remainingAmount = getRefundRemainingAmount(refund);
+        const adminNotes = String(refundNoteDrafts[refund.id] || '').trim();
+        const fullRefundAmountRaw = Number(refund.payment_amount ?? refund.requested_amount ?? 0);
+        const fullRefundAmount = Number.isFinite(fullRefundAmountRaw)
+            ? Math.max(0, fullRefundAmountRaw)
+            : 0;
+        const isPartialRefundAction =
+            (action === 'approve' || action === 'complete')
+            && Number.isFinite(approvedAmount)
+            && fullRefundAmount > 0
+            && approvedAmount < fullRefundAmount;
+
+        if (action === 'reject' && !adminNotes) {
+            showToast('Admin notes are required when rejecting a refund.', 'error');
+            return false;
+        }
+
+        if (isPartialRefundAction && !adminNotes) {
+            showToast('Admin notes are required when processing a partial refund.', 'error');
+            return false;
+        }
 
         if ((action === 'approve' || action === 'complete') && (!approvedAmount || approvedAmount <= 0)) {
             showToast('Approved amount must be greater than zero.', 'error');
@@ -175,7 +195,7 @@ export default function PaymentsManagement() {
 
         const payload = {
             action,
-            admin_notes: refundNoteDrafts[refund.id] || '',
+            admin_notes: adminNotes,
         };
         if (approvedAmount) {
             payload.approved_amount = approvedAmount.toFixed(2);
