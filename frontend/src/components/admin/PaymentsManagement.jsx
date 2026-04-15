@@ -654,6 +654,30 @@ export default function PaymentsManagement() {
         });
     };
 
+    const refundSummary = React.useMemo(() => {
+        return refundRequests.reduce(
+            (acc, refund) => {
+                const status = String(refund?.status || '').toLowerCase();
+                const approvedAmount = Number(refund?.approved_amount ?? 0);
+                const requestedAmount = Number(refund?.requested_amount ?? 0);
+
+                const selectedAmount = Number.isFinite(approvedAmount) && approvedAmount > 0
+                    ? approvedAmount
+                    : (Number.isFinite(requestedAmount) ? requestedAmount : 0);
+
+                if (status === 'completed') {
+                    acc.totalRefunded += Math.max(0, selectedAmount);
+                    acc.completedCount += 1;
+                } else if (['requested', 'under_review', 'approved'].includes(status)) {
+                    acc.openCount += 1;
+                }
+
+                return acc;
+            },
+            { totalRefunded: 0, completedCount: 0, openCount: 0 }
+        );
+    }, [refundRequests]);
+
     const StatsCard = ({ title, value, icon: Icon, color, subValue, clickable, onClick }) => (
         <div
             onClick={onClick}
@@ -998,7 +1022,7 @@ export default function PaymentsManagement() {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                 <StatsCard
                     title="Platform Earnings (2%)"
                     value={stats.platformFees.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
@@ -1019,6 +1043,13 @@ export default function PaymentsManagement() {
                     subValue="Already transferred"
                     icon={CheckCircle}
                     color="blue"
+                />
+                <StatsCard
+                    title="Total Refunded"
+                    value={refundSummary.totalRefunded.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                    subValue={`Completed: ${refundSummary.completedCount} | Open: ${refundSummary.openCount}`}
+                    icon={RotateCcw}
+                    color="teal"
                 />
                 <StatsCard
                     title="Total Collected"
