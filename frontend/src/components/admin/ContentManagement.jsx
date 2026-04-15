@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, Image as ImageIcon, Eye, Trash2, AlertTriangle, MapPin, Star, XCircle, Plus, Filter, Landmark, CheckCircle, AlertCircle, Loader2, Upload, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import api from '../../api/api';
+import LeafletLocationPicker from '../location/LeafletLocationPicker';
 
 const OTHER_CATEGORY_VALUE = '__other_category__';
 
@@ -35,7 +36,16 @@ export default function ContentManagement() {
     });
 
     const [newSpot, setNewSpot] = useState({
-        name: '', description: '', category: '', location: '', rating: 0, is_featured: false, images: []
+        name: '',
+        description: '',
+        category: '',
+        location: '',
+        municipality: '',
+        latitude: null,
+        longitude: null,
+        rating: 0,
+        is_featured: false,
+        images: [],
     });
 
     const [isViewImagesModalOpen, setIsViewImagesModalOpen] = useState(false);
@@ -95,6 +105,9 @@ export default function ContentManagement() {
                 description: item.description,
                 category: item.category,
                 location: item.location,
+                municipality: item.municipality || '',
+                latitude: item.latitude,
+                longitude: item.longitude,
                 rating: item.average_rating,
                 featured: item.is_featured,
 
@@ -196,6 +209,9 @@ export default function ContentManagement() {
             formData.append('description', newSpot.description);
             formData.append('category', newSpot.category);
             formData.append('location', newSpot.location);
+            if (newSpot.municipality) formData.append('municipality', newSpot.municipality);
+            if (newSpot.latitude !== null && newSpot.latitude !== undefined) formData.append('latitude', newSpot.latitude);
+            if (newSpot.longitude !== null && newSpot.longitude !== undefined) formData.append('longitude', newSpot.longitude);
             formData.append('average_rating', newSpot.rating);
             formData.append('is_featured', newSpot.is_featured);
 
@@ -210,7 +226,18 @@ export default function ContentManagement() {
             await fetchDestinations(); 
 
             setIsCreateModalOpen(false);
-            setNewSpot({ name: '', description: '', category: categoryChoices[0] || '', location: '', rating: 0, is_featured: false, images: [] });
+            setNewSpot({
+                name: '',
+                description: '',
+                category: categoryChoices[0] || '',
+                location: '',
+                municipality: '',
+                latitude: null,
+                longitude: null,
+                rating: 0,
+                is_featured: false,
+                images: [],
+            });
             showToast("Destination created successfully!", "success");
         } catch (error) {
             console.error("Failed to create:", error);
@@ -292,6 +319,9 @@ export default function ContentManagement() {
             formData.append('description', editingSpot.description);
             formData.append('category', editingSpot.category);
             formData.append('location', editingSpot.location);
+            if (editingSpot.municipality) formData.append('municipality', editingSpot.municipality);
+            if (editingSpot.latitude !== null && editingSpot.latitude !== undefined) formData.append('latitude', editingSpot.latitude);
+            if (editingSpot.longitude !== null && editingSpot.longitude !== undefined) formData.append('longitude', editingSpot.longitude);
             formData.append('average_rating', editingSpot.rating);
             formData.append('is_featured', editingSpot.featured);
 
@@ -645,23 +675,31 @@ export default function ContentManagement() {
                                 <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Name</label>
                                 <input type="text" value={newSpot.name} onChange={(e) => setNewSpot({ ...newSpot, name: e.target.value })} className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors" />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Category</label>
-                                    <select
-                                        value={newSpot.category || ''}
-                                        onChange={(e) => handleCategorySelection('create', e.target.value)}
-                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer transition-colors"
-                                    >
-                                        <option value="" disabled>Select Category</option>
-                                        {categoryChoices.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                        <option value={OTHER_CATEGORY_VALUE}>Other... (Add New)</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Location</label>
-                                    <input type="text" value={newSpot.location} onChange={(e) => setNewSpot({ ...newSpot, location: e.target.value })} className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors" />
-                                </div>
+                            <div>
+                                <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Category</label>
+                                <select
+                                    value={newSpot.category || ''}
+                                    onChange={(e) => handleCategorySelection('create', e.target.value)}
+                                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer transition-colors"
+                                >
+                                    <option value="" disabled>Select Category</option>
+                                    {categoryChoices.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    <option value={OTHER_CATEGORY_VALUE}>Other... (Add New)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <LeafletLocationPicker
+                                    label="Location"
+                                    idPrefix="destination-create"
+                                    required
+                                    value={{
+                                        location: newSpot.location,
+                                        municipality: newSpot.municipality,
+                                        latitude: newSpot.latitude,
+                                        longitude: newSpot.longitude,
+                                    }}
+                                    onChange={(nextLocation) => setNewSpot({ ...newSpot, ...nextLocation })}
+                                />
                             </div>
                             <div>
                                 <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Description</label>
@@ -858,23 +896,31 @@ export default function ContentManagement() {
                                 <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Name</label>
                                 <input type="text" value={editingSpot.name} onChange={(e) => setEditingSpot({ ...editingSpot, name: e.target.value })} className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors" />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Category</label>
-                                    <select
-                                        value={editingSpot.category || ''}
-                                        onChange={(e) => handleCategorySelection('edit', e.target.value)}
-                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer transition-colors"
-                                    >
-                                        <option value="" disabled>Select Category</option>
-                                        {categoryChoices.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                        <option value={OTHER_CATEGORY_VALUE}>Other... (Add New)</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Location</label>
-                                    <input type="text" value={editingSpot.location} onChange={(e) => setEditingSpot({ ...editingSpot, location: e.target.value })} className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors" />
-                                </div>
+                            <div>
+                                <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Category</label>
+                                <select
+                                    value={editingSpot.category || ''}
+                                    onChange={(e) => handleCategorySelection('edit', e.target.value)}
+                                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer transition-colors"
+                                >
+                                    <option value="" disabled>Select Category</option>
+                                    {categoryChoices.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    <option value={OTHER_CATEGORY_VALUE}>Other... (Add New)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <LeafletLocationPicker
+                                    label="Location"
+                                    idPrefix="destination-edit"
+                                    required
+                                    value={{
+                                        location: editingSpot.location,
+                                        municipality: editingSpot.municipality,
+                                        latitude: editingSpot.latitude,
+                                        longitude: editingSpot.longitude,
+                                    }}
+                                    onChange={(nextLocation) => setEditingSpot({ ...editingSpot, ...nextLocation })}
+                                />
                             </div>
                             <div>
                                 <label className="block text-slate-900 dark:text-white text-sm font-medium mb-2">Description</label>

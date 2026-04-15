@@ -1,7 +1,9 @@
 from rest_framework import serializers 
-from .models import Destination, DestinationImage, Attraction, TourPackage, TourStop
+from .models import Destination, DestinationImage, Attraction, TourPackage, TourStop, LocationCorrectionRequest
 from django.contrib.auth import get_user_model
 import json
+
+from backend.location_policy import validate_zds_location_payload
 
 User = get_user_model()
 
@@ -42,7 +44,7 @@ class DestinationSerializer(serializers.ModelSerializer):
         model = Destination
         fields = [
             'id', 'name', 'description', 'category', 'location', 
-            'latitude', 'longitude', 'average_rating', 
+            'municipality', 'latitude', 'longitude', 'average_rating', 
             'images', 'uploaded_images', 'existing_images', 'attractions', 'is_featured'
         ]
         read_only_fields = ['average_rating']
@@ -52,6 +54,29 @@ class DestinationSerializer(serializers.ModelSerializer):
         if not normalized:
             raise serializers.ValidationError('Category is required.')
         return normalized
+
+    def validate(self, attrs):
+        location = attrs.get('location', getattr(self.instance, 'location', None))
+        latitude = attrs.get('latitude', getattr(self.instance, 'latitude', None))
+        longitude = attrs.get('longitude', getattr(self.instance, 'longitude', None))
+        municipality = attrs.get('municipality', getattr(self.instance, 'municipality', None))
+
+        try:
+            normalized = validate_zds_location_payload(
+                location=location,
+                latitude=latitude,
+                longitude=longitude,
+                municipality=municipality,
+                require_location=True,
+            )
+        except ValueError as exc:
+            raise serializers.ValidationError({'location': str(exc)})
+
+        attrs['location'] = normalized['location']
+        attrs['municipality'] = normalized['municipality'] or None
+        attrs['latitude'] = normalized['latitude']
+        attrs['longitude'] = normalized['longitude']
+        return attrs
 
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
@@ -92,7 +117,8 @@ class DestinationListSerializer(serializers.ModelSerializer):
         model = Destination
         fields = [
             'id', 'name', 'location', 'description', 'category', 
-            'average_rating', 'image', 'images', 'attractions', 'is_featured'   
+            'municipality', 'latitude', 'longitude', 'average_rating',
+            'image', 'images', 'attractions', 'is_featured'
         ]
         read_only_fields = ['average_rating']
 
@@ -277,3 +303,137 @@ class GuideSerializer(serializers.ModelSerializer):
         tier = getattr(obj, 'guide_tier', 'free')
         active_count = getattr(obj, 'active_bookings_count', 0) or 0
         return tier != 'paid' and active_count >= 1
+
+
+class LocationCorrectionCreateSerializer(serializers.Serializer):
+    target_type = serializers.ChoiceField(choices=LocationCorrectionRequest.TARGET_TYPE_CHOICES)
+    destination_id = serializers.IntegerField(required=False)
+    accommodation_id = serializers.IntegerField(required=False)
+    booking_id = serializers.IntegerField(required=False)
+
+    proposed_location = serializers.CharField(max_length=255)
+    proposed_municipality = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    proposed_latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    proposed_longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    reason = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        target_type = attrs.get('target_type')
+        target_field_map = {
+            'destination': 'destination_id',
+            'accommodation': 'accommodation_id',
+            'booking_meetup': 'booking_id',
+        }
+
+        expected_field = target_field_map[target_type]
+        provided_fields = [
+            field_name
+            for field_name in target_field_map.values()
+            if attrs.get(field_name)
+        ]
+
+        if len(provided_fields) != 1:
+            raise serializers.ValidationError('Exactly one target identifier is required.')
+
+        if provided_fields[0] != expected_field:
+            raise serializers.ValidationError(
+                {
+                    expected_field: (
+                        f"target_type '{target_type}' requires '{expected_field}'."
+                    )
+                }
+            )
+
+        try:
+            normalized = validate_zds_location_payload(
+                location=attrs.get('proposed_location'),
+                latitude=attrs.get('proposed_latitude'),
+                longitude=attrs.get('proposed_longitude'),
+                municipality=attrs.get('proposed_municipality'),
+                require_location=True,
+                require_coordinates=True,
+            )
+        except ValueError as exc:
+            raise serializers.ValidationError({'proposed_location': str(exc)})
+
+        attrs['proposed_location'] = normalized['location']
+        attrs['proposed_municipality'] = normalized['municipality'] or ''
+        attrs['proposed_latitude'] = normalized['latitude']
+        attrs['proposed_longitude'] = normalized['longitude']
+        return attrs
+
+
+class LocationCorrectionRequestSerializer(serializers.ModelSerializer):
+    submitted_by_detail = serializers.SerializerMethodField(read_only=True)
+    reviewed_by_detail = serializers.SerializerMethodField(read_only=True)
+    target_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = LocationCorrectionRequest
+        fields = [
+            'id',
+            'target_type',
+            'destination',
+            'accommodation',
+            'booking',
+            'target_name',
+            'status',
+            'current_location',
+            'current_municipality',
+            'current_latitude',
+            'current_longitude',
+            'proposed_location',
+            'proposed_municipality',
+            'proposed_latitude',
+            'proposed_longitude',
+            'reason',
+            'submitted_by',
+            'submitted_by_detail',
+            'reviewed_by',
+            'reviewed_by_detail',
+            'reviewed_at',
+            'review_note',
+            'applied_at',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'submitted_by',
+            'submitted_by_detail',
+            'reviewed_by',
+            'reviewed_by_detail',
+            'reviewed_at',
+            'applied_at',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_submitted_by_detail(self, obj):
+        user = obj.submitted_by
+        full_name = f"{user.first_name} {user.last_name}".strip() or user.username
+        return {
+            'id': user.id,
+            'username': user.username,
+            'full_name': full_name,
+        }
+
+    def get_reviewed_by_detail(self, obj):
+        if not obj.reviewed_by:
+            return None
+
+        user = obj.reviewed_by
+        full_name = f"{user.first_name} {user.last_name}".strip() or user.username
+        return {
+            'id': user.id,
+            'username': user.username,
+            'full_name': full_name,
+        }
+
+    def get_target_name(self, obj):
+        if obj.target_type == 'destination' and obj.destination:
+            return obj.destination.name
+        if obj.target_type == 'accommodation' and obj.accommodation:
+            return obj.accommodation.title
+        if obj.target_type == 'booking_meetup' and obj.booking:
+            return f"Booking #{obj.booking_id}"
+        return ''

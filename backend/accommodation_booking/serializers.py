@@ -7,6 +7,7 @@ from django.utils import timezone
 import json
 
 from agency_management_module.models import TouristGuide
+from backend.location_policy import validate_zds_location_payload
 
 User = get_user_model()
 
@@ -53,7 +54,7 @@ class AccommodationSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'host_id', 'host_username', 'host_full_name',
             'agency_id', 'agency_name', 'agency_user_id', 
-            'title', 'description', 'location', 'price', 'photo',
+            'title', 'description', 'location', 'municipality', 'latitude', 'longitude', 'price', 'photo',
             'accommodation_type', 'room_type', 'amenities',
             'offer_transportation', 'vehicle_type', 'transport_capacity',
             'transport_image', 'room_image',
@@ -73,6 +74,29 @@ class AccommodationSerializer(serializers.ModelSerializer):
             except json.JSONDecodeError:
                 validated_data['amenities'] = {}
         return super().create(validated_data)
+
+    def validate(self, attrs):
+        location = attrs.get('location', getattr(self.instance, 'location', None))
+        municipality = attrs.get('municipality', getattr(self.instance, 'municipality', None))
+        latitude = attrs.get('latitude', getattr(self.instance, 'latitude', None))
+        longitude = attrs.get('longitude', getattr(self.instance, 'longitude', None))
+
+        try:
+            normalized = validate_zds_location_payload(
+                location=location,
+                latitude=latitude,
+                longitude=longitude,
+                municipality=municipality,
+                require_location=True,
+            )
+        except ValueError as exc:
+            raise serializers.ValidationError({'location': str(exc)})
+
+        attrs['location'] = normalized['location']
+        attrs['municipality'] = normalized['municipality'] or None
+        attrs['latitude'] = normalized['latitude']
+        attrs['longitude'] = normalized['longitude']
+        return attrs
 
 class BookingSerializer(serializers.ModelSerializer):
     tourist_id = serializers.PrimaryKeyRelatedField(source='tourist', read_only=True)
@@ -111,7 +135,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'platform_fee', 'guide_payout_amount', 'is_payout_settled',
             'payout_settled_at', 'payout_channel', 'payout_reference_id', 'payout_processed_by', 'payout_processed_by_detail',
             
-            'meetup_location', 'meetup_time', 'meetup_instructions',
+            'meetup_location', 'meetup_municipality', 'meetup_latitude', 'meetup_longitude', 'meetup_time', 'meetup_instructions',
             
             'status', 'refund_status', 'created_at'
         ]
@@ -123,7 +147,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'platform_fee', 'guide_payout_amount',
             'is_payout_settled', 'payout_settled_at', 'payout_channel', 'payout_reference_id', 'payout_processed_by',
             'assigned_guides', 'assigned_agency_guides', 'destination_detail', 'tour_package',
-            'meetup_location', 'meetup_time', 'meetup_instructions' 
+            'meetup_location', 'meetup_municipality', 'meetup_latitude', 'meetup_longitude', 'meetup_time', 'meetup_instructions' 
         ]
 
     def validate_additional_guest_names(self, value):

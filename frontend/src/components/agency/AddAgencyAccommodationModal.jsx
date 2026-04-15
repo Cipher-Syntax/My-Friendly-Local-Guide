@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Home, DollarSign, PhilippinePeso, MapPin, Bed, Car, Upload, Image as ImageIcon } from 'lucide-react';
 import api from '../../api/api';
+import LeafletLocationPicker from '../location/LeafletLocationPicker';
 
 export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommodationAdded, onAccommodationUpdated, editData }) {
     const [destinations, setDestinations] = useState([]);
@@ -13,6 +14,7 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
 
     const [formData, setFormData] = useState({
         title: '', description: '', location: '', price: '',
+        municipality: '', latitude: null, longitude: null,
         accommodation_type: 'Hotel', room_type: 'Standard',
         offer_transportation: false, vehicle_type: '', transport_capacity: '',
         destination_id: '',
@@ -43,6 +45,7 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
     const resetForm = useCallback(() => {
         setFormData({
             title: '', description: '', location: '', price: '', accommodation_type: 'Hotel',
+            municipality: '', latitude: null, longitude: null,
             room_type: 'Standard', offer_transportation: false, vehicle_type: '', transport_capacity: '', destination_id: destinations[0]?.id || ''
         });
         setAmenities({ wifi: false, breakfast: false, ac: false, parking: false, pool: false });
@@ -59,6 +62,9 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
             title: editData.title || '',
             description: editData.description || '',
             location: editData.location || '',
+            municipality: editData.municipality || '',
+            latitude: editData.latitude ?? null,
+            longitude: editData.longitude ?? null,
             price: editData.price || '',
             accommodation_type: editData.accommodation_type || 'Hotel',
             room_type: editData.room_type || 'Standard',
@@ -153,6 +159,9 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
             submitData.append('title', formData.title);
             submitData.append('description', formData.description);
             submitData.append('location', formData.location);
+            if (formData.municipality) submitData.append('municipality', formData.municipality);
+            if (formData.latitude !== null && formData.latitude !== undefined) submitData.append('latitude', formData.latitude);
+            if (formData.longitude !== null && formData.longitude !== undefined) submitData.append('longitude', formData.longitude);
             submitData.append('price', formData.price);
             submitData.append('accommodation_type', formData.accommodation_type);
             submitData.append('room_type', formData.room_type);
@@ -248,8 +257,18 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
                                     </select>
                                 </div>
                                 <div className="md:col-span-2">
-                                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1"><MapPin className="w-4 h-4 text-slate-400" /> Exact Address *</label>
-                                    <input type="text" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="123 Beachfront Rd" />
+                                    <LeafletLocationPicker
+                                        label="Exact Address"
+                                        idPrefix="accommodation-location"
+                                        required
+                                        value={{
+                                            location: formData.location,
+                                            municipality: formData.municipality,
+                                            latitude: formData.latitude,
+                                            longitude: formData.longitude,
+                                        }}
+                                        onChange={(nextLocation) => setFormData({ ...formData, ...nextLocation })}
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Property Type</label>

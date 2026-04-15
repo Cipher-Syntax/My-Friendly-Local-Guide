@@ -8,6 +8,10 @@ from .views import (
     AttractionViewSet, 
     DestinationAttractionListView,
     CategoryChoicesView,
+    MunicipalityChoicesView,
+    LocationSearchView,
+    LocationCorrectionListCreateView,
+    LocationCorrectionReviewView,
     CreateTourView,
     MyToursListView,
     ToursByDestinationListView,
@@ -25,6 +29,10 @@ urlpatterns = [
     path('', include(router.urls)),
     
     path('categories/', CategoryChoicesView.as_view(), name='category-choices'),
+    path('locations/municipalities/', MunicipalityChoicesView.as_view(), name='location-municipality-choices'),
+    path('locations/search/', LocationSearchView.as_view(), name='location-search'),
+    path('location-corrections/', LocationCorrectionListCreateView.as_view(), name='location-correction-list-create'),
+    path('location-corrections/<int:pk>/review/', LocationCorrectionReviewView.as_view(), name='location-correction-review'),
     
     path(
         'destinations/<int:destination_pk>/attractions/', 

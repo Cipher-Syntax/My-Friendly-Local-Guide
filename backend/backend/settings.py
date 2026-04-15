@@ -253,3 +253,4 @@ CRON_SECRET_KEY = config('CRON_SECRET_KEY')
 
 # Optional Expo access token for authenticated Expo Push API requests.
 EXPO_ACCESS_TOKEN = config('EXPO_ACCESS_TOKEN', default='')
+MAPBOX_ACCESS_TOKEN = config('MAPBOX_ACCESS_TOKEN', default='')

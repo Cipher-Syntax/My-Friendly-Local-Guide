@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { MapPin, Filter, Calendar, AlertCircle, CheckCircle, XCircle, Tag, Clock, Info, CheckCircle2, Search, ChevronLeft, ChevronRight, Eye, MessageSquare, Images, CreditCard, User } from 'lucide-react';
 import api from '../../api/api';
+import LeafletLocationPicker from '../location/LeafletLocationPicker';
 
 export default function AgencyBookingsTable({ bookings, getGuideNames, getStatusBg, updateBookingStatus, confirmPayment, openManageGuidesModal, agencyTier, freeBookingLimit, openMessageWithTourist = () => { } }) {
     const [filterStatus, setFilterStatus] = useState('all');
@@ -12,7 +13,14 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
     // State for Accept & Meetup Modal
     const [acceptModalOpen, setAcceptModalOpen] = useState(false);
     const [selectedBookingForAccept, setSelectedBookingForAccept] = useState(null);
-    const [meetupForm, setMeetupForm] = useState({ location: '', time: '', instructions: '' });
+    const [meetupForm, setMeetupForm] = useState({
+        location: '',
+        municipality: '',
+        latitude: null,
+        longitude: null,
+        time: '',
+        instructions: '',
+    });
 
     // State for Confirm Payment Modal
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -246,18 +254,26 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
 
     const handleAcceptConfirm = () => {
         if (!meetupForm.location || !meetupForm.time) {
-            showToast("Location and Time are required to accept a booking.", "error");
+            showToast("Location and time are required to accept a booking.", "error");
+            return;
+        }
+
+        if (meetupForm.latitude == null || meetupForm.longitude == null) {
+            showToast("Please pin the meetup location on the map.", "error");
             return;
         }
 
         updateBookingStatus(selectedBookingForAccept.id, 'accepted', {
             meetup_location: meetupForm.location,
+            meetup_municipality: meetupForm.municipality,
+            meetup_latitude: meetupForm.latitude,
+            meetup_longitude: meetupForm.longitude,
             meetup_time: meetupForm.time,
             meetup_instructions: meetupForm.instructions
         });
 
         setAcceptModalOpen(false);
-        setMeetupForm({ location: '', time: '', instructions: '' });
+        setMeetupForm({ location: '', municipality: '', latitude: null, longitude: null, time: '', instructions: '' });
         setSelectedBookingForAccept(null);
         showToast("Booking accepted & meetup details sent!", "success");
     };
@@ -465,6 +481,14 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                                                                     return;
                                                                 }
                                                                 setSelectedBookingForAccept(booking);
+                                                                setMeetupForm({
+                                                                    location: booking.meetup_location || '',
+                                                                    municipality: booking.meetup_municipality || '',
+                                                                    latitude: booking.meetup_latitude ?? null,
+                                                                    longitude: booking.meetup_longitude ?? null,
+                                                                    time: booking.meetup_time || '',
+                                                                    instructions: booking.meetup_instructions || '',
+                                                                });
                                                                 setAcceptModalOpen(true);
                                                             }}
                                                             disabled={isLimitReached}
@@ -595,17 +619,18 @@ export default function AgencyBookingsTable({ bookings, getGuideNames, getStatus
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Meetup Location *</label>
-                                <div className="relative">
-                                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. Zamboanga Port, Gate 2"
-                                        value={meetupForm.location}
-                                        onChange={(e) => setMeetupForm({ ...meetupForm, location: e.target.value })}
-                                        className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
-                                    />
-                                </div>
+                                <LeafletLocationPicker
+                                    label="Meetup Location"
+                                    idPrefix="agency-meetup"
+                                    required
+                                    value={{
+                                        location: meetupForm.location,
+                                        municipality: meetupForm.municipality,
+                                        latitude: meetupForm.latitude,
+                                        longitude: meetupForm.longitude,
+                                    }}
+                                    onChange={(nextLocation) => setMeetupForm({ ...meetupForm, ...nextLocation })}
+                                />
                             </div>
 
                             <div>

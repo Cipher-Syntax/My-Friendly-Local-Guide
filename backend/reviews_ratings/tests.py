@@ -33,7 +33,10 @@ class ReviewsModelTests(TestCase):
 			name="Iloilo",
 			description="City",
 			category="Cultural",
-			location="Iloilo",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.825000",
+			longitude="123.437000",
 		)
 		self.booking = Booking.objects.create(
 			tourist=self.tourist,
@@ -93,7 +96,10 @@ class ReviewsApiTests(TestCase):
 			name="Bacolod",
 			description="Food city",
 			category="Cultural",
-			location="Negros",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.826000",
+			longitude="123.438000",
 		)
 		self.booking = Booking.objects.create(
 			tourist=self.tourist,

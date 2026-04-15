@@ -2,6 +2,8 @@ from django.db import models #type: ignore
 from django.conf import settings 
 from django.core.exceptions import ValidationError #type: ignore
 
+from backend.location_policy import validate_zds_location_payload
+
 User = settings.AUTH_USER_MODEL 
 
 
@@ -31,12 +33,31 @@ class Destination(models.Model):
     description = models.TextField()
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
     location = models.CharField(max_length=255)
+    municipality = models.CharField(max_length=120, blank=True, null=True)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
     is_featured = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def _apply_location_policy(self):
+        normalized = validate_zds_location_payload(
+            location=self.location,
+            latitude=self.latitude,
+            longitude=self.longitude,
+            municipality=self.municipality,
+            require_location=True,
+        )
+
+        self.location = normalized['location']
+        self.latitude = normalized['latitude']
+        self.longitude = normalized['longitude']
+        self.municipality = normalized['municipality'] or None
+
+    def save(self, *args, **kwargs):
+        self._apply_location_policy()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -106,3 +127,115 @@ class TourStop(models.Model):
 
     def __str__(self):
         return f"{self.name} in {self.tour.name}"
+
+
+class LocationCorrectionRequest(models.Model):
+    TARGET_TYPE_CHOICES = [
+        ('destination', 'Destination'),
+        ('accommodation', 'Accommodation'),
+        ('booking_meetup', 'Booking Meetup'),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    submitted_by = models.ForeignKey(
+        User,
+        related_name='location_corrections_submitted',
+        on_delete=models.CASCADE,
+    )
+    target_type = models.CharField(max_length=30, choices=TARGET_TYPE_CHOICES)
+
+    destination = models.ForeignKey(
+        Destination,
+        related_name='location_corrections',
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
+    accommodation = models.ForeignKey(
+        'accommodation_booking.Accommodation',
+        related_name='location_corrections',
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
+    booking = models.ForeignKey(
+        'accommodation_booking.Booking',
+        related_name='meetup_location_corrections',
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
+
+    current_location = models.CharField(max_length=255, blank=True, default='')
+    current_municipality = models.CharField(max_length=120, blank=True, default='')
+    current_latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    current_longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+
+    proposed_location = models.CharField(max_length=255)
+    proposed_municipality = models.CharField(max_length=120, blank=True, default='')
+    proposed_latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    proposed_longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    reason = models.TextField(blank=True, default='')
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reviewed_by = models.ForeignKey(
+        User,
+        related_name='location_corrections_reviewed',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    review_note = models.TextField(blank=True, default='')
+    applied_at = models.DateTimeField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def clean(self):
+        super().clean()
+
+        target_map = {
+            'destination': bool(self.destination_id),
+            'accommodation': bool(self.accommodation_id),
+            'booking_meetup': bool(self.booking_id),
+        }
+
+        active_targets = [key for key, enabled in target_map.items() if enabled]
+        if len(active_targets) != 1:
+            raise ValidationError('Exactly one correction target must be selected.')
+
+        if self.target_type not in target_map:
+            raise ValidationError({'target_type': 'Unsupported correction target type.'})
+
+        if not target_map[self.target_type]:
+            raise ValidationError({'target_type': 'Target type does not match selected correction target.'})
+
+        normalized = validate_zds_location_payload(
+            location=self.proposed_location,
+            latitude=self.proposed_latitude,
+            longitude=self.proposed_longitude,
+            municipality=self.proposed_municipality,
+            require_location=True,
+            require_coordinates=True,
+        )
+
+        self.proposed_location = normalized['location']
+        self.proposed_latitude = normalized['latitude']
+        self.proposed_longitude = normalized['longitude']
+        self.proposed_municipality = normalized['municipality'] or ''
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Location correction #{self.id} ({self.target_type})"

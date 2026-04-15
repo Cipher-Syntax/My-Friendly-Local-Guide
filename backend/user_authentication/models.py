@@ -47,6 +47,9 @@ class User(AbstractUser):
     payout_account_number = models.CharField(max_length=80, blank=True, null=True)
     payout_account_notes = models.CharField(max_length=255, blank=True, null=True)
     location = models.CharField(max_length=255, blank=True, null=True, help_text="e.g., City, Province")
+    municipality = models.CharField(max_length=120, blank=True, null=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     valid_id_image = models.ImageField(upload_to='user_kyc/', null=True, blank=True)
     
     guide_rating = models.DecimalField(

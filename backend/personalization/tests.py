@@ -25,7 +25,10 @@ class PersonalizationSerializerTests(TestCase):
 			name="Davao",
 			description="Southern city",
 			category="Adventure",
-			location="Davao",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.825000",
+			longitude="123.437000",
 		)
 		profile = Personalization.objects.create(user=user, onboarding_completed=True)
 		profile.preferred_destinations.add(destination)
@@ -43,7 +46,10 @@ class PersonalizationApiTests(TestCase):
 			name="Manila",
 			description="Capital",
 			category="Historical",
-			location="NCR",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.826000",
+			longitude="123.438000",
 		)
 
 	def test_update_requires_authentication(self):
@@ -67,3 +73,36 @@ class PersonalizationApiTests(TestCase):
 		response = self.client.get(reverse("my-personalization"))
 		self.assertEqual(response.status_code, 200)
 		self.assertTrue(Personalization.objects.filter(user=self.user).exists())
+
+	def test_update_accepts_preferred_location_with_coordinates(self):
+		self.client.force_authenticate(user=self.user)
+		response = self.client.patch(
+			reverse("update-personalization"),
+			{
+				"preferred_location": "Pagadian City",
+				"preferred_municipality": "Pagadian City",
+				"preferred_latitude": "7.827000",
+				"preferred_longitude": "123.437000",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		profile = Personalization.objects.get(user=self.user)
+		self.assertEqual(profile.preferred_location, "Pagadian City")
+		self.assertEqual(str(profile.preferred_latitude), "7.827000")
+
+	def test_update_rejects_preferred_location_outside_zds(self):
+		self.client.force_authenticate(user=self.user)
+		response = self.client.patch(
+			reverse("update-personalization"),
+			{
+				"preferred_location": "Invalid",
+				"preferred_latitude": "6.100000",
+				"preferred_longitude": "120.100000",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("preferred_location", response.data)

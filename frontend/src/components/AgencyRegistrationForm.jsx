@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { registerAgency } from '../api/auth';
 import { formatPHPhoneLocal, normalizePHPhone } from '../utils/phoneNumber';
 import { NAME_REGEX, NAME_ERROR_MESSAGE, EMAIL_REGEX, EMAIL_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../utils/validation';
+import LeafletLocationPicker from './location/LeafletLocationPicker';
 
 const AgencyRegistrationForm = () => {
 	const [formData, setFormData] = useState({
@@ -13,6 +14,9 @@ const AgencyRegistrationForm = () => {
 		last_name: '',
 		phone_number: '',
 		location: '',
+		municipality: '',
+		latitude: null,
+		longitude: null,
 	});
 	const [error, setError] = useState(null);
 	const [loading, setLoading] = useState(false);
@@ -119,8 +123,17 @@ const AgencyRegistrationForm = () => {
 						<input type="text" id="phone_number" name="phone_number" onChange={handleChange} style={{ width: '100%', padding: '0.5rem', marginTop: '0.5rem' }} />
 					</div>
 					<div style={{ marginBottom: '1rem' }}>
-						<label htmlFor="location">Location</label>
-						<input type="text" id="location" name="location" onChange={handleChange} style={{ width: '100%', padding: '0.5rem', marginTop: '0.5rem' }} />
+						<LeafletLocationPicker
+							label="Location"
+							idPrefix="agency-register-location"
+							value={{
+								location: formData.location,
+								municipality: formData.municipality,
+								latitude: formData.latitude,
+								longitude: formData.longitude,
+							}}
+							onChange={(nextLocation) => setFormData((prev) => ({ ...prev, ...nextLocation }))}
+						/>
 					</div>
 					{error && <p style={{ color: 'red', marginBottom: '1rem' }}>{error}</p>}
 					<button type="submit" style={{ width: '100%', padding: '0.5rem', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }} disabled={loading}>

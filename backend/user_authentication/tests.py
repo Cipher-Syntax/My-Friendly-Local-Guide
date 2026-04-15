@@ -34,6 +34,21 @@ class UserAuthenticationSerializerTests(TestCase):
 		self.assertFalse(serializer.is_valid())
 		self.assertIn("confirm_password", serializer.errors)
 
+	def test_user_serializer_rejects_out_of_scope_location_coordinates(self):
+		serializer = UserSerializer(
+			data={
+				"username": "new_user_2",
+				"email": "new2@example.com",
+				"password": "Pass12345",
+				"confirm_password": "Pass12345",
+				"location": "Invalid Point",
+				"latitude": "6.000000",
+				"longitude": "120.000000",
+			}
+		)
+		self.assertFalse(serializer.is_valid())
+		self.assertIn("location", serializer.errors)
+
 
 class UserAuthenticationApiTests(TestCase):
 	def setUp(self):

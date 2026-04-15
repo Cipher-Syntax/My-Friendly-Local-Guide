@@ -7,6 +7,9 @@ class Personalization(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='personalization_profile')
     
     preferred_location = models.CharField(max_length=255, blank=True, null=True, help_text="e.g., City or region for next trip")
+    preferred_municipality = models.CharField(max_length=120, blank=True, null=True)
+    preferred_latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    preferred_longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     
     # New field: Store specific destinations selected by the user
     preferred_destinations = models.ManyToManyField(

@@ -42,7 +42,10 @@ class PaymentSerializerTests(TestCase):
 			name="Cebu",
 			description="City and beach",
 			category="Beaches",
-			location="Cebu",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.825000",
+			longitude="123.437000",
 		)
 		self.booking = Booking.objects.create(
 			tourist=self.user,
@@ -109,7 +112,10 @@ class RefundApiTests(TestCase):
 			name="Davao",
 			description="Nature and culture",
 			category="Nature",
-			location="Davao",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.826000",
+			longitude="123.438000",
 		)
 
 		self.booking = Booking.objects.create(

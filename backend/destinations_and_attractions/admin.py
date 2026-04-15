@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import mark_safe 
-from .models import Destination, Attraction, DestinationImage, TourPackage, TourStop
+from .models import Destination, Attraction, DestinationImage, TourPackage, TourStop, LocationCorrectionRequest
 
 # ==============================================
 # 1. DESTINATION ADMIN (Global Data)
@@ -24,9 +24,24 @@ class AttractionInline(admin.StackedInline):
 
 class DestinationAdmin(admin.ModelAdmin):
     list_display = ('name', 'category', 'location', 'average_rating')
-    list_filter = ('category', 'location')
+    list_filter = ('category', 'municipality')
     search_fields = ('name', 'location')
     inlines = [DestinationImageInline, AttractionInline]
+
+
+class LocationCorrectionRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'target_type',
+        'status',
+        'submitted_by',
+        'reviewed_by',
+        'created_at',
+        'applied_at',
+    )
+    list_filter = ('target_type', 'status', 'created_at', 'applied_at')
+    search_fields = ('proposed_location', 'proposed_municipality', 'submitted_by__username')
+    readonly_fields = ('created_at', 'updated_at', 'reviewed_at', 'applied_at')
 
 # ==============================================
 # 2. TOUR ADMIN (Guide Data)
@@ -62,3 +77,4 @@ admin.site.register(TourPackage, TourPackageAdmin)
 admin.site.register(Attraction)
 admin.site.register(DestinationImage)
 admin.site.register(TourStop)
+admin.site.register(LocationCorrectionRequest, LocationCorrectionRequestAdmin)

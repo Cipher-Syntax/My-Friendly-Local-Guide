@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from .models import Destination, TourPackage
+from .models import Destination, TourPackage, LocationCorrectionRequest
 from .serializers import TourPackageSerializer
 
 User = get_user_model()
@@ -24,7 +24,10 @@ class DestinationsModelTests(TestCase):
 			name="Siargao",
 			description="Surf island",
 			category="Islands",
-			location="Surigao del Norte",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.825100",
+			longitude="123.436900",
 		)
 
 	def test_tour_package_string_representation(self):
@@ -54,7 +57,10 @@ class DestinationsSerializerTests(TestCase):
 			name="Bohol",
 			description="Chocolate hills",
 			category="Nature",
-			location="Bohol",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.824500",
+			longitude="123.437200",
 		)
 
 	def test_tour_package_serializer_parses_itinerary_json_string(self):
@@ -85,6 +91,21 @@ class DestinationsApiTests(TestCase):
 		self.client = APIClient()
 		self.user = User.objects.create_user(username="u1", password="Pass12345")
 		self.admin = User.objects.create_user(username="admin1", password="Pass12345", is_staff=True)
+		self.guide = User.objects.create_user(
+			username="trusted_guide",
+			password="Pass12345",
+			is_local_guide=True,
+			guide_approved=True,
+		)
+		self.destination = Destination.objects.create(
+			name="Pagadian Rotonda",
+			description="City center",
+			category="Cultural",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.825000",
+			longitude="123.437000",
+		)
 
 	def test_categories_endpoint_is_public(self):
 		response = self.client.get(reverse("category-choices"))
@@ -119,12 +140,33 @@ class DestinationsApiTests(TestCase):
 				"name": "Gourmet Trail",
 				"description": "Food and local delicacies",
 				"category": "Food Trip",
-				"location": "Davao City",
+				"location": "Pagadian City",
+				"municipality": "Pagadian City",
+				"latitude": "7.830000",
+				"longitude": "123.450000",
 			},
 			format="json",
 		)
 		self.assertEqual(response.status_code, 201)
 		self.assertEqual(response.json().get("category"), "Food Trip")
+
+	def test_admin_cannot_create_destination_outside_zds_bounds(self):
+		self.client.force_authenticate(user=self.admin)
+		response = self.client.post(
+			reverse("destination-list"),
+			{
+				"name": "Out of Scope",
+				"description": "Invalid coords",
+				"category": "Adventure",
+				"location": "Pagadian City",
+				"municipality": "Pagadian City",
+				"latitude": "5.000000",
+				"longitude": "121.000000",
+			},
+			format="json",
+		)
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("location", response.json())
 
 	def test_destination_list_is_public(self):
 		response = self.client.get(reverse("destination-list"))
@@ -138,8 +180,80 @@ class DestinationsApiTests(TestCase):
 				"name": "Sagada",
 				"description": "Mountain",
 				"category": "Mountains",
-				"location": "Mountain Province",
+				"location": "Pagadian City",
+				"municipality": "Pagadian City",
+				"latitude": "7.810000",
+				"longitude": "123.410000",
 			},
 			format="json",
 		)
 		self.assertEqual(response.status_code, 403)
+
+	def test_tourist_correction_creates_pending_request(self):
+		self.client.force_authenticate(user=self.user)
+		response = self.client.post(
+			reverse("location-correction-list-create"),
+			{
+				"target_type": "destination",
+				"destination_id": self.destination.id,
+				"proposed_location": "Pagadian City Port",
+				"proposed_municipality": "Pagadian City",
+				"proposed_latitude": "7.832000",
+				"proposed_longitude": "123.451000",
+				"reason": "Marker is slightly off",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 201)
+		self.assertEqual(response.json().get("status"), "pending")
+		self.destination.refresh_from_db()
+		self.assertEqual(self.destination.location, "Pagadian City")
+
+	def test_trusted_guide_correction_auto_applies(self):
+		self.client.force_authenticate(user=self.guide)
+		response = self.client.post(
+			reverse("location-correction-list-create"),
+			{
+				"target_type": "destination",
+				"destination_id": self.destination.id,
+				"proposed_location": "Pagadian City Rotunda",
+				"proposed_municipality": "Pagadian City",
+				"proposed_latitude": "7.826500",
+				"proposed_longitude": "123.438500",
+				"reason": "Verified by local guide",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 201)
+		self.assertEqual(response.json().get("status"), "approved")
+		self.destination.refresh_from_db()
+		self.assertEqual(self.destination.location, "Pagadian City Rotunda")
+
+	def test_admin_can_approve_pending_location_correction(self):
+		pending = LocationCorrectionRequest.objects.create(
+			submitted_by=self.user,
+			target_type='destination',
+			destination=self.destination,
+			current_location=self.destination.location,
+			current_municipality=self.destination.municipality or '',
+			current_latitude=self.destination.latitude,
+			current_longitude=self.destination.longitude,
+			proposed_location='Pagadian City Plaza',
+			proposed_municipality='Pagadian City',
+			proposed_latitude='7.827100',
+			proposed_longitude='123.439100',
+		)
+
+		self.client.force_authenticate(user=self.admin)
+		response = self.client.patch(
+			reverse("location-correction-review", kwargs={"pk": pending.id}),
+			{"action": "approve", "review_note": "Validated coordinates."},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.json().get("status"), "approved")
+		self.destination.refresh_from_db()
+		self.assertEqual(self.destination.location, "Pagadian City Plaza")

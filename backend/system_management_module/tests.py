@@ -85,7 +85,10 @@ class AdminPartnerRankingsApiTests(TestCase):
 			name="Burnham Park",
 			description="Test destination for rankings",
 			category="Nature",
-			location="Baguio City",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.825000",
+			longitude="123.437000",
 		)
 
 		self.guide_top = User.objects.create_user(

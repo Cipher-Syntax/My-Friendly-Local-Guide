@@ -5,6 +5,8 @@ from agency_management_module.models import TouristGuide
 from django.core.exceptions import ValidationError #type: ignore
 from django.db.models import Q #type: ignore
 
+from backend.location_policy import validate_zds_location_payload
+
 class Accommodation(models.Model):
     # The owner can be a local host OR an agency
     host = models.ForeignKey(User, on_delete=models.CASCADE, related_name="accommodations", null=True, blank=True)
@@ -15,6 +17,9 @@ class Accommodation(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     location = models.CharField(max_length=255)
+    municipality = models.CharField(max_length=120, blank=True, null=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     photo = models.ImageField(upload_to="accommodations/")
 
@@ -39,6 +44,19 @@ class Accommodation(models.Model):
             raise ValidationError("An Accommodation must belong to either a host or an agency.")
         if self.host and self.agency:
             raise ValidationError("An Accommodation cannot belong to both a host and an agency.")
+
+        normalized = validate_zds_location_payload(
+            location=self.location,
+            latitude=self.latitude,
+            longitude=self.longitude,
+            municipality=self.municipality,
+            require_location=True,
+        )
+
+        self.location = normalized['location']
+        self.latitude = normalized['latitude']
+        self.longitude = normalized['longitude']
+        self.municipality = normalized['municipality'] or None
 
     def save(self, *args, **kwargs):
         self.clean()
@@ -111,6 +129,9 @@ class Booking(models.Model):
     )
 
     meetup_location = models.CharField(max_length=255, blank=True, null=True, help_text="Where the guide and tourist will meet")
+    meetup_municipality = models.CharField(max_length=120, blank=True, null=True)
+    meetup_latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    meetup_longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     meetup_time = models.TimeField(blank=True, null=True)
     meetup_instructions = models.TextField(blank=True, null=True, help_text="e.g., Look for the guide holding a blue LocaLynk umbrella.")
 
@@ -143,6 +164,24 @@ class Booking(models.Model):
 
             if overlapping_bookings.exists():
                 raise ValidationError("The guide is unavailable for these dates. Please choose another date range.")
+
+        has_meetup_payload = any(
+            value not in (None, '')
+            for value in [self.meetup_location, self.meetup_municipality, self.meetup_latitude, self.meetup_longitude]
+        )
+        if has_meetup_payload:
+            normalized = validate_zds_location_payload(
+                location=self.meetup_location,
+                latitude=self.meetup_latitude,
+                longitude=self.meetup_longitude,
+                municipality=self.meetup_municipality,
+                require_location=True,
+            )
+
+            self.meetup_location = normalized['location']
+            self.meetup_latitude = normalized['latitude']
+            self.meetup_longitude = normalized['longitude']
+            self.meetup_municipality = normalized['municipality'] or None
 
     def save(self, *args, **kwargs):
         self.full_clean() 
@@ -210,4 +249,4 @@ class BookingJourneyCheckpoint(models.Model):
         ]
 
     def __str__(self):
-        return f"Booking {self.booking_id} - Day {self.day_number} Stop {self.stop_index + 1}"
+        return f"Booking {self.booking_id} - Day {self.day_number} Stop {self.stop_index + 1}" 

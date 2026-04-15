@@ -21,6 +21,7 @@ from system_management_module.services.push_notifications import send_push_to_us
 from system_management_module.services.email_preferences import send_preference_aware_email
 from destinations_and_attractions.models import TourPackage  
 from backend.pagination import OptionalPageNumberPagination
+from backend.location_policy import validate_zds_location_payload
 
 from rest_framework.views import APIView
 
@@ -622,6 +623,9 @@ class BookingViewSet(viewsets.ModelViewSet):
                 'check_in': booking.check_in,
                 'check_out': booking.check_out,
                 'meetup_location': booking.meetup_location,
+                'meetup_municipality': booking.meetup_municipality,
+                'meetup_latitude': booking.meetup_latitude,
+                'meetup_longitude': booking.meetup_longitude,
                 'status': booking.status,
             }
             for booking in queryset
@@ -1186,11 +1190,34 @@ class BookingStatusUpdateView(generics.UpdateAPIView):
                 instance.guide.save()
              
              meetup_loc = request.data.get('meetup_location')
+             meetup_municipality = request.data.get('meetup_municipality')
+             meetup_latitude = request.data.get('meetup_latitude')
+             meetup_longitude = request.data.get('meetup_longitude')
              meetup_time = request.data.get('meetup_time')
              meetup_inst = request.data.get('meetup_instructions')
+
+             has_location_payload = any(
+                 value not in (None, '')
+                 for value in [meetup_loc, meetup_municipality, meetup_latitude, meetup_longitude]
+             )
+
+             if has_location_payload:
+                 try:
+                     normalized = validate_zds_location_payload(
+                         location=meetup_loc,
+                         latitude=meetup_latitude,
+                         longitude=meetup_longitude,
+                         municipality=meetup_municipality,
+                         require_location=True,
+                     )
+                 except ValueError as exc:
+                     raise ValidationError({'meetup_location': str(exc)})
+
+                 instance.meetup_location = normalized['location']
+                 instance.meetup_municipality = normalized['municipality'] or None
+                 instance.meetup_latitude = normalized['latitude']
+                 instance.meetup_longitude = normalized['longitude']
              
-             if meetup_loc:
-                 instance.meetup_location = meetup_loc
              if meetup_time:
                  instance.meetup_time = meetup_time
              if meetup_inst:

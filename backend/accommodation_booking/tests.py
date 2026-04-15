@@ -28,7 +28,10 @@ class AccommodationBookingModelTests(TestCase):
 			name="Baguio",
 			description="Cool city",
 			category="Nature",
-			location="Benguet",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.825000",
+			longitude="123.437000",
 		)
 
 	def test_booking_requires_target(self):
@@ -88,7 +91,10 @@ class AccommodationBookingSerializerTests(TestCase):
 			name="Palawan",
 			description="Island",
 			category="Islands",
-			location="Palawan",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.826000",
+			longitude="123.438000",
 		)
 
 	def test_additional_guest_names_invalid_json_becomes_empty_list(self):
@@ -209,13 +215,19 @@ class AgencyConcurrentBookingsApiTests(TestCase):
 			name="Siargao",
 			description="Island destination",
 			category="Islands",
-			location="Surigao del Norte",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.827000",
+			longitude="123.439000",
 		)
 		self.other_destination = Destination.objects.create(
 			name="Bohol",
 			description="Chocolate hills",
 			category="Nature",
-			location="Bohol",
+			location="Tukuran",
+			municipality="Tukuran",
+			latitude="7.854000",
+			longitude="123.574000",
 		)
 
 		self.window_start = date.today() + timedelta(days=6)
@@ -343,7 +355,10 @@ class BookingJourneyApiTests(TestCase):
 			name="Camiguin",
 			description="Island of fire",
 			category="Islands",
-			location="Northern Mindanao",
+			location="Pagadian City",
+			municipality="Pagadian City",
+			latitude="7.828000",
+			longitude="123.440000",
 		)
 
 		self.package = TourPackage.objects.create(
@@ -450,6 +465,76 @@ class BookingJourneyApiTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		checkpoint.refresh_from_db()
 		self.assertEqual(checkpoint.guide_remarks, "Tourist arrived at correct stop.")
+
+
+class BookingMeetupLocationValidationTests(TestCase):
+	def setUp(self):
+		self.client = APIClient()
+		self.tourist = User.objects.create_user(username="meetup_tourist", password="Pass12345")
+		self.guide = User.objects.create_user(
+			username="meetup_guide",
+			password="Pass12345",
+			is_local_guide=True,
+			guide_approved=True,
+		)
+		self.destination = Destination.objects.create(
+			name="Tukuran Falls",
+			description="Waterfall destination",
+			category="Nature",
+			location="Tukuran",
+			municipality="Tukuran",
+			latitude="7.850000",
+			longitude="123.570000",
+		)
+		self.booking = Booking.objects.create(
+			tourist=self.tourist,
+			guide=self.guide,
+			destination=self.destination,
+			check_in=date.today() + timedelta(days=4),
+			check_out=date.today() + timedelta(days=5),
+			num_guests=2,
+			status="Pending_Payment",
+		)
+
+	def test_accept_rejects_meetup_coordinates_outside_zds(self):
+		self.client.force_authenticate(user=self.guide)
+		response = self.client.patch(
+			reverse("booking-status-update", kwargs={"pk": self.booking.id}),
+			{
+				"status": "Accepted",
+				"meetup_location": "Outside scope",
+				"meetup_municipality": "Pagadian City",
+				"meetup_latitude": "6.000000",
+				"meetup_longitude": "120.000000",
+				"meetup_time": "09:00:00",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("meetup_location", response.data)
+
+	def test_accept_persists_meetup_coordinates_within_zds(self):
+		self.client.force_authenticate(user=self.guide)
+		response = self.client.patch(
+			reverse("booking-status-update", kwargs={"pk": self.booking.id}),
+			{
+				"status": "Accepted",
+				"meetup_location": "Pagadian City Rotonda",
+				"meetup_municipality": "Pagadian City",
+				"meetup_latitude": "7.826000",
+				"meetup_longitude": "123.439000",
+				"meetup_time": "09:00:00",
+				"meetup_instructions": "Look for the blue umbrella.",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.booking.refresh_from_db()
+		self.assertEqual(self.booking.status, "Accepted")
+		self.assertEqual(str(self.booking.meetup_latitude), "7.826000")
+		self.assertEqual(str(self.booking.meetup_longitude), "123.439000")
 
 
 class AccommodationModelTests(TestCase):

@@ -7,6 +7,7 @@ from .models import FeaturedPlace, AccommodationImage, GuideApplication, Favorit
 from .phone_utils import normalize_ph_phone
 from personalization.serializers import PersonalizationSerializer
 from agency_management_module.serializers import AgencySerializer
+from backend.location_policy import validate_zds_location_payload
 
 User = get_user_model()
 
@@ -64,7 +65,7 @@ class UserSerializer(serializers.ModelSerializer):
             'first_name', 'middle_name', 'last_name', 'date_joined',
             'profile_picture', 'bio', 'phone_number',
             'payout_account_type', 'payout_account_name', 'payout_account_number', 'payout_account_notes',
-            'location', 'valid_id_image', 'personalization_profile', 'is_active',
+            'location', 'municipality', 'latitude', 'longitude', 'valid_id_image', 'personalization_profile', 'is_active',
             'is_staff', 'is_superuser',
             
             'is_tourist', 'is_local_guide', 'guide_approved', 'has_accepted_terms',
@@ -136,6 +137,30 @@ class UserSerializer(serializers.ModelSerializer):
         if password or confirm_password:
             if password != confirm_password:
                 raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
+
+        location_keys = {'location', 'municipality', 'latitude', 'longitude'}
+        if any(key in data for key in location_keys):
+            location = data.get('location', getattr(self.instance, 'location', None))
+            municipality = data.get('municipality', getattr(self.instance, 'municipality', None))
+            latitude = data.get('latitude', getattr(self.instance, 'latitude', None))
+            longitude = data.get('longitude', getattr(self.instance, 'longitude', None))
+
+            try:
+                normalized = validate_zds_location_payload(
+                    location=location,
+                    municipality=municipality,
+                    latitude=latitude,
+                    longitude=longitude,
+                    require_location=False,
+                )
+            except ValueError as exc:
+                raise serializers.ValidationError({'location': str(exc)})
+
+            data['location'] = normalized['location']
+            data['municipality'] = normalized['municipality'] or None
+            data['latitude'] = normalized['latitude']
+            data['longitude'] = normalized['longitude']
+
         return data
     
     def create(self, validated_data):

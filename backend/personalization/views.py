@@ -1,10 +1,12 @@
 from rest_framework import generics, status, views
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
 from .models import Personalization
 from destinations_and_attractions.models import Destination
 from destinations_and_attractions.serializers import DestinationSerializer
 from .serializers import PersonalizationDetailSerializer
+from backend.location_policy import validate_zds_location_payload
 
 class OnboardingDestinationsView(generics.ListAPIView):
     """
@@ -30,6 +32,32 @@ class UpdatePersonalizationView(views.APIView):
         
         if request.data.get('mark_complete', False):
             profile.onboarding_completed = True
+
+        location_keys = {
+            'preferred_location',
+            'preferred_municipality',
+            'preferred_latitude',
+            'preferred_longitude',
+        }
+        if any(key in request.data for key in location_keys):
+            try:
+                normalized = validate_zds_location_payload(
+                    location=request.data.get('preferred_location', profile.preferred_location),
+                    municipality=request.data.get('preferred_municipality', profile.preferred_municipality),
+                    latitude=request.data.get('preferred_latitude', profile.preferred_latitude),
+                    longitude=request.data.get('preferred_longitude', profile.preferred_longitude),
+                    require_location=False,
+                )
+            except ValueError as exc:
+                raise ValidationError({'preferred_location': str(exc)})
+
+            profile.preferred_location = normalized['location']
+            profile.preferred_municipality = normalized['municipality'] or None
+            profile.preferred_latitude = normalized['latitude']
+            profile.preferred_longitude = normalized['longitude']
+
+        if 'travel_categories' in request.data:
+            profile.travel_categories = request.data.get('travel_categories')
             
         profile.save()
         return Response({"status": "success"}, status=status.HTTP_200_OK)

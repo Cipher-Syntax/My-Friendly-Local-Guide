@@ -1,25 +1,164 @@
 from rest_framework import viewsets, permissions, status, generics #type: ignore
 from rest_framework.views import APIView #type: ignore
 from rest_framework.response import Response #type: ignore
-from rest_framework.parsers import MultiPartParser, FormParser #type: ignore
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser #type: ignore
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from django_filters.rest_framework import DjangoFilterBackend #type: ignore
 from django.contrib.auth import get_user_model
 from django.db.models import Q, Count
+from django.db import transaction
+from django.conf import settings
+from django.shortcuts import get_object_or_404
+from django.utils import timezone #type: ignore
 from datetime import date
+from urllib.parse import quote
 
-from .models import Destination, DestinationCategory, Attraction, TourPackage, TourStop
+import requests
+
+from .models import Destination, DestinationCategory, Attraction, TourPackage, TourStop, LocationCorrectionRequest
 from .serializers import (
     DestinationSerializer, 
     DestinationListSerializer, 
     AttractionSerializer,
     TourPackageSerializer,
-    GuideSerializer
+    GuideSerializer,
+    LocationCorrectionCreateSerializer,
+    LocationCorrectionRequestSerializer,
 )
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser # Add this at the top of your file if not there
 from backend.pagination import OptionalPageNumberPagination
+from backend.location_policy import (
+    CITY_SCOPE_LABEL,
+    ZDS_MAPBOX_BBOX,
+    extract_municipality_from_text,
+    get_zds_municipality_choices,
+    is_trusted_location_editor,
+    validate_zds_coordinates,
+)
 
 User = get_user_model()
+
+
+def _resolve_correction_target(validated_data):
+    target_type = validated_data['target_type']
+
+    if target_type == 'destination':
+        target_id = validated_data['destination_id']
+        return target_type, get_object_or_404(Destination, pk=target_id)
+
+    if target_type == 'accommodation':
+        from accommodation_booking.models import Accommodation
+
+        target_id = validated_data['accommodation_id']
+        return target_type, get_object_or_404(Accommodation, pk=target_id)
+
+    if target_type == 'booking_meetup':
+        from accommodation_booking.models import Booking
+
+        target_id = validated_data['booking_id']
+        return target_type, get_object_or_404(Booking, pk=target_id)
+
+    raise ValidationError({'target_type': 'Unsupported correction target type.'})
+
+
+def _build_target_snapshot(target_type, target):
+    if target_type == 'destination':
+        return {
+            'current_location': target.location or '',
+            'current_municipality': target.municipality or '',
+            'current_latitude': target.latitude,
+            'current_longitude': target.longitude,
+        }
+
+    if target_type == 'accommodation':
+        return {
+            'current_location': target.location or '',
+            'current_municipality': target.municipality or '',
+            'current_latitude': target.latitude,
+            'current_longitude': target.longitude,
+        }
+
+    if target_type == 'booking_meetup':
+        return {
+            'current_location': target.meetup_location or '',
+            'current_municipality': target.meetup_municipality or '',
+            'current_latitude': target.meetup_latitude,
+            'current_longitude': target.meetup_longitude,
+        }
+
+    raise ValidationError({'target_type': 'Unsupported correction target type.'})
+
+
+def _can_auto_apply_correction(user, target_type, target):
+    if not is_trusted_location_editor(user):
+        return False
+
+    if user.is_staff or user.is_superuser:
+        return True
+
+    if target_type == 'destination':
+        return True
+
+    if target_type == 'accommodation':
+        if target.host_id == user.id:
+            return True
+
+        if hasattr(user, 'agency_profile') and target.agency_id == user.agency_profile.id:
+            return True
+
+        return False
+
+    if target_type == 'booking_meetup':
+        if target.guide_id == user.id or target.agency_id == user.id:
+            return True
+
+        if target.accommodation and target.accommodation.host_id == user.id:
+            return True
+
+        return target.assigned_guides.filter(id=user.id).exists()
+
+    return False
+
+
+def _apply_correction(correction, reviewed_by, review_note=''):
+    with transaction.atomic():
+        if correction.target_type == 'destination' and correction.destination:
+            destination = correction.destination
+            destination.location = correction.proposed_location
+            destination.municipality = correction.proposed_municipality or None
+            destination.latitude = correction.proposed_latitude
+            destination.longitude = correction.proposed_longitude
+            destination.save()
+
+        elif correction.target_type == 'accommodation' and correction.accommodation:
+            accommodation = correction.accommodation
+            accommodation.location = correction.proposed_location
+            accommodation.municipality = correction.proposed_municipality or None
+            accommodation.latitude = correction.proposed_latitude
+            accommodation.longitude = correction.proposed_longitude
+            accommodation.save()
+
+        elif correction.target_type == 'booking_meetup' and correction.booking:
+            booking = correction.booking
+            booking.meetup_location = correction.proposed_location
+            booking.meetup_municipality = correction.proposed_municipality or None
+            booking.meetup_latitude = correction.proposed_latitude
+            booking.meetup_longitude = correction.proposed_longitude
+            booking.save()
+
+        else:
+            raise ValidationError({'target_type': 'Target record does not exist anymore.'})
+
+        now = timezone.now()
+        correction.status = 'approved'
+        correction.reviewed_by = reviewed_by
+        correction.reviewed_at = now
+        correction.applied_at = now
+        correction.review_note = str(review_note or '').strip()
+        correction.save(
+            update_fields=['status', 'reviewed_by', 'reviewed_at', 'applied_at', 'review_note', 'updated_at']
+        )
+
+    return correction
 
 class IsAdminOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -104,6 +243,228 @@ class CategoryChoicesView(APIView):
             },
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+
+class MunicipalityChoicesView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, _request):
+        return Response(
+            {
+                'municipalities': get_zds_municipality_choices(),
+                'bbox': {
+                    'west': ZDS_MAPBOX_BBOX[0],
+                    'south': ZDS_MAPBOX_BBOX[1],
+                    'east': ZDS_MAPBOX_BBOX[2],
+                    'north': ZDS_MAPBOX_BBOX[3],
+                },
+                'scope': CITY_SCOPE_LABEL,
+            }
+        )
+
+
+class LocationSearchView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        query = str(request.query_params.get('q') or request.query_params.get('query') or '').strip()
+        if len(query) < 2:
+            return Response([])
+
+        mapbox_token = getattr(settings, 'MAPBOX_ACCESS_TOKEN', '')
+        if not mapbox_token:
+            return Response(
+                {'detail': 'Map search is not configured yet.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        limit_raw = request.query_params.get('limit', 8)
+        try:
+            limit = max(1, min(int(limit_raw), 15))
+        except (TypeError, ValueError):
+            limit = 8
+
+        candidate_queries = [query]
+        query_lower = query.lower()
+        city_lower = CITY_SCOPE_LABEL.lower()
+
+        if city_lower not in query_lower:
+            candidate_queries.append(f"{query}, {CITY_SCOPE_LABEL}")
+
+        if 'santa cruz' in query_lower:
+            candidate_queries.append(f"Sta Cruz Island, {CITY_SCOPE_LABEL}")
+        elif 'sta cruz' in query_lower:
+            candidate_queries.append(f"Santa Cruz Island, {CITY_SCOPE_LABEL}")
+
+        center_lng = (ZDS_MAPBOX_BBOX[0] + ZDS_MAPBOX_BBOX[2]) / 2
+        center_lat = (ZDS_MAPBOX_BBOX[1] + ZDS_MAPBOX_BBOX[3]) / 2
+
+        base_params = {
+            'access_token': mapbox_token,
+            'country': 'PH',
+            'bbox': ','.join(str(value) for value in ZDS_MAPBOX_BBOX),
+            'types': 'place,locality,neighborhood,address,poi',
+            'autocomplete': 'true',
+            'proximity': f"{center_lng},{center_lat}",
+            'limit': limit,
+        }
+
+        features = []
+        seen_feature_ids = set()
+        had_successful_request = False
+
+        for candidate_query in candidate_queries:
+            endpoint = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{quote(candidate_query)}.json"
+
+            try:
+                provider_response = requests.get(endpoint, params=base_params, timeout=8)
+                provider_response.raise_for_status()
+                payload = provider_response.json()
+                had_successful_request = True
+            except requests.RequestException:
+                continue
+
+            for feature in payload.get('features', []):
+                feature_id = str(feature.get('id') or '')
+                if feature_id and feature_id in seen_feature_ids:
+                    continue
+
+                if feature_id:
+                    seen_feature_ids.add(feature_id)
+
+                features.append(feature)
+
+            if len(features) >= limit:
+                break
+
+        if not had_successful_request:
+            return Response(
+                {'detail': 'Location search provider is currently unavailable.'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        results = []
+        for feature in features:
+            center = feature.get('center') or []
+            if len(center) != 2:
+                continue
+
+            longitude, latitude = center[0], center[1]
+            try:
+                lat_value, lng_value = validate_zds_coordinates(latitude, longitude)
+            except ValueError:
+                continue
+
+            label = feature.get('place_name') or feature.get('text') or ''
+            municipality = extract_municipality_from_text(label)
+            if not municipality:
+                municipality = CITY_SCOPE_LABEL
+
+            results.append(
+                {
+                    'id': feature.get('id'),
+                    'label': label,
+                    'name': feature.get('text') or label,
+                    'municipality': municipality,
+                    'latitude': lat_value,
+                    'longitude': lng_value,
+                }
+            )
+
+            if len(results) >= limit:
+                break
+
+        return Response(results)
+
+
+class LocationCorrectionListCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (JSONParser,)
+
+    def get(self, request):
+        queryset = LocationCorrectionRequest.objects.select_related(
+            'submitted_by',
+            'reviewed_by',
+            'destination',
+            'accommodation',
+            'booking',
+        )
+
+        if not (request.user.is_staff or request.user.is_superuser):
+            queryset = queryset.filter(submitted_by=request.user)
+
+        status_filter = str(request.query_params.get('status', '')).strip().lower()
+        if status_filter in {'pending', 'approved', 'rejected'}:
+            queryset = queryset.filter(status=status_filter)
+
+        target_type = str(request.query_params.get('target_type', '')).strip().lower()
+        if target_type in {'destination', 'accommodation', 'booking_meetup'}:
+            queryset = queryset.filter(target_type=target_type)
+
+        serializer = LocationCorrectionRequestSerializer(queryset[:200], many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = LocationCorrectionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+
+        target_type, target = _resolve_correction_target(validated)
+        current_snapshot = _build_target_snapshot(target_type, target)
+
+        correction = LocationCorrectionRequest.objects.create(
+            submitted_by=request.user,
+            target_type=target_type,
+            destination=target if target_type == 'destination' else None,
+            accommodation=target if target_type == 'accommodation' else None,
+            booking=target if target_type == 'booking_meetup' else None,
+            current_location=current_snapshot['current_location'],
+            current_municipality=current_snapshot['current_municipality'],
+            current_latitude=current_snapshot['current_latitude'],
+            current_longitude=current_snapshot['current_longitude'],
+            proposed_location=validated['proposed_location'],
+            proposed_municipality=validated['proposed_municipality'],
+            proposed_latitude=validated['proposed_latitude'],
+            proposed_longitude=validated['proposed_longitude'],
+            reason=validated.get('reason') or '',
+        )
+
+        if _can_auto_apply_correction(request.user, target_type, target):
+            _apply_correction(
+                correction,
+                reviewed_by=request.user,
+                review_note='Auto-approved because this request came from a trusted role.',
+            )
+
+        response_serializer = LocationCorrectionRequestSerializer(correction)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class LocationCorrectionReviewView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+    parser_classes = (JSONParser,)
+
+    def patch(self, request, pk):
+        correction = get_object_or_404(LocationCorrectionRequest, pk=pk)
+        if correction.status != 'pending':
+            raise ValidationError({'detail': 'Only pending corrections can be reviewed.'})
+
+        action = str(request.data.get('action') or '').strip().lower()
+        review_note = str(request.data.get('review_note') or '').strip()
+
+        if action == 'approve':
+            _apply_correction(correction, reviewed_by=request.user, review_note=review_note)
+        elif action == 'reject':
+            correction.status = 'rejected'
+            correction.reviewed_by = request.user
+            correction.reviewed_at = timezone.now()
+            correction.review_note = review_note
+            correction.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note', 'updated_at'])
+        else:
+            raise ValidationError({'action': "Action must be either 'approve' or 'reject'."})
+
+        serializer = LocationCorrectionRequestSerializer(correction)
+        return Response(serializer.data)
 
 class DestinationViewSet(viewsets.ModelViewSet):
     queryset = Destination.objects.all().prefetch_related('images', 'attractions')
