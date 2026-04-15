@@ -521,7 +521,7 @@ export default function PaymentsManagement() {
     };
 
     const handleExport = () => {
-        if (processedBookings.length === 0) {
+        if (processedBookings.length === 0 && filteredRefundRequests.length === 0) {
             showToast("No data to export.", "error");
             return;
         }
@@ -554,21 +554,29 @@ export default function PaymentsManagement() {
             };
         });
 
-        const refundRows = filteredRefundRequests.map((refund) => ({
-            refund_id: refund.id,
-            booking_id: refund.booking_id || 'N/A',
-            tourist_name: getRefundTouristName(refund),
-            tourist_username: refund.requested_by_username || 'N/A',
-            status: String(refund.status || '').replace('_', ' '),
-            requested_amount: Number(refund.requested_amount || 0),
-            approved_amount: Number(refund.approved_amount || 0),
-            remaining_refundable_amount: getRefundRemainingAmount(refund),
-            reason: refund.reason || 'N/A',
-            tourist_refund_channel: getRefundTouristPayoutSummary(refund),
-            admin_notes: refund.admin_notes || 'N/A',
-            created_at: refund.created_at ? new Date(refund.created_at).toLocaleString() : 'N/A',
-            updated_at: refund.updated_at ? new Date(refund.updated_at).toLocaleString() : 'N/A',
-        }));
+        const refundRows = filteredRefundRequests.map((refund) => {
+            const baseAmount = getRefundPolicyBaseAmount(refund);
+            return {
+                refund_id: refund.id,
+                booking_id: refund.booking_id || 'N/A',
+                tourist_name: getRefundTouristName(refund),
+                tourist_username: refund.requested_by_username || 'N/A',
+                status: String(refund.status || '').replace('_', ' '),
+                requested_amount: Number(refund.requested_amount || 0),
+                approved_amount: Number(refund.approved_amount || 0),
+                remaining_refundable_amount: getRefundRemainingAmount(refund),
+                policy_base_amount: baseAmount,
+                policy_amount_100: getRefundPolicyComputedAmount(refund, 1),
+                policy_amount_80: getRefundPolicyComputedAmount(refund, 0.8),
+                policy_amount_50: getRefundPolicyComputedAmount(refund, 0.5),
+                reason: refund.reason || 'N/A',
+                tourist_refund_channel: getRefundTouristPayoutSummary(refund),
+                admin_notes: refund.admin_notes || 'N/A',
+                proof_attachment_url: refund.proof_attachment_url || 'N/A',
+                created_at: refund.created_at ? new Date(refund.created_at).toLocaleString() : 'N/A',
+                updated_at: refund.updated_at ? new Date(refund.updated_at).toLocaleString() : 'N/A',
+            };
+        });
 
         const dateStr = new Date().toISOString().split('T')[0];
         const fileName = filter === 'all'
@@ -585,6 +593,9 @@ export default function PaymentsManagement() {
                 { label: 'Refund Search', value: refundSearchTerm || 'None' },
                 { label: 'Payout Records', value: payoutRows.length },
                 { label: 'Refund Records', value: refundRows.length },
+                { label: 'Total Refunded (Completed)', value: formatCurrency(refundSummary.totalRefunded) },
+                { label: 'Completed Refund Count', value: refundSummary.completedCount },
+                { label: 'Open Refund Count', value: refundSummary.openCount },
             ],
             sheets: [
                 {
@@ -627,9 +638,14 @@ export default function PaymentsManagement() {
                         { key: 'requested_amount', header: 'Requested Amount (PHP)' },
                         { key: 'approved_amount', header: 'Approved Amount (PHP)' },
                         { key: 'remaining_refundable_amount', header: 'Remaining Refundable (PHP)' },
+                        { key: 'policy_base_amount', header: 'Policy Base Amount (PHP)' },
+                        { key: 'policy_amount_100', header: 'Policy Amount 100% (PHP)' },
+                        { key: 'policy_amount_80', header: 'Policy Amount 80% (PHP)' },
+                        { key: 'policy_amount_50', header: 'Policy Amount 50% (PHP)' },
                         { key: 'reason', header: 'Reason' },
                         { key: 'tourist_refund_channel', header: 'Refund Account' },
                         { key: 'admin_notes', header: 'Admin Notes' },
+                        { key: 'proof_attachment_url', header: 'Proof Attachment URL' },
                         { key: 'created_at', header: 'Created At' },
                         { key: 'updated_at', header: 'Updated At' },
                     ],
