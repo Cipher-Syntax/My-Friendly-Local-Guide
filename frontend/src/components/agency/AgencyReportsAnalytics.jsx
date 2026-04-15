@@ -15,6 +15,7 @@ import {
     Pie,
     Cell,
 } from 'recharts';
+import { exportStyledWorkbook } from '../../utils/excelExport';
 
 const STATUS_COLOR_MAP = {
     pending: '#F59E0B',
@@ -66,28 +67,6 @@ const ChartTooltip = ({ active, payload, label }) => {
     );
 };
 
-const escapeCsv = (value) => {
-    const text = String(value ?? '');
-    if (text.includes(',') || text.includes('"') || text.includes('\n')) {
-        return `"${text.replace(/"/g, '""')}"`;
-    }
-    return text;
-};
-
-const downloadCsv = (fileName, headers, rows) => {
-    const csv = [headers.join(','), ...rows.map((row) => row.map(escapeCsv).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    window.URL.revokeObjectURL(url);
-};
 
 export default function AgencyReportsAnalytics({ bookings = [], guides = [] }) {
     const [timeframe, setTimeframe] = useState('6m');
@@ -193,43 +172,96 @@ export default function AgencyReportsAnalytics({ bookings = [], guides = [] }) {
 
     const averageBookingValue = scopedBookings.length === 0 ? 0 : totalRevenue / scopedBookings.length;
 
-    const handleExportAnalyticsCsv = () => {
+    const handleExportAnalyticsReport = () => {
         if (scopedBookings.length === 0) return;
 
-        const headers = [
-            'Booking ID',
-            'Created Date',
-            'Check In',
-            'Check Out',
-            'Tourist',
-            'Destination',
-            'Status',
-            'Total Price',
-            'Month Bucket',
-        ];
-
-        const rows = scopedBookings.map((booking) => {
-            const bookingDate = getBookingDate(booking);
-            const touristDisplay = booking?.tourist_username
-                || [booking?.tourist_detail?.first_name, booking?.tourist_detail?.last_name].filter(Boolean).join(' ')
-                || 'Guest';
-            const destinationLabel = booking?.destination_detail?.name || booking?.accommodation_detail?.title || booking?.location || 'Unknown';
-
-            return [
-                booking?.id || '',
-                booking?.created_at || '',
-                booking?.check_in || '',
-                booking?.check_out || '',
-                touristDisplay,
-                destinationLabel,
-                String(booking?.status || '').replace('_', ' '),
-                toAmount(booking?.total_price).toFixed(2),
-                bookingDate ? getMonthLabel(bookingDate) : '',
-            ];
-        });
-
         const dateStr = new Date().toISOString().slice(0, 10);
-        downloadCsv(`agency-reports-analytics-${timeframe}-${dateStr}.csv`, headers, rows);
+        exportStyledWorkbook({
+            fileName: `agency-reports-analytics-${timeframe}-${dateStr}.xlsx`,
+            reportTitle: 'Agency Reports and Analytics Export',
+            metadata: [
+                { label: 'Timeframe', value: timeframe },
+                { label: 'Bookings in Scope', value: scopedBookings.length },
+                { label: 'Gross Revenue', value: totalRevenue },
+                { label: 'Completion Rate (%)', value: completionRate.toFixed(2) },
+                { label: 'Active Guides', value: activeGuides },
+                { label: 'Average Booking Value', value: averageBookingValue.toFixed(2) },
+            ],
+            sheets: [
+                {
+                    name: 'Trend Data',
+                    tableTitle: 'Monthly Booking and Revenue Trend',
+                    rows: trendData.map((row) => ({
+                        period: row.label,
+                        bookings: row.bookings,
+                        revenue: row.revenue,
+                    })),
+                    columns: [
+                        { key: 'period', header: 'Period' },
+                        { key: 'bookings', header: 'Bookings' },
+                        { key: 'revenue', header: 'Revenue (PHP)' },
+                    ],
+                },
+                {
+                    name: 'Status Distribution',
+                    tableTitle: 'Booking Status Distribution',
+                    rows: statusData.map((row) => ({
+                        status: row.name,
+                        count: row.value,
+                    })),
+                    columns: [
+                        { key: 'status', header: 'Status' },
+                        { key: 'count', header: 'Count' },
+                    ],
+                },
+                {
+                    name: 'Top Destinations',
+                    tableTitle: 'Most Booked Destinations',
+                    rows: destinationData.map((row) => ({
+                        destination: row.name,
+                        bookings: row.count,
+                    })),
+                    columns: [
+                        { key: 'destination', header: 'Destination' },
+                        { key: 'bookings', header: 'Bookings' },
+                    ],
+                },
+                {
+                    name: 'Booking Details',
+                    tableTitle: 'Bookings Included in Analytics Scope',
+                    rows: scopedBookings.map((booking) => {
+                        const bookingDate = getBookingDate(booking);
+                        const touristDisplay = booking?.tourist_username
+                            || [booking?.tourist_detail?.first_name, booking?.tourist_detail?.last_name].filter(Boolean).join(' ')
+                            || 'Guest';
+                        const destinationLabel = booking?.destination_detail?.name || booking?.accommodation_detail?.title || booking?.location || 'Unknown';
+
+                        return {
+                            booking_id: booking?.id || '',
+                            created_date: booking?.created_at || '',
+                            check_in: booking?.check_in || '',
+                            check_out: booking?.check_out || '',
+                            tourist: touristDisplay,
+                            destination: destinationLabel,
+                            status: String(booking?.status || '').replace('_', ' '),
+                            total_price: toAmount(booking?.total_price),
+                            month_bucket: bookingDate ? getMonthLabel(bookingDate) : '',
+                        };
+                    }),
+                    columns: [
+                        { key: 'booking_id', header: 'Booking ID' },
+                        { key: 'created_date', header: 'Created Date' },
+                        { key: 'check_in', header: 'Check In' },
+                        { key: 'check_out', header: 'Check Out' },
+                        { key: 'tourist', header: 'Tourist' },
+                        { key: 'destination', header: 'Destination' },
+                        { key: 'status', header: 'Status' },
+                        { key: 'total_price', header: 'Total Price (PHP)' },
+                        { key: 'month_bucket', header: 'Month Bucket' },
+                    ],
+                },
+            ],
+        });
     };
 
     return (
@@ -257,12 +289,12 @@ export default function AgencyReportsAnalytics({ bookings = [], guides = [] }) {
                 </div>
 
                 <button
-                    onClick={handleExportAnalyticsCsv}
+                    onClick={handleExportAnalyticsReport}
                     disabled={scopedBookings.length === 0}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                     <Download className="w-4 h-4" />
-                    Export CSV
+                    Export Excel
                 </button>
             </div>
 

@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, Activity, ArrowUpRight, DollarSign, Download, Filter, PhilippinePeso } from 'lucide-react';
+import { TrendingUp, Activity, ArrowUpRight, Download, Filter, Loader2 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
-import * as XLSX from 'xlsx';
 import api from '../../api/api';
-import { Loader2 } from 'lucide-react';
+import { exportStyledWorkbook } from '../../utils/excelExport';
 
 // Reusable Stat Card Component
 const StatCard = ({ title, value, subtext, trend }) => (
@@ -25,8 +24,54 @@ const StatCard = ({ title, value, subtext, trend }) => (
     </div>
 );
 
+const RankingPanel = ({ title, metricLabel, topRows = [], leastRows = [], isCurrency = false }) => {
+    const formatMetric = (value) => {
+        const numeric = Number(value || 0);
+        if (isCurrency) {
+            return numeric.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
+        }
+        return numeric.toLocaleString();
+    };
+
+    const renderRows = (rows, variant) => {
+        if (!rows.length) {
+            return <p className="text-xs text-slate-500 dark:text-slate-400">No data for this timeframe.</p>;
+        }
+
+        return rows.map((entry, index) => (
+            <div key={`${variant}-${entry.id}-${index}`} className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700/40 bg-slate-50 dark:bg-slate-900/40 px-3 py-2">
+                <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">{entry.display_name}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">@{entry.username || 'n/a'}</p>
+                </div>
+                <div className="text-right">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{metricLabel}</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{formatMetric(entry.metric)}</p>
+                </div>
+            </div>
+        ));
+    };
+
+    return (
+        <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl p-5 shadow-sm">
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-4">{title}</h4>
+            <div className="grid grid-cols-1 gap-4">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 mb-2">Top</p>
+                    <div className="space-y-2">{renderRows(topRows, 'top')}</div>
+                </div>
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400 mb-2">Least</p>
+                    <div className="space-y-2">{renderRows(leastRows, 'least')}</div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function ReportsAndAnalysis() {
     const [loading, setLoading] = useState(true);
+    const [rankingsLoading, setRankingsLoading] = useState(false);
     const [filter, setFilter] = useState('Monthly');
     const [rawData, setRawData] = useState({
         bookings: [],
@@ -35,35 +80,131 @@ export default function ReportsAndAnalysis() {
         destinations: [],
         alerts: []
     });
+    const [rankings, setRankings] = useState({
+        top_guides_by_bookings: [],
+        least_guides_by_bookings: [],
+        top_guides_by_earnings: [],
+        least_guides_by_earnings: [],
+        top_agencies_by_bookings: [],
+        least_agencies_by_bookings: [],
+        top_agencies_by_earnings: [],
+        least_agencies_by_earnings: [],
+    });
+
+    const fetchAllPages = async (initialUrl, params = {}) => {
+        const aggregate = [];
+        let nextUrl = initialUrl;
+        let isFirstRequest = true;
+        let guard = 0;
+
+        while (nextUrl && guard < 100) {
+            const response = await api.get(nextUrl, {
+                params: isFirstRequest ? params : undefined,
+            });
+            const payload = response.data;
+
+            if (Array.isArray(payload)) {
+                aggregate.push(...payload);
+                nextUrl = null;
+                break;
+            }
+
+            const resultChunk = Array.isArray(payload?.results) ? payload.results : [];
+            aggregate.push(...resultChunk);
+
+            if (payload?.next && typeof payload.next === 'string') {
+                const base = api.defaults.baseURL || '';
+                nextUrl = base && payload.next.startsWith(base)
+                    ? payload.next.slice(base.length)
+                    : payload.next;
+            } else {
+                nextUrl = null;
+            }
+
+            isFirstRequest = false;
+            guard += 1;
+        }
+
+        return aggregate;
+    };
 
     // Fetch initial data
     useEffect(() => {
+        let cancelled = false;
+
         const fetchAnalytics = async () => {
             try {
-                const [bookingsRes, agenciesRes, guidesRes, destinationsRes, alertsRes] = await Promise.all([
-                    api.get('api/bookings/'),
-                    api.get('api/agencies/'),
-                    api.get('api/admin/guide-reviews/'),
-                    api.get('api/destinations/'),
-                    api.get('api/alerts/')
+                const [bookings, agencies, guides, destinations, alerts] = await Promise.all([
+                    fetchAllPages('api/bookings/'),
+                    fetchAllPages('api/agencies/'),
+                    fetchAllPages('api/admin/guide-reviews/'),
+                    fetchAllPages('api/destinations/'),
+                    fetchAllPages('api/alerts/'),
                 ]);
 
-                setRawData({
-                    bookings: bookingsRes.data.results || bookingsRes.data || [],
-                    agencies: agenciesRes.data.results || agenciesRes.data || [],
-                    guides: guidesRes.data.results || guidesRes.data || [],
-                    destinations: destinationsRes.data.results || destinationsRes.data || [],
-                    alerts: alertsRes.data.results || alertsRes.data || []
-                });
+                if (!cancelled) {
+                    setRawData({ bookings, agencies, guides, destinations, alerts });
+                }
             } catch (error) {
                 console.error("Error fetching analytics:", error);
             } finally {
-                setLoading(false);
+                if (!cancelled) {
+                    setLoading(false);
+                }
             }
         };
 
         fetchAnalytics();
+
+        return () => {
+            cancelled = true;
+        };
     }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const fetchPartnerRankings = async () => {
+            setRankingsLoading(true);
+
+            try {
+                const response = await api.get('api/admin/partner-rankings/', {
+                    params: {
+                        timeframe: filter,
+                        limit: 5,
+                    },
+                });
+
+                if (!cancelled) {
+                    setRankings(response.data || {});
+                }
+            } catch (error) {
+                console.error('Error fetching partner rankings:', error);
+                if (!cancelled) {
+                    setRankings({
+                        top_guides_by_bookings: [],
+                        least_guides_by_bookings: [],
+                        top_guides_by_earnings: [],
+                        least_guides_by_earnings: [],
+                        top_agencies_by_bookings: [],
+                        least_agencies_by_bookings: [],
+                        top_agencies_by_earnings: [],
+                        least_agencies_by_earnings: [],
+                    });
+                }
+            } finally {
+                if (!cancelled) {
+                    setRankingsLoading(false);
+                }
+            }
+        };
+
+        fetchPartnerRankings();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [filter]);
 
     // Derived State and Memoized Calculations based on current Filter
     const processedData = useMemo(() => {
@@ -134,23 +275,144 @@ export default function ReportsAndAnalysis() {
 
     // Export Functionality
     const handleExport = () => {
-        const wb = XLSX.utils.book_new();
-
-        // Sheet 1: Filtered Volume Trends
-        const wsTrends = XLSX.utils.json_to_sheet(processedData.trendData);
-        XLSX.utils.book_append_sheet(wb, wsTrends, `${filter} Trends`);
-
-        // Sheet 2: Top Locations
-        const wsLocations = XLSX.utils.json_to_sheet(processedData.topRoutes);
-        XLSX.utils.book_append_sheet(wb, wsLocations, "Top Locations");
-
-        // Sheet 3: User Distribution
-        const wsUsers = XLSX.utils.json_to_sheet(processedData.distributionData.map(d => ({ Segment: d.name, Count: d.value })));
-        XLSX.utils.book_append_sheet(wb, wsUsers, "User Distribution");
-
-        // Generate filename and download
         const dateStr = new Date().toISOString().split('T')[0];
-        XLSX.writeFile(wb, `report-${filter.toLowerCase()}-${dateStr}.xlsx`);
+
+        const combineRankingRows = (topRows = [], leastRows = [], metricKey) => ([
+            ...topRows.map((entry, index) => ({
+                rank_group: 'Top',
+                position: index + 1,
+                display_name: entry.display_name,
+                username: entry.username,
+                bookings_count: entry.bookings_count,
+                earnings: entry.earnings,
+                metric: entry?.[metricKey] ?? 0,
+            })),
+            ...leastRows.map((entry, index) => ({
+                rank_group: 'Least',
+                position: index + 1,
+                display_name: entry.display_name,
+                username: entry.username,
+                bookings_count: entry.bookings_count,
+                earnings: entry.earnings,
+                metric: entry?.[metricKey] ?? 0,
+            })),
+        ]);
+
+        exportStyledWorkbook({
+            fileName: `admin-reports-${filter.toLowerCase()}-${dateStr}.xlsx`,
+            reportTitle: 'Admin Reports and Analytics Export',
+            metadata: [
+                { label: 'Timeframe', value: filter },
+                { label: 'Total Gross Volume', value: processedData.totalRevenue },
+                { label: 'Trend Points', value: processedData.trendData.length },
+            ],
+            sheets: [
+                {
+                    name: `${filter} Trends`,
+                    tableTitle: `${filter} Revenue Trend`,
+                    rows: processedData.trendData.map((row) => ({
+                        period: row.name,
+                        gross_volume: row.Volume,
+                    })),
+                    columns: [
+                        { key: 'period', header: 'Period' },
+                        { key: 'gross_volume', header: 'Gross Volume (PHP)' },
+                    ],
+                },
+                {
+                    name: 'Top Locations',
+                    tableTitle: 'Top Destination Concentration',
+                    rows: processedData.topRoutes.map((row) => ({
+                        location: row.name,
+                        destination_count: row.Spots,
+                    })),
+                    columns: [
+                        { key: 'location', header: 'Location' },
+                        { key: 'destination_count', header: 'Destination Count' },
+                    ],
+                },
+                {
+                    name: 'User Distribution',
+                    tableTitle: 'Platform User Segments',
+                    rows: processedData.distributionData.map((row) => ({
+                        segment: row.name,
+                        user_count: row.value,
+                    })),
+                    columns: [
+                        { key: 'segment', header: 'Segment' },
+                        { key: 'user_count', header: 'Count' },
+                    ],
+                },
+                {
+                    name: 'Guide Bookings Rank',
+                    tableTitle: 'Guide Rankings by Bookings',
+                    rows: combineRankingRows(
+                        rankings.top_guides_by_bookings,
+                        rankings.least_guides_by_bookings,
+                        'bookings_count'
+                    ),
+                    columns: [
+                        { key: 'rank_group', header: 'Rank Group' },
+                        { key: 'position', header: 'Position' },
+                        { key: 'display_name', header: 'Guide' },
+                        { key: 'username', header: 'Username' },
+                        { key: 'bookings_count', header: 'Bookings' },
+                        { key: 'earnings', header: 'Earnings (PHP)' },
+                    ],
+                },
+                {
+                    name: 'Guide Earnings Rank',
+                    tableTitle: 'Guide Rankings by Earnings',
+                    rows: combineRankingRows(
+                        rankings.top_guides_by_earnings,
+                        rankings.least_guides_by_earnings,
+                        'earnings'
+                    ),
+                    columns: [
+                        { key: 'rank_group', header: 'Rank Group' },
+                        { key: 'position', header: 'Position' },
+                        { key: 'display_name', header: 'Guide' },
+                        { key: 'username', header: 'Username' },
+                        { key: 'bookings_count', header: 'Bookings' },
+                        { key: 'earnings', header: 'Earnings (PHP)' },
+                    ],
+                },
+                {
+                    name: 'Agency Bookings Rank',
+                    tableTitle: 'Agency Rankings by Bookings',
+                    rows: combineRankingRows(
+                        rankings.top_agencies_by_bookings,
+                        rankings.least_agencies_by_bookings,
+                        'bookings_count'
+                    ),
+                    columns: [
+                        { key: 'rank_group', header: 'Rank Group' },
+                        { key: 'position', header: 'Position' },
+                        { key: 'display_name', header: 'Agency' },
+                        { key: 'username', header: 'Username' },
+                        { key: 'bookings_count', header: 'Bookings' },
+                        { key: 'earnings', header: 'Earnings (PHP)' },
+                    ],
+                },
+                {
+                    name: 'Agency Earnings Rank',
+                    tableTitle: 'Agency Rankings by Earnings',
+                    rows: combineRankingRows(
+                        rankings.top_agencies_by_earnings,
+                        rankings.least_agencies_by_earnings,
+                        'earnings'
+                    ),
+                    columns: [
+                        { key: 'rank_group', header: 'Rank Group' },
+                        { key: 'position', header: 'Position' },
+                        { key: 'display_name', header: 'Agency' },
+                        { key: 'username', header: 'Username' },
+                        { key: 'bookings_count', header: 'Bookings' },
+                        { key: 'earnings', header: 'Earnings (PHP)' },
+                    ],
+                },
+            ],
+        });
     };
 
     if (loading) {
@@ -224,6 +486,42 @@ export default function ReportsAndAnalysis() {
                     subtext={`Gross booking value (${filter} view)`}
                     trend={12.5} // Simulated positive trend
                 />
+            </div>
+
+            <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Top and Least Partners</h3>
+                    {rankingsLoading && <Loader2 className="w-4 h-4 text-cyan-500 animate-spin" />}
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <RankingPanel
+                        title="Guide Rankings by Bookings"
+                        metricLabel="Bookings"
+                        topRows={(rankings.top_guides_by_bookings || []).map((entry) => ({ ...entry, metric: entry.bookings_count }))}
+                        leastRows={(rankings.least_guides_by_bookings || []).map((entry) => ({ ...entry, metric: entry.bookings_count }))}
+                    />
+                    <RankingPanel
+                        title="Guide Rankings by Earnings"
+                        metricLabel="Earnings"
+                        isCurrency
+                        topRows={(rankings.top_guides_by_earnings || []).map((entry) => ({ ...entry, metric: entry.earnings }))}
+                        leastRows={(rankings.least_guides_by_earnings || []).map((entry) => ({ ...entry, metric: entry.earnings }))}
+                    />
+                    <RankingPanel
+                        title="Agency Rankings by Bookings"
+                        metricLabel="Bookings"
+                        topRows={(rankings.top_agencies_by_bookings || []).map((entry) => ({ ...entry, metric: entry.bookings_count }))}
+                        leastRows={(rankings.least_agencies_by_bookings || []).map((entry) => ({ ...entry, metric: entry.bookings_count }))}
+                    />
+                    <RankingPanel
+                        title="Agency Rankings by Earnings"
+                        metricLabel="Earnings"
+                        isCurrency
+                        topRows={(rankings.top_agencies_by_earnings || []).map((entry) => ({ ...entry, metric: entry.earnings }))}
+                        leastRows={(rankings.least_agencies_by_earnings || []).map((entry) => ({ ...entry, metric: entry.earnings }))}
+                    />
+                </div>
             </div>
 
             {/* Charts Section */}

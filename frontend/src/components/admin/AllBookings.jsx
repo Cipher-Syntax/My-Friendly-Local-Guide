@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Filter, AlertTriangle, Trash2, XCircle, CheckCircle, Eye, AlertCircle, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
-import * as XLSX from 'xlsx'; // IMPORT XLSX FOR EXPORT
 import api from '../../api/api';
+import { exportStyledWorkbook } from '../../utils/excelExport';
 
 export default function AllBookings() {
     const [bookings, setBookings] = useState([]);
@@ -164,33 +164,48 @@ export default function AllBookings() {
             return;
         }
 
-        const exportData = filteredBookings.map(b => ({
-            "Booking ID": b.id,
-            "Tourist Name": getTouristDisplayName(b),
-            "Tour Guide": b.guide ? b.guide_detail?.username || 'Unknown' :
-                b.agency ? `Agency: ${b.agency_detail?.username || 'Unknown'}` : 'N/A',
-            "Check-In Date": b.check_in,
-            "Check-Out Date": b.check_out,
-            "Total Amount": parseFloat(b.total_price || 0),
-            "Down Payment": parseFloat(b.down_payment || 0),
-            "Status": b.status,
-            "Date Created": new Date(b.created_at).toLocaleDateString()
-        }));
-
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(exportData);
-
-        // Auto-size columns slightly
-        const colWidths = [
-            { wch: 12 }, { wch: 20 }, { wch: 30 }, { wch: 15 },
-            { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
-        ];
-        ws['!cols'] = colWidths;
-
-        XLSX.utils.book_append_sheet(wb, ws, "All Bookings");
-
         const dateStr = new Date().toISOString().split('T')[0];
-        XLSX.writeFile(wb, `global-bookings-${dateStr}.xlsx`);
+        exportStyledWorkbook({
+            fileName: `global-bookings-${dateStr}.xlsx`,
+            reportTitle: 'Admin Global Booking Registry',
+            metadata: [
+                { label: 'Status Filter', value: filterStatus },
+                { label: 'Search Term', value: searchTerm || 'None' },
+                { label: 'Record Count', value: filteredBookings.length },
+            ],
+            sheets: [
+                {
+                    name: 'All Bookings',
+                    tableTitle: 'Filtered Booking Records',
+                    rows: filteredBookings.map((booking) => ({
+                        booking_id: booking.id,
+                        tourist_name: getTouristDisplayName(booking),
+                        provider: booking.guide
+                            ? booking.guide_detail?.username || 'Unknown'
+                            : booking.agency
+                                ? `Agency: ${booking.agency_detail?.username || 'Unknown'}`
+                                : 'N/A',
+                        check_in_date: booking.check_in,
+                        check_out_date: booking.check_out,
+                        total_amount: parseFloat(booking.total_price || 0),
+                        down_payment: parseFloat(booking.down_payment || 0),
+                        status: booking.status,
+                        created_date: booking.created_at ? new Date(booking.created_at).toLocaleDateString() : 'N/A',
+                    })),
+                    columns: [
+                        { key: 'booking_id', header: 'Booking ID' },
+                        { key: 'tourist_name', header: 'Tourist Name' },
+                        { key: 'provider', header: 'Guide/Agency' },
+                        { key: 'check_in_date', header: 'Check-In Date' },
+                        { key: 'check_out_date', header: 'Check-Out Date' },
+                        { key: 'total_amount', header: 'Total Amount (PHP)' },
+                        { key: 'down_payment', header: 'Down Payment (PHP)' },
+                        { key: 'status', header: 'Status' },
+                        { key: 'created_date', header: 'Date Created' },
+                    ],
+                },
+            ],
+        });
     };
 
     if (loading) return <div className="p-8 text-slate-900 dark:text-white">Loading Admin Data...</div>;

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { PhilippinePeso, Clock, CheckCircle, Receipt, ArrowRight, Download } from 'lucide-react';
+import { exportStyledWorkbook } from '../../utils/excelExport';
 
 const DEFAULT_FILTERS = {
     searchTerm: '',
@@ -15,28 +16,6 @@ const toNumber = (value) => {
     return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const escapeCsv = (value) => {
-    const text = String(value ?? '');
-    if (text.includes(',') || text.includes('"') || text.includes('\n')) {
-        return `"${text.replace(/"/g, '""')}"`;
-    }
-    return text;
-};
-
-const downloadCsv = (fileName, headers, rows) => {
-    const csv = [headers.join(','), ...rows.map((row) => row.map(escapeCsv).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    window.URL.revokeObjectURL(url);
-};
 
 export default function AgencyEarnings({ bookings }) {
     const [draftFilters, setDraftFilters] = useState(DEFAULT_FILTERS);
@@ -191,45 +170,62 @@ export default function AgencyEarnings({ bookings }) {
         setAppliedFilters(DEFAULT_FILTERS);
     };
 
-    const handleExportEarningsCsv = () => {
+    const handleExportEarningsReport = () => {
         if (filteredBookings.length === 0) return;
 
-        const headers = [
-            'Booking ID',
-            'Tourist',
-            'Destination',
-            'Booking Status',
-            'Payout Status',
-            'Payout Amount',
-            'Total Booking Price',
-            'Downpayment',
-            'Commission',
-            'Remaining Balance',
-            'Created At',
-            'Payout Channel',
-            'Payout Reference',
-            'Payout Settled At',
-        ];
-
-        const rows = filteredBookings.map((booking) => [
-            booking?.id || '',
-            booking?.touristDisplayName || '',
-            booking?.destinationLabel || '',
-            String(booking?.status || '').replace('_', ' '),
-            booking?.is_payout_settled ? 'Settled' : 'Pending',
-            toNumber(booking?.payoutAmount).toFixed(2),
-            toNumber(booking?.totalBookingPrice).toFixed(2),
-            toNumber(booking?.downPayment).toFixed(2),
-            toNumber(booking?.commission).toFixed(2),
-            toNumber(booking?.balance).toFixed(2),
-            booking?.created_at || '',
-            booking?.payout_channel || '',
-            booking?.payout_reference_id || '',
-            booking?.payout_settled_at || '',
-        ]);
-
         const dateStr = new Date().toISOString().slice(0, 10);
-        downloadCsv(`agency-earnings-payouts-${dateStr}.csv`, headers, rows);
+        exportStyledWorkbook({
+            fileName: `agency-earnings-payouts-${dateStr}.xlsx`,
+            reportTitle: 'Agency Earnings and Payout Export',
+            metadata: [
+                { label: 'Search Term', value: appliedFilters.searchTerm || 'None' },
+                { label: 'Payout Status Filter', value: appliedFilters.statusFilter },
+                { label: 'Date Range Filter', value: appliedFilters.dateRangeFilter },
+                { label: 'Sort Mode', value: appliedFilters.sortBy },
+                { label: 'Record Count', value: filteredBookings.length },
+                { label: 'Total Earnings (Filtered)', value: stats.total },
+                { label: 'Pending Payout (Filtered)', value: stats.pending },
+                { label: 'Settled Payout (Filtered)', value: stats.settled },
+            ],
+            sheets: [
+                {
+                    name: 'Earnings Ledger',
+                    tableTitle: 'Agency Earnings Transactions',
+                    rows: filteredBookings.map((booking) => ({
+                        booking_id: booking?.id || '',
+                        tourist: booking?.touristDisplayName || '',
+                        destination: booking?.destinationLabel || '',
+                        booking_status: String(booking?.status || '').replace('_', ' '),
+                        payout_status: booking?.is_payout_settled ? 'Settled' : 'Pending',
+                        payout_amount: toNumber(booking?.payoutAmount),
+                        total_booking_price: toNumber(booking?.totalBookingPrice),
+                        downpayment: toNumber(booking?.downPayment),
+                        commission: toNumber(booking?.commission),
+                        remaining_balance: toNumber(booking?.balance),
+                        created_at: booking?.created_at || '',
+                        payout_channel: booking?.payout_channel || '',
+                        payout_reference: booking?.payout_reference_id || '',
+                        payout_settled_at: booking?.payout_settled_at || '',
+                    })),
+                    columns: [
+                        { key: 'booking_id', header: 'Booking ID' },
+                        { key: 'tourist', header: 'Tourist' },
+                        { key: 'destination', header: 'Destination' },
+                        { key: 'booking_status', header: 'Booking Status' },
+                        { key: 'payout_status', header: 'Payout Status' },
+                        { key: 'payout_amount', header: 'Payout Amount (PHP)' },
+                        { key: 'total_booking_price', header: 'Total Booking Price (PHP)' },
+                        { key: 'downpayment', header: 'Down Payment (PHP)' },
+                        { key: 'commission', header: 'Commission (PHP)' },
+                        { key: 'remaining_balance', header: 'Remaining Balance (PHP)' },
+                        { key: 'created_at', header: 'Created At' },
+                        { key: 'payout_channel', header: 'Payout Channel' },
+                        { key: 'payout_reference', header: 'Payout Reference' },
+                        { key: 'payout_settled_at', header: 'Payout Settled At' },
+                    ],
+                },
+            ],
+        });
     };
 
     return (
@@ -288,11 +284,11 @@ export default function AgencyEarnings({ bookings }) {
                             </span>
                         )}
                         <button
-                            onClick={handleExportEarningsCsv}
+                            onClick={handleExportEarningsReport}
                             disabled={filteredBookings.length === 0}
                             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                            <Download className="w-3.5 h-3.5" /> Export CSV
+                            <Download className="w-3.5 h-3.5" /> Export Excel
                         </button>
                     </div>
                 </div>

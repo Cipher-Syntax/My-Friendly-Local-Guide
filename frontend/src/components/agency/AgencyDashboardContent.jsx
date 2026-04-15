@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Calendar, Users, Star, MapPin, TrendingUp, Clock, Download, Filter } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import * as XLSX from 'xlsx';
+import { exportStyledWorkbook } from '../../utils/excelExport';
 
 export default function AgencyDashboardContent({
     tourGuides = [],
@@ -219,17 +219,128 @@ export default function AgencyDashboardContent({
 
     // Export Functionality
     const handleExport = () => {
-        const wb = XLSX.utils.book_new();
-
-        const cleanTrendData = processedData.trendData.map(({ name, Bookings }) => ({ Period: name, Bookings }));
-        const wsTrends = XLSX.utils.json_to_sheet(cleanTrendData);
-        XLSX.utils.book_append_sheet(wb, wsTrends, `${filter} Trends`);
-
-        const wsBookings = XLSX.utils.json_to_sheet(bookings);
-        XLSX.utils.book_append_sheet(wb, wsBookings, "All Bookings");
-
         const dateStr = new Date().toISOString().split('T')[0];
-        XLSX.writeFile(wb, `agency-report-${filter.toLowerCase()}-${dateStr}.xlsx`);
+
+        exportStyledWorkbook({
+            fileName: `agency-report-${filter.toLowerCase()}-${dateStr}.xlsx`,
+            reportTitle: 'Agency Dashboard Performance Export',
+            metadata: [
+                { label: 'Timeframe', value: filter },
+                { label: 'Total Bookings', value: totalBookings },
+                { label: 'Active Guides', value: activeGuidesCount },
+                { label: 'Completed Tours', value: completedToursCount },
+                { label: 'Average Rating', value: typeof avgRating === 'number' ? avgRating.toFixed(2) : '0.00' },
+            ],
+            sheets: [
+                {
+                    name: `${filter} Trends`,
+                    tableTitle: `${filter} Booking Volume`,
+                    rows: processedData.trendData.map((entry) => ({
+                        period: entry.name,
+                        bookings: entry.Bookings,
+                    })),
+                    columns: [
+                        { key: 'period', header: 'Period' },
+                        { key: 'bookings', header: 'Bookings' },
+                    ],
+                },
+                {
+                    name: 'Guide Workload',
+                    tableTitle: 'Guide Workload and Availability Snapshot',
+                    rows: [
+                        {
+                            metric: 'Available Guides',
+                            value: guideWorkloadSummary.availableNowCount,
+                            ratio: formatGuideRatio(guideWorkloadSummary.availableNowCount),
+                        },
+                        {
+                            metric: 'Booked Guides',
+                            value: guideWorkloadSummary.bookedGuidesCount,
+                            ratio: formatGuideRatio(guideWorkloadSummary.bookedGuidesCount),
+                        },
+                        {
+                            metric: 'Unavailable Guides',
+                            value: guideWorkloadSummary.inactiveGuidesCount,
+                            ratio: formatGuideRatio(guideWorkloadSummary.inactiveGuidesCount),
+                        },
+                        {
+                            metric: 'Unassigned Active Bookings',
+                            value: guideWorkloadSummary.unassignedActiveBookings,
+                            ratio: 'N/A',
+                        },
+                    ],
+                    columns: [
+                        { key: 'metric', header: 'Metric' },
+                        { key: 'value', header: 'Count' },
+                        { key: 'ratio', header: 'Guide Pool Ratio' },
+                    ],
+                },
+                {
+                    name: 'Top Assigned Guides',
+                    tableTitle: 'Most Assigned Guides',
+                    rows: (guideWorkloadSummary.topAssignedGuides || []).map((guide, index) => ({
+                        rank: index + 1,
+                        guide_name: guide.displayName,
+                        assigned_bookings: guide.assignedCount,
+                        active_status: guide.isActive ? 'Active' : 'Inactive',
+                        availability: guide.isBooked ? 'Booked' : 'Available',
+                    })),
+                    columns: [
+                        { key: 'rank', header: 'Rank' },
+                        { key: 'guide_name', header: 'Guide Name' },
+                        { key: 'assigned_bookings', header: 'Assigned Bookings' },
+                        { key: 'active_status', header: 'Guide Status' },
+                        { key: 'availability', header: 'Current Availability' },
+                    ],
+                },
+                {
+                    name: 'Upcoming Bookings',
+                    tableTitle: 'Upcoming Tours and Reservations',
+                    rows: upcomingBookings.map((booking) => ({
+                        booking_id: booking.id,
+                        destination: booking.destination_detail?.name || booking.name || booking.location || 'Custom Tour',
+                        tourist: booking.tourist_username || booking.tourist_detail?.username || 'Guest',
+                        status: booking.status,
+                        check_in: booking.check_in || 'N/A',
+                        check_out: booking.check_out || 'N/A',
+                        total_price: Number(booking.total_price || 0),
+                    })),
+                    columns: [
+                        { key: 'booking_id', header: 'Booking ID' },
+                        { key: 'destination', header: 'Destination' },
+                        { key: 'tourist', header: 'Tourist' },
+                        { key: 'status', header: 'Status' },
+                        { key: 'check_in', header: 'Check-In Date' },
+                        { key: 'check_out', header: 'Check-Out Date' },
+                        { key: 'total_price', header: 'Total Price (PHP)' },
+                    ],
+                },
+                {
+                    name: 'All Bookings',
+                    tableTitle: 'Full Agency Booking Register',
+                    rows: bookings.map((booking) => ({
+                        booking_id: booking.id,
+                        destination: booking.destination_detail?.name || booking.name || booking.location || 'Custom Tour',
+                        status: booking.status,
+                        check_in: booking.check_in || 'N/A',
+                        check_out: booking.check_out || 'N/A',
+                        total_price: Number(booking.total_price || 0),
+                        down_payment: Number(booking.down_payment || 0),
+                        created_at: booking.created_at ? new Date(booking.created_at).toLocaleString() : 'N/A',
+                    })),
+                    columns: [
+                        { key: 'booking_id', header: 'Booking ID' },
+                        { key: 'destination', header: 'Destination' },
+                        { key: 'status', header: 'Status' },
+                        { key: 'check_in', header: 'Check-In' },
+                        { key: 'check_out', header: 'Check-Out' },
+                        { key: 'total_price', header: 'Total Price (PHP)' },
+                        { key: 'down_payment', header: 'Down Payment (PHP)' },
+                        { key: 'created_at', header: 'Created At' },
+                    ],
+                },
+            ],
+        });
     };
 
     const CustomTooltip = ({ active, payload, label }) => {

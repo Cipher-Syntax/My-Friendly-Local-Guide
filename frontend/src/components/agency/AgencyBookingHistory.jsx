@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, History, Search, User, ChevronLeft, ChevronRight, Download, Filter } from 'lucide-react';
+import { exportStyledWorkbook } from '../../utils/excelExport';
 
 const HISTORY_STATUSES = ['completed', 'declined', 'cancelled', 'refunded'];
 
@@ -168,45 +169,49 @@ export default function AgencyBookingHistory({ bookings = [], getStatusBg }) {
         });
     };
 
-    const handleExportCsv = () => {
+    const handleExportReport = () => {
         if (sortedHistory.length === 0) return;
 
-        const headers = ['Booking ID', 'Booking', 'Tourist', 'Status', 'Check In', 'Check Out', 'Created At', 'Total Price'];
-
-        const escapeCsv = (value) => {
-            const text = String(value ?? '');
-            if (text.includes(',') || text.includes('"') || text.includes('\n')) {
-                return `"${text.replace(/"/g, '""')}"`;
-            }
-            return text;
-        };
-
-        const rows = sortedHistory.map((booking) => {
-            const bookingTitle = booking?.destination_detail?.name || booking?.accommodation_detail?.title || booking?.name || `Booking #${booking?.id}`;
-            return [
-                booking?.id || '',
-                bookingTitle,
-                getTouristDisplayName(booking),
-                String(booking?.status || '').replace('_', ' '),
-                booking?.check_in || '',
-                booking?.check_out || '',
-                booking?.created_at || '',
-                getBookingAmount(booking).toFixed(2),
-            ].map(escapeCsv).join(',');
+        const dateStr = new Date().toISOString().slice(0, 10);
+        exportStyledWorkbook({
+            fileName: `agency-booking-history-${dateStr}.xlsx`,
+            reportTitle: 'Agency Booking History Export',
+            metadata: [
+                { label: 'Search Term', value: searchTerm || 'None' },
+                { label: 'Status Filter', value: statusFilter },
+                { label: 'From Date', value: fromDate || 'N/A' },
+                { label: 'To Date', value: toDate || 'N/A' },
+                { label: 'Sort Mode', value: sortBy },
+                { label: 'Record Count', value: sortedHistory.length },
+                { label: 'Gross Booking Value', value: summary.grossValue },
+            ],
+            sheets: [
+                {
+                    name: 'History Records',
+                    tableTitle: 'Filtered Booking History Records',
+                    rows: sortedHistory.map((booking) => ({
+                        booking_id: booking?.id || '',
+                        booking_title: booking?.destination_detail?.name || booking?.accommodation_detail?.title || booking?.name || `Booking #${booking?.id}`,
+                        tourist: getTouristDisplayName(booking),
+                        status: String(booking?.status || '').replace('_', ' '),
+                        check_in: booking?.check_in || '',
+                        check_out: booking?.check_out || '',
+                        created_at: booking?.created_at || '',
+                        total_price: Number(getBookingAmount(booking).toFixed(2)),
+                    })),
+                    columns: [
+                        { key: 'booking_id', header: 'Booking ID' },
+                        { key: 'booking_title', header: 'Booking' },
+                        { key: 'tourist', header: 'Tourist' },
+                        { key: 'status', header: 'Status' },
+                        { key: 'check_in', header: 'Check In' },
+                        { key: 'check_out', header: 'Check Out' },
+                        { key: 'created_at', header: 'Created At' },
+                        { key: 'total_price', header: 'Total Price (PHP)' },
+                    ],
+                },
+            ],
         });
-
-        const csv = [headers.join(','), ...rows].join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = window.URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `agency-booking-history-${new Date().toISOString().slice(0, 10)}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        window.URL.revokeObjectURL(url);
     };
 
     return (
@@ -228,11 +233,11 @@ export default function AgencyBookingHistory({ bookings = [], getStatusBg }) {
                             {sortedHistory.length} records
                         </span>
                         <button
-                            onClick={handleExportCsv}
+                            onClick={handleExportReport}
                             disabled={sortedHistory.length === 0}
                             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                            <Download className="w-3.5 h-3.5" /> Export CSV
+                            <Download className="w-3.5 h-3.5" /> Export Excel
                         </button>
                     </div>
                 </div>

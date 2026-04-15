@@ -1,8 +1,11 @@
 from rest_framework import generics, permissions, status, viewsets #type: ignore
 from rest_framework.response import Response #type: ignore
 from django.db import transaction #type: ignore
-from django.db.models import Q, Sum #type: ignore
+from django.db.models import Count, DecimalField, Q, Sum, Value #type: ignore
+from django.db.models.functions import Coalesce #type: ignore
 from rest_framework.views import APIView #type: ignore
+from django.utils import timezone
+from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import ValidationError #type: ignore
@@ -362,3 +365,150 @@ class AdminDashboardSummaryView(APIView):
                 'health': 100, 
             }
         })
+
+
+def _resolve_timeframe_window(raw_timeframe):
+    normalized = str(raw_timeframe or 'Monthly').strip().lower()
+    now = timezone.localtime(timezone.now())
+
+    if normalized == 'daily':
+        return 'Daily', now.replace(hour=0, minute=0, second=0, microsecond=0), now
+
+    if normalized == 'weekly':
+        start_of_week = now - timedelta(days=now.weekday())
+        return 'Weekly', start_of_week.replace(hour=0, minute=0, second=0, microsecond=0), now
+
+    if normalized == 'monthly':
+        return 'Monthly', now.replace(day=1, hour=0, minute=0, second=0, microsecond=0), now
+
+    if normalized == 'yearly':
+        return 'Yearly', now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0), now
+
+    raise ValidationError({'timeframe': 'Invalid timeframe. Use Daily, Weekly, Monthly, or Yearly.'})
+
+
+def _parse_ranking_limit(raw_limit):
+    if raw_limit is None:
+        return 5
+
+    try:
+        parsed = int(raw_limit)
+    except (TypeError, ValueError):
+        raise ValidationError({'limit': 'Limit must be a whole number between 1 and 20.'})
+
+    if parsed < 1 or parsed > 20:
+        raise ValidationError({'limit': 'Limit must be between 1 and 20.'})
+
+    return parsed
+
+
+class AdminPartnerRankingsView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def _serialize_guide_entry(self, guide):
+        full_name = f"{guide.first_name} {guide.last_name}".strip()
+
+        return {
+            'id': guide.id,
+            'username': guide.username,
+            'display_name': full_name or guide.username or f'Guide #{guide.id}',
+            'bookings_count': int(getattr(guide, 'bookings_count', 0) or 0),
+            'earnings': float(getattr(guide, 'earnings', 0) or 0),
+            'rating': float(guide.guide_rating or 0),
+        }
+
+    def _serialize_agency_entry(self, agency):
+        username = agency.user.username if agency.user_id and agency.user else ''
+        display_name = agency.business_name or agency.owner_name or username or f'Agency #{agency.id}'
+
+        return {
+            'id': agency.id,
+            'user_id': agency.user_id,
+            'username': username,
+            'display_name': display_name,
+            'bookings_count': int(getattr(agency, 'bookings_count', 0) or 0),
+            'earnings': float(getattr(agency, 'earnings', 0) or 0),
+            'status': agency.status,
+        }
+
+    def get(self, request):
+        timeframe_label, window_start, window_end = _resolve_timeframe_window(
+            request.query_params.get('timeframe', 'Monthly')
+        )
+        limit = _parse_ranking_limit(request.query_params.get('limit'))
+
+        ranking_statuses = ['Accepted', 'Confirmed', 'Completed']
+
+        guide_booking_filter = (
+            Q(guide_tours_booked__status__in=ranking_statuses)
+            & Q(guide_tours_booked__created_at__gte=window_start)
+            & Q(guide_tours_booked__created_at__lte=window_end)
+        )
+
+        agency_booking_filter = (
+            Q(user__agency_bookings__status__in=ranking_statuses)
+            & Q(user__agency_bookings__created_at__gte=window_start)
+            & Q(user__agency_bookings__created_at__lte=window_end)
+        )
+
+        guide_stats = User.objects.filter(
+            is_local_guide=True,
+            is_staff=False,
+        ).annotate(
+            bookings_count=Count('guide_tours_booked', filter=guide_booking_filter, distinct=True),
+            earnings=Coalesce(
+                Sum('guide_tours_booked__guide_payout_amount', filter=guide_booking_filter),
+                Value(0),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+        )
+
+        agency_stats = Agency.objects.select_related('user').annotate(
+            bookings_count=Count('user__agency_bookings', filter=agency_booking_filter, distinct=True),
+            earnings=Coalesce(
+                Sum('user__agency_bookings__guide_payout_amount', filter=agency_booking_filter),
+                Value(0),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+        )
+
+        response_payload = {
+            'timeframe': timeframe_label,
+            'window_start': window_start.isoformat(),
+            'window_end': window_end.isoformat(),
+            'limit': limit,
+            'top_guides_by_bookings': [
+                self._serialize_guide_entry(guide)
+                for guide in guide_stats.order_by('-bookings_count', '-earnings', 'username', 'id')[:limit]
+            ],
+            'least_guides_by_bookings': [
+                self._serialize_guide_entry(guide)
+                for guide in guide_stats.order_by('bookings_count', 'earnings', 'username', 'id')[:limit]
+            ],
+            'top_guides_by_earnings': [
+                self._serialize_guide_entry(guide)
+                for guide in guide_stats.order_by('-earnings', '-bookings_count', 'username', 'id')[:limit]
+            ],
+            'least_guides_by_earnings': [
+                self._serialize_guide_entry(guide)
+                for guide in guide_stats.order_by('earnings', 'bookings_count', 'username', 'id')[:limit]
+            ],
+            'top_agencies_by_bookings': [
+                self._serialize_agency_entry(agency)
+                for agency in agency_stats.order_by('-bookings_count', '-earnings', 'business_name', 'id')[:limit]
+            ],
+            'least_agencies_by_bookings': [
+                self._serialize_agency_entry(agency)
+                for agency in agency_stats.order_by('bookings_count', 'earnings', 'business_name', 'id')[:limit]
+            ],
+            'top_agencies_by_earnings': [
+                self._serialize_agency_entry(agency)
+                for agency in agency_stats.order_by('-earnings', '-bookings_count', 'business_name', 'id')[:limit]
+            ],
+            'least_agencies_by_earnings': [
+                self._serialize_agency_entry(agency)
+                for agency in agency_stats.order_by('earnings', 'bookings_count', 'business_name', 'id')[:limit]
+            ],
+        }
+
+        return Response(response_payload)

@@ -10,6 +10,7 @@ from .views import (
     UnreadAlertCountView,
     CreateSystemAlertView,
     AdminDashboardSummaryView,
+    AdminPartnerRankingsView,
     PushTokenRegisterView,
     PushTokenUnregisterView,
 )
@@ -31,4 +32,5 @@ urlpatterns = [
     path('push-tokens/unregister/', PushTokenUnregisterView.as_view(), name='push-token-unregister'),
     
     path('dashboard-summary/', AdminDashboardSummaryView.as_view(), name='dashboard-summary'),
+    path('admin/partner-rankings/', AdminPartnerRankingsView.as_view(), name='admin-partner-rankings'),
 ]

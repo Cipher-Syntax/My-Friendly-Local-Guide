@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/api';
-import * as XLSX from 'xlsx';
+import { exportStyledWorkbook } from '../../utils/excelExport';
 import {
     Banknote,
     TrendingUp,
@@ -434,53 +434,116 @@ export default function PaymentsManagement() {
             return;
         }
 
-        const exportData = processedBookings.map((b) => {
-            const payoutAccount = getProviderPayoutAccount(b) || {};
+        const payoutRows = processedBookings.map((booking) => {
+            const payoutAccount = getProviderPayoutAccount(booking) || {};
+            const totalPrice = parseFloat(booking.total_price || 0);
 
             return {
-                "Booking ID": b.id,
-                "Provider Name": getProviderName(b),
-                "Provider Type": getProviderType(b),
-                "Provider GCash/Contact": getProviderPhone(b),
-                "Payout Account Type": payoutAccount.account_type || 'Not setup',
-                "Payout Account Name": payoutAccount.account_name || 'N/A',
-                "Payout Account Number": payoutAccount.account_number || 'N/A',
-                "Payout Account Notes": payoutAccount.notes || 'N/A',
-                "Total Booking Price": parseFloat(b.total_price || 0),
-                "Down Payment": parseFloat(b.down_payment || 0),
-                "Down Payment Date": b.downpayment_paid_at ? new Date(b.downpayment_paid_at).toLocaleString() : 'N/A',
-                "Balance Settled Date (Face-to-Face)": b.balance_paid_at ? new Date(b.balance_paid_at).toLocaleString() : 'Pending',
-                "Platform Fee (2%)": parseFloat(b.platform_fee || (parseFloat(b.total_price || 0) * 0.02)),
-                "Net Guide Payout": parseFloat(b.guide_payout_amount || 0),
-                "Payout Status": b.is_payout_settled ? 'Settled' : 'Pending',
-                "Settlement Channel": b.payout_channel || 'N/A',
-                "Settlement Reference": b.payout_reference_id || 'N/A',
-                "Settlement Date": b.payout_settled_at ? new Date(b.payout_settled_at).toLocaleString() : 'N/A',
-                "Settled By": getSettledByLabel(b),
-                "Booking Created At": new Date(b.created_at).toLocaleDateString(),
+                booking_id: booking.id,
+                provider_name: getProviderName(booking),
+                provider_type: getProviderType(booking),
+                provider_contact: getProviderPhone(booking),
+                payout_account_type: payoutAccount.account_type || 'Not setup',
+                payout_account_name: payoutAccount.account_name || 'N/A',
+                payout_account_number: payoutAccount.account_number || 'N/A',
+                payout_account_notes: payoutAccount.notes || 'N/A',
+                total_booking_price: totalPrice,
+                down_payment: parseFloat(booking.down_payment || 0),
+                down_payment_date: booking.downpayment_paid_at ? new Date(booking.downpayment_paid_at).toLocaleString() : 'N/A',
+                balance_settled_date: booking.balance_paid_at ? new Date(booking.balance_paid_at).toLocaleString() : 'Pending',
+                platform_fee: parseFloat(booking.platform_fee || (totalPrice * 0.02)),
+                net_provider_payout: parseFloat(booking.guide_payout_amount || 0),
+                payout_status: booking.is_payout_settled ? 'Settled' : 'Pending',
+                settlement_channel: booking.payout_channel || 'N/A',
+                settlement_reference: booking.payout_reference_id || 'N/A',
+                settlement_date: booking.payout_settled_at ? new Date(booking.payout_settled_at).toLocaleString() : 'N/A',
+                settled_by: getSettledByLabel(booking),
+                booking_created_at: booking.created_at ? new Date(booking.created_at).toLocaleDateString() : 'N/A',
             };
         });
 
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(exportData);
-
-        const colWidths = [
-            { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 25 },
-            { wch: 20 }, { wch: 24 }, { wch: 22 }, { wch: 20 },
-            { wch: 20 }, { wch: 15 }, { wch: 22 }, { wch: 32 },
-            { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 20 },
-            { wch: 18 }, { wch: 24 }, { wch: 22 }, { wch: 18 }
-        ];
-        ws['!cols'] = colWidths;
-
-        XLSX.utils.book_append_sheet(wb, ws, "Payouts Report");
+        const refundRows = filteredRefundRequests.map((refund) => ({
+            refund_id: refund.id,
+            booking_id: refund.booking_id || 'N/A',
+            tourist_name: getRefundTouristName(refund),
+            tourist_username: refund.requested_by_username || 'N/A',
+            status: String(refund.status || '').replace('_', ' '),
+            requested_amount: Number(refund.requested_amount || 0),
+            approved_amount: Number(refund.approved_amount || 0),
+            remaining_refundable_amount: getRefundRemainingAmount(refund),
+            reason: refund.reason || 'N/A',
+            tourist_refund_channel: getRefundTouristPayoutSummary(refund),
+            admin_notes: refund.admin_notes || 'N/A',
+            created_at: refund.created_at ? new Date(refund.created_at).toLocaleString() : 'N/A',
+            updated_at: refund.updated_at ? new Date(refund.updated_at).toLocaleString() : 'N/A',
+        }));
 
         const dateStr = new Date().toISOString().split('T')[0];
         const fileName = filter === 'all'
             ? `payouts-report-all-${dateStr}.xlsx`
             : `payouts-report-${filter}-${dateStr}.xlsx`;
 
-        XLSX.writeFile(wb, fileName);
+        exportStyledWorkbook({
+            fileName,
+            reportTitle: 'Admin Payments and Ledger Export',
+            metadata: [
+                { label: 'Payout Filter', value: filter },
+                { label: 'Payout Search', value: searchTerm || 'None' },
+                { label: 'Refund Filter', value: refundFilter },
+                { label: 'Refund Search', value: refundSearchTerm || 'None' },
+                { label: 'Payout Records', value: payoutRows.length },
+                { label: 'Refund Records', value: refundRows.length },
+            ],
+            sheets: [
+                {
+                    name: 'Payout Ledger',
+                    tableTitle: 'Provider Payout Ledger',
+                    rows: payoutRows,
+                    columns: [
+                        { key: 'booking_id', header: 'Booking ID' },
+                        { key: 'provider_name', header: 'Provider Name' },
+                        { key: 'provider_type', header: 'Provider Type' },
+                        { key: 'provider_contact', header: 'Provider Contact' },
+                        { key: 'payout_account_type', header: 'Payout Account Type' },
+                        { key: 'payout_account_name', header: 'Payout Account Name' },
+                        { key: 'payout_account_number', header: 'Payout Account Number' },
+                        { key: 'payout_account_notes', header: 'Payout Account Notes' },
+                        { key: 'total_booking_price', header: 'Total Booking Price (PHP)' },
+                        { key: 'down_payment', header: 'Down Payment (PHP)' },
+                        { key: 'down_payment_date', header: 'Down Payment Date' },
+                        { key: 'balance_settled_date', header: 'Balance Settled Date' },
+                        { key: 'platform_fee', header: 'Platform Fee (PHP)' },
+                        { key: 'net_provider_payout', header: 'Net Provider Payout (PHP)' },
+                        { key: 'payout_status', header: 'Payout Status' },
+                        { key: 'settlement_channel', header: 'Settlement Channel' },
+                        { key: 'settlement_reference', header: 'Settlement Reference' },
+                        { key: 'settlement_date', header: 'Settlement Date' },
+                        { key: 'settled_by', header: 'Settled By' },
+                        { key: 'booking_created_at', header: 'Booking Created At' },
+                    ],
+                },
+                {
+                    name: 'Refund Requests',
+                    tableTitle: 'Refund Workflow Registry',
+                    rows: refundRows,
+                    columns: [
+                        { key: 'refund_id', header: 'Refund ID' },
+                        { key: 'booking_id', header: 'Booking ID' },
+                        { key: 'tourist_name', header: 'Tourist Name' },
+                        { key: 'tourist_username', header: 'Tourist Username' },
+                        { key: 'status', header: 'Status' },
+                        { key: 'requested_amount', header: 'Requested Amount (PHP)' },
+                        { key: 'approved_amount', header: 'Approved Amount (PHP)' },
+                        { key: 'remaining_refundable_amount', header: 'Remaining Refundable (PHP)' },
+                        { key: 'reason', header: 'Reason' },
+                        { key: 'tourist_refund_channel', header: 'Refund Account' },
+                        { key: 'admin_notes', header: 'Admin Notes' },
+                        { key: 'created_at', header: 'Created At' },
+                        { key: 'updated_at', header: 'Updated At' },
+                    ],
+                },
+            ],
+        });
     };
 
     const formatDate = (dateString) => {
