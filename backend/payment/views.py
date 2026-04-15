@@ -153,6 +153,54 @@ def _refund_status_color(status_value):
     return mapping.get(normalized, '#0F766E')
 
 
+def _calculate_policy_refund_amount(*, refund_request, payment_amount, policy_reason):
+    normalized_reason = str(policy_reason or '').strip().lower()
+    payment_amount = Decimal(payment_amount or 0).quantize(Decimal('0.01'))
+
+    if normalized_reason == 'provider_system_fault':
+        return payment_amount
+
+    if normalized_reason == 'tourist_cancellation':
+        min_days_before_check_in = int(getattr(settings, 'REFUND_REQUEST_MIN_DAYS_BEFORE_CHECKIN', 3) or 0)
+        min_days_before_check_in = max(0, min_days_before_check_in)
+
+        near_cutoff_days = int(getattr(settings, 'REFUND_NEAR_CUTOFF_DAYS_BEFORE_CHECKIN', 7) or 7)
+        near_cutoff_days = max(min_days_before_check_in, near_cutoff_days)
+
+        booking = refund_request.booking
+        if not booking or not booking.check_in:
+            return (payment_amount * Decimal('0.80')).quantize(Decimal('0.01'))
+
+        reference_date = timezone.localdate()
+        if refund_request.request_date:
+            try:
+                reference_date = timezone.localtime(refund_request.request_date).date()
+            except Exception:
+                reference_date = refund_request.request_date.date()
+
+        days_until_check_in = (booking.check_in - reference_date).days
+        if days_until_check_in < min_days_before_check_in:
+            raise DRFValidationError(
+                {
+                    'detail': (
+                        f"Refund request was submitted inside the blocked window of "
+                        f"{min_days_before_check_in} day(s) before check-in."
+                    )
+                }
+            )
+
+        percentage = Decimal('0.50') if days_until_check_in <= near_cutoff_days else Decimal('0.80')
+        return (payment_amount * percentage).quantize(Decimal('0.01'))
+
+    raise DRFValidationError(
+        {
+            'policy_reason': (
+                'Policy reason must be one of: provider_system_fault, tourist_cancellation.'
+            )
+        }
+    )
+
+
 def _build_refund_email_html(
     *,
     heading,
@@ -1049,6 +1097,7 @@ class RefundRequestProcessView(APIView):
         serializer.is_valid(raise_exception=True)
 
         action = serializer.validated_data['action']
+        policy_reason = serializer.validated_data.get('policy_reason')
         admin_notes = (serializer.validated_data.get('admin_notes') or '').strip()
         payment = refund_request.payment
         booking = refund_request.booking
@@ -1056,8 +1105,28 @@ class RefundRequestProcessView(APIView):
         payment_amount = Decimal(payment.amount or 0).quantize(Decimal('0.01'))
 
         default_amount = refund_request.approved_amount or refund_request.requested_amount
-        final_amount = serializer.validated_data.get('approved_amount', default_amount)
-        final_amount = Decimal(final_amount).quantize(Decimal('0.01'))
+        final_amount = Decimal(default_amount).quantize(Decimal('0.01'))
+
+        if action == 'approve':
+            if not policy_reason:
+                raise DRFValidationError({'policy_reason': 'Policy reason is required when approving a refund.'})
+            final_amount = _calculate_policy_refund_amount(
+                refund_request=refund_request,
+                payment_amount=payment_amount,
+                policy_reason=policy_reason,
+            )
+
+        elif action == 'complete':
+            if refund_request.status == 'approved' and refund_request.approved_amount is not None:
+                final_amount = Decimal(refund_request.approved_amount).quantize(Decimal('0.01'))
+            else:
+                if not policy_reason:
+                    raise DRFValidationError({'policy_reason': 'Policy reason is required when completing a non-approved refund.'})
+                final_amount = _calculate_policy_refund_amount(
+                    refund_request=refund_request,
+                    payment_amount=payment_amount,
+                    policy_reason=policy_reason,
+                )
 
         if action in ('approve', 'complete'):
             if final_amount <= 0:

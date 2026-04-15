@@ -25,6 +25,11 @@ const PAYOUT_CHANNEL_OPTIONS = [
     { value: 'Other', label: 'Other' },
 ];
 
+const REFUND_POLICY_REASON_OPTIONS = [
+    { value: 'provider_system_fault', label: 'Provider/System Fault (100%)' },
+    { value: 'tourist_cancellation', label: 'Tourist Cancellation (80% early / 50% near cutoff)' },
+];
+
 export default function PaymentsManagement() {
     const navigate = useNavigate();
     const [bookings, setBookings] = useState([]);
@@ -39,8 +44,8 @@ export default function PaymentsManagement() {
     const [refundCurrentPage, setRefundCurrentPage] = useState(1);
     const [refundItemsPerPage] = useState(5);
     const [refundProcessingId, setRefundProcessingId] = useState(null);
-    const [refundAmountDrafts, setRefundAmountDrafts] = useState({});
     const [refundNoteDrafts, setRefundNoteDrafts] = useState({});
+    const [refundPolicyReasonDrafts, setRefundPolicyReasonDrafts] = useState({});
     const [isRefundCompleteModalOpen, setIsRefundCompleteModalOpen] = useState(false);
     const [selectedRefundForCompletion, setSelectedRefundForCompletion] = useState(null);
 
@@ -125,9 +130,17 @@ export default function PaymentsManagement() {
     const getRefundApprovedAmount = (refund) => {
         if (!refund?.id) return 0;
 
-        const draftAmountRaw = refundAmountDrafts[refund.id];
-        const fallbackAmount = refund.approved_amount || refund.requested_amount || 0;
-        return Number(draftAmountRaw || fallbackAmount);
+        const approvedAmountRaw = Number(refund.approved_amount ?? 0);
+        if (Number.isFinite(approvedAmountRaw) && approvedAmountRaw > 0) {
+            return approvedAmountRaw;
+        }
+
+        const fallbackAmount = Number(refund.requested_amount ?? 0);
+        if (Number.isFinite(fallbackAmount)) {
+            return Math.max(0, fallbackAmount);
+        }
+
+        return 0;
     };
 
     const getRefundRemainingAmount = (refund) => {
@@ -155,20 +168,24 @@ export default function PaymentsManagement() {
     const processRefundRequest = async (refund, action) => {
         if (!refund?.id) return false;
 
-        const approvedAmount = action === 'approve' || action === 'complete'
-            ? getRefundApprovedAmount(refund)
-            : undefined;
+        const approvedAmount = action === 'complete' ? getRefundApprovedAmount(refund) : undefined;
         const remainingAmount = getRefundRemainingAmount(refund);
-        const adminNotes = String(refundNoteDrafts[refund.id] || '').trim();
+        const adminNotes = String(refundNoteDrafts[refund.id] ?? refund.admin_notes ?? '').trim();
+        const policyReason = String(refundPolicyReasonDrafts[refund.id] || '').trim();
         const fullRefundAmountRaw = Number(refund.payment_amount ?? refund.requested_amount ?? 0);
         const fullRefundAmount = Number.isFinite(fullRefundAmountRaw)
             ? Math.max(0, fullRefundAmountRaw)
             : 0;
         const isPartialRefundAction =
-            (action === 'approve' || action === 'complete')
+            action === 'complete'
             && Number.isFinite(approvedAmount)
             && fullRefundAmount > 0
             && approvedAmount < fullRefundAmount;
+
+        if (action === 'approve' && !policyReason) {
+            showToast('Select a policy reason to auto-calculate the refund amount.', 'error');
+            return false;
+        }
 
         if (action === 'reject' && !adminNotes) {
             showToast('Admin notes are required when rejecting a refund.', 'error');
@@ -180,12 +197,12 @@ export default function PaymentsManagement() {
             return false;
         }
 
-        if ((action === 'approve' || action === 'complete') && (!approvedAmount || approvedAmount <= 0)) {
+        if (action === 'complete' && (!approvedAmount || approvedAmount <= 0)) {
             showToast('Approved amount must be greater than zero.', 'error');
             return false;
         }
 
-        if ((action === 'approve' || action === 'complete') && approvedAmount > remainingAmount) {
+        if (action === 'complete' && approvedAmount > remainingAmount) {
             showToast(
                 `Approved amount (${formatCurrency(approvedAmount)}) is greater than remaining refundable value (${formatCurrency(remainingAmount)}).`,
                 'error'
@@ -197,8 +214,8 @@ export default function PaymentsManagement() {
             action,
             admin_notes: adminNotes,
         };
-        if (approvedAmount) {
-            payload.approved_amount = approvedAmount.toFixed(2);
+        if (action === 'approve') {
+            payload.policy_reason = policyReason;
         }
 
         setRefundProcessingId(refund.id);
@@ -211,6 +228,8 @@ export default function PaymentsManagement() {
             console.error('Failed to process refund request:', error);
             const backendMessage = error?.response?.data?.detail
                 || error?.response?.data?.approved_amount?.[0]
+                || error?.response?.data?.policy_reason?.[0]
+                || error?.response?.data?.admin_notes?.[0]
                 || 'Failed to process refund request.';
             showToast(backendMessage, 'error');
             return false;
@@ -1054,7 +1073,7 @@ export default function PaymentsManagement() {
                                 <th className="p-4">Tourist Contact</th>
                                 <th className="p-4">Requested / Approved</th>
                                 <th className="p-4">Status</th>
-                                <th className="p-4 min-w-[280px]">Notes / Amount</th>
+                                <th className="p-4 min-w-[280px]">Notes / Policy</th>
                                 <th className="p-4 min-w-[240px]">Actions</th>
                             </tr>
                         </thead>
@@ -1069,8 +1088,14 @@ export default function PaymentsManagement() {
                                 const canApproveReject = statusValue === 'requested' || statusValue === 'under_review';
                                 const canComplete = statusValue === 'approved';
 
-                                const amountDraft = refundAmountDrafts[refund.id] ?? (refund.approved_amount || refund.requested_amount || '');
                                 const notesDraft = refundNoteDrafts[refund.id] ?? (refund.admin_notes || '');
+                                const policyReasonDraft = refundPolicyReasonDrafts[refund.id] ?? '';
+                                const policyHint =
+                                    policyReasonDraft === 'provider_system_fault'
+                                        ? 'Auto amount: 100% of downpayment.'
+                                        : policyReasonDraft === 'tourist_cancellation'
+                                            ? 'Auto amount: 80% early request or 50% near cutoff.'
+                                            : 'Select policy reason before approving.';
 
                                 return (
                                     <tr key={refund.id} className="text-sm align-top hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors">
@@ -1120,19 +1145,23 @@ export default function PaymentsManagement() {
                                                     : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 focus:border-cyan-500'
                                                     }`}
                                             />
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                placeholder="Approved amount"
-                                                value={amountDraft}
-                                                onChange={(e) => setRefundAmountDrafts(prev => ({ ...prev, [refund.id]: e.target.value }))}
-                                                disabled={isCompleted}
-                                                className={`px-3 py-2 w-full border rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none ${isCompleted
+                                            <select
+                                                value={policyReasonDraft}
+                                                onChange={(e) => setRefundPolicyReasonDrafts(prev => ({ ...prev, [refund.id]: e.target.value }))}
+                                                disabled={isCompleted || !canApproveReject}
+                                                className={`px-3 py-2 w-full border rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none ${isCompleted || !canApproveReject
                                                     ? 'bg-slate-100 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-80'
                                                     : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 focus:border-cyan-500'
                                                     }`}
-                                            />
+                                            >
+                                                <option value="">Select policy reason</option>
+                                                {REFUND_POLICY_REASON_OPTIONS.map((option) => (
+                                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                                ))}
+                                            </select>
+                                            <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+                                                {canApproveReject ? policyHint : `Approved Amount: ${formatCurrency(getRefundApprovedAmount(refund))}`}
+                                            </div>
                                         </td>
                                         <td className="p-4">
                                             <div className="flex flex-wrap gap-2">

@@ -365,8 +365,14 @@ class RefundProcessSerializer(serializers.Serializer):
         ('complete', 'Complete'),
     ]
 
+    POLICY_REASON_CHOICES = [
+        ('provider_system_fault', 'Provider/System Fault'),
+        ('tourist_cancellation', 'Tourist Cancellation'),
+    ]
+
     action = serializers.ChoiceField(choices=ACTION_CHOICES)
     approved_amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+    policy_reason = serializers.ChoiceField(choices=POLICY_REASON_CHOICES, required=False)
     admin_notes = serializers.CharField(required=False, allow_blank=True, max_length=2000)
 
     def validate(self, data):

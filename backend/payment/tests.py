@@ -220,7 +220,7 @@ class RefundApiTests(TestCase):
 
 		approve_response = self.client.post(
 			reverse("refund-process", args=[refund.id]),
-			{"action": "approve", "approved_amount": "2400.00", "admin_notes": "Eligible under policy."},
+			{"action": "approve", "policy_reason": "provider_system_fault", "admin_notes": "Eligible under policy."},
 			format="json",
 		)
 		self.assertEqual(approve_response.status_code, 200)
@@ -237,9 +237,88 @@ class RefundApiTests(TestCase):
 		self.booking.refresh_from_db()
 
 		self.assertEqual(refund.status, "completed")
+		self.assertEqual(refund.approved_amount, Decimal("2400.00"))
 		self.assertEqual(self.payment.status, "refunded")
 		self.assertEqual(self.payment.refund_status, "completed")
 		self.assertEqual(self.booking.status, "Refunded")
+
+	def test_admin_approve_requires_policy_reason(self):
+		refund = RefundRequest.objects.create(
+			payment=self.payment,
+			booking=self.booking,
+			requested_by=self.tourist,
+			reason="Need decision.",
+			requested_amount=Decimal("2400.00"),
+			proof_attachment=self._proof_file("proof-policy-required.png"),
+		)
+
+		self.client.force_authenticate(user=self.admin)
+		response = self.client.post(
+			reverse("refund-process", args=[refund.id]),
+			{"action": "approve", "admin_notes": "Missing policy reason should fail."},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("policy_reason", response.json())
+
+	@override_settings(
+		REFUND_REQUEST_MIN_DAYS_BEFORE_CHECKIN=3,
+		REFUND_NEAR_CUTOFF_DAYS_BEFORE_CHECKIN=7,
+	)
+	def test_tourist_cancellation_policy_early_is_eighty_percent(self):
+		self.booking.check_in = date.today() + timedelta(days=12)
+		self.booking.check_out = self.booking.check_in + timedelta(days=1)
+		self.booking.save(update_fields=["check_in", "check_out"])
+
+		refund = RefundRequest.objects.create(
+			payment=self.payment,
+			booking=self.booking,
+			requested_by=self.tourist,
+			reason="Tourist cancellation far from trip date.",
+			requested_amount=Decimal("2400.00"),
+			proof_attachment=self._proof_file("proof-policy-early.png"),
+		)
+
+		self.client.force_authenticate(user=self.admin)
+		response = self.client.post(
+			reverse("refund-process", args=[refund.id]),
+			{"action": "approve", "policy_reason": "tourist_cancellation", "admin_notes": "Applied 80% early cancellation policy."},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		refund.refresh_from_db()
+		self.assertEqual(refund.approved_amount, Decimal("1920.00"))
+
+	@override_settings(
+		REFUND_REQUEST_MIN_DAYS_BEFORE_CHECKIN=3,
+		REFUND_NEAR_CUTOFF_DAYS_BEFORE_CHECKIN=7,
+	)
+	def test_tourist_cancellation_policy_near_cutoff_is_fifty_percent(self):
+		self.booking.check_in = date.today() + timedelta(days=4)
+		self.booking.check_out = self.booking.check_in + timedelta(days=1)
+		self.booking.save(update_fields=["check_in", "check_out"])
+
+		refund = RefundRequest.objects.create(
+			payment=self.payment,
+			booking=self.booking,
+			requested_by=self.tourist,
+			reason="Tourist cancellation near cutoff.",
+			requested_amount=Decimal("2400.00"),
+			proof_attachment=self._proof_file("proof-policy-cutoff.png"),
+		)
+
+		self.client.force_authenticate(user=self.admin)
+		response = self.client.post(
+			reverse("refund-process", args=[refund.id]),
+			{"action": "approve", "policy_reason": "tourist_cancellation", "admin_notes": "Applied 50% near cutoff policy."},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		refund.refresh_from_db()
+		self.assertEqual(refund.approved_amount, Decimal("1200.00"))
 
 	def test_admin_reject_requires_notes(self):
 		refund = RefundRequest.objects.create(
@@ -274,7 +353,7 @@ class RefundApiTests(TestCase):
 		self.client.force_authenticate(user=self.admin)
 		response = self.client.post(
 			reverse("refund-process", args=[refund.id]),
-			{"action": "approve", "approved_amount": "1200.00"},
+			{"action": "approve", "policy_reason": "tourist_cancellation"},
 			format="json",
 		)
 
@@ -374,7 +453,7 @@ class RefundApiTests(TestCase):
 		self.client.force_authenticate(user=self.admin)
 		approve_response = self.client.post(
 			reverse("refund-process", args=[refund.id]),
-			{"action": "approve", "approved_amount": "2400.00", "admin_notes": "Approved by admin."},
+			{"action": "approve", "policy_reason": "provider_system_fault", "admin_notes": "Approved by admin."},
 			format="json",
 		)
 		self.assertEqual(approve_response.status_code, 200)
