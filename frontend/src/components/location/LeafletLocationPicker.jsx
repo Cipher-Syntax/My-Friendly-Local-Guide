@@ -68,6 +68,8 @@ export default function LeafletLocationPicker({
     label = 'Location',
     required = false,
     idPrefix = 'location',
+    readOnly = false,
+    readOnlyReason = '',
 }) {
     const normalized = useMemo(() => normalizeValue(value), [value]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -83,6 +85,12 @@ export default function LeafletLocationPicker({
     }, [normalized.latitude, normalized.longitude]);
 
     useEffect(() => {
+        if (readOnly) {
+            setResults([]);
+            setSearching(false);
+            return;
+        }
+
         const query = searchQuery.trim();
         if (query.length < 2) {
             setResults([]);
@@ -116,7 +124,7 @@ export default function LeafletLocationPicker({
             active = false;
             clearTimeout(timer);
         };
-    }, [searchQuery]);
+    }, [searchQuery, readOnly]);
 
     const emitChange = (partial) => {
         if (!onChange) return;
@@ -145,6 +153,8 @@ export default function LeafletLocationPicker({
     };
 
     const handleMapPick = (lat, lng) => {
+        if (readOnly) return;
+
         const municipality = normalized.municipality || CITY_SCOPE;
         const fallbackLocation = normalized.location || `Pinned location in ${CITY_SCOPE}`;
 
@@ -157,6 +167,8 @@ export default function LeafletLocationPicker({
     };
 
     const handleResultPick = (item) => {
+        if (readOnly) return;
+
         emitChange(toResultPayload(item, normalized.location));
 
         setSearchQuery(item.label || item.name || '');
@@ -174,9 +186,13 @@ export default function LeafletLocationPicker({
                     id={`${idPrefix}-address`}
                     type="text"
                     value={normalized.location}
-                    onChange={(event) => emitChange({ location: event.target.value })}
+                    onChange={(event) => {
+                        if (readOnly) return;
+                        emitChange({ location: event.target.value });
+                    }}
                     placeholder={`Search/landmark in ${CITY_SCOPE} (e.g. Sta Cruz Island)`}
-                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                    disabled={readOnly}
+                    className={`w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 ${readOnly ? 'opacity-80 cursor-not-allowed' : ''}`}
                 />
             </div>
 
@@ -187,7 +203,8 @@ export default function LeafletLocationPicker({
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder={`Search locations in ${CITY_SCOPE}`}
-                    className="w-full px-4 py-2 pr-10 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                    disabled={readOnly}
+                    className={`w-full px-4 py-2 pr-10 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 ${readOnly ? 'opacity-80 cursor-not-allowed' : ''}`}
                 />
                 {searching && (
                     <Loader2 className="w-4 h-4 animate-spin text-slate-500 absolute right-3 top-1/2 -translate-y-1/2" />
@@ -228,7 +245,7 @@ export default function LeafletLocationPicker({
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     />
                     <MapAutoCenter markerPosition={markerPosition} />
-                    <MapClickCapture onPick={handleMapPick} />
+                    {!readOnly && <MapClickCapture onPick={handleMapPick} />}
                     {markerPosition && <Marker position={markerPosition} icon={markerIcon} />}
                 </MapContainer>
             </div>
@@ -237,8 +254,12 @@ export default function LeafletLocationPicker({
                 <MapPin className="w-3.5 h-3.5" />
                 {markerPosition
                     ? `Pinned at ${normalized.latitude}, ${normalized.longitude}`
-                    : 'Click the map or search to place a marker'}
+                    : (readOnly ? 'Marker is controlled by the linked destination' : 'Click the map or search to place a marker')}
             </div>
+
+            {readOnly && readOnlyReason ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">{readOnlyReason}</p>
+            ) : null}
         </div>
     );
 }

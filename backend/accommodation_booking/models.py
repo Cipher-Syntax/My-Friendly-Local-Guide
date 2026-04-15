@@ -30,6 +30,8 @@ class Accommodation(models.Model):
     offer_transportation = models.BooleanField(default=False)
     vehicle_type = models.CharField(max_length=100, null=True, blank=True)
     transport_capacity = models.IntegerField(null=True, blank=True)
+    transport_capacities = models.JSONField(default=list, blank=True)
+    transport_options = models.JSONField(default=list, blank=True)
 
     room_image = models.ImageField(upload_to='accommodations/rooms/', null=True, blank=True)
     transport_image = models.ImageField(upload_to='accommodations/transport/', null=True, blank=True)

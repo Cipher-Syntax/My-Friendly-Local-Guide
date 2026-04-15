@@ -21,6 +21,25 @@ export default function AddGuideModal({
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState('');
 
+    const addCustomLanguage = () => {
+        const customLanguage = String(newGuideForm.languageSearchTerm || '').trim();
+        if (!customLanguage) {
+            return;
+        }
+
+        const hasLanguage = (newGuideForm.languages || []).some(
+            (lang) => String(lang || '').trim().toLowerCase() === customLanguage.toLowerCase()
+        );
+
+        if (hasLanguage) {
+            setNewGuideForm((prev) => ({ ...prev, languageSearchTerm: '', showLanguageDropdown: false }));
+            return;
+        }
+
+        handleAddLanguage(customLanguage);
+        setNewGuideForm((prev) => ({ ...prev, languageSearchTerm: '', showLanguageDropdown: false }));
+    };
+
     const handleCreateProfile = async () => {
         setError('');
 
@@ -253,6 +272,13 @@ export default function AddGuideModal({
                                             </button>
                                         ))
                                     }
+
+                                    <button
+                                        onClick={addCustomLanguage}
+                                        className="w-full text-left px-4 py-2 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 transition-colors border-t border-slate-100 dark:border-slate-700"
+                                    >
+                                        Add custom language: {String(newGuideForm.languageSearchTerm || '').trim() || 'Type a language above'}
+                                    </button>
                                 </div>
                             </>
                         )}

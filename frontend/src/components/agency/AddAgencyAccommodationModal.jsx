@@ -1,7 +1,51 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Home, DollarSign, PhilippinePeso, MapPin, Bed, Car, Upload, Image as ImageIcon } from 'lucide-react';
+import { X, Home, PhilippinePeso, Bed, Car, Upload } from 'lucide-react';
 import api from '../../api/api';
 import LeafletLocationPicker from '../location/LeafletLocationPicker';
+
+const VEHICLE_TYPE_OPTIONS = ['Van', 'Car', 'Boat', 'Tricycle', 'Motorcycle', 'Bus', 'SUV'];
+
+const normalizeTransportCapacities = (rawValue) => {
+    const source = Array.isArray(rawValue)
+        ? rawValue
+        : typeof rawValue === 'string'
+            ? rawValue.split(',')
+            : [];
+
+    const normalized = [];
+    const seen = new Set();
+
+    source.forEach((value) => {
+        const parsed = parseInt(String(value || '').trim(), 10);
+        if (!Number.isFinite(parsed) || parsed <= 0 || seen.has(parsed)) {
+            return;
+        }
+        seen.add(parsed);
+        normalized.push(parsed);
+    });
+
+    return normalized;
+};
+
+const normalizeTransportOptions = (rawValue) => {
+    const source = Array.isArray(rawValue) ? rawValue : [];
+    const normalized = [];
+
+    source.forEach((item) => {
+        const vehicleType = String(item?.vehicle_type || '').trim();
+        const capacities = normalizeTransportCapacities(item?.transport_capacities || []);
+        if (!vehicleType || capacities.length === 0) {
+            return;
+        }
+
+        normalized.push({
+            vehicle_type: vehicleType,
+            transport_capacities: capacities,
+        });
+    });
+
+    return normalized;
+};
 
 export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommodationAdded, onAccommodationUpdated, editData }) {
     const [destinations, setDestinations] = useState([]);
@@ -16,7 +60,7 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
         title: '', description: '', location: '', price: '',
         municipality: '', latitude: null, longitude: null,
         accommodation_type: 'Hotel', room_type: 'Standard',
-        offer_transportation: false, vehicle_type: '', transport_capacity: '',
+        offer_transportation: false, transport_options: [], draft_vehicle_type: '', draft_transport_capacities: [], draft_transport_capacity_input: '',
         destination_id: '',
     });
 
@@ -42,35 +86,74 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
         }
     };
 
+    const getDestinationLocationById = useCallback((destinationId) => {
+        if (!destinationId) return null;
+        const destination = destinations.find((item) => String(item.id) === String(destinationId));
+        if (!destination) return null;
+
+        return {
+            location: destination.location || '',
+            municipality: destination.municipality || '',
+            latitude: destination.latitude ?? null,
+            longitude: destination.longitude ?? null,
+        };
+    }, [destinations]);
+
     const resetForm = useCallback(() => {
+        const defaultDestinationId = destinations[0]?.id ? String(destinations[0].id) : '';
+        const defaultLocation = getDestinationLocationById(defaultDestinationId) || {
+            location: '',
+            municipality: '',
+            latitude: null,
+            longitude: null,
+        };
+
         setFormData({
-            title: '', description: '', location: '', price: '', accommodation_type: 'Hotel',
-            municipality: '', latitude: null, longitude: null,
-            room_type: 'Standard', offer_transportation: false, vehicle_type: '', transport_capacity: '', destination_id: destinations[0]?.id || ''
+            title: '', description: '', price: '', accommodation_type: 'Hotel',
+            room_type: 'Standard', offer_transportation: false,
+            transport_options: [], draft_vehicle_type: '', draft_transport_capacities: [], draft_transport_capacity_input: '',
+            destination_id: defaultDestinationId,
+            ...defaultLocation,
         });
         setAmenities({ wifi: false, breakfast: false, ac: false, parking: false, pool: false });
         setImages({ photo: null, room: null, transport: null });
         setPreviews({ photo: null, room: null, transport: null });
         setCurrentStep(1);
         setError('');
-    }, [destinations]);
+    }, [destinations, getDestinationLocationById]);
 
     const populateEditData = useCallback(() => {
-        const destId = editData.destination_detail?.id || editData.destination || destinations[0]?.id || '';
-
-        setFormData({
-            title: editData.title || '',
-            description: editData.description || '',
+        const destId = String(editData.destination_detail?.id || editData.destination || destinations[0]?.id || '');
+        const destinationLocation = getDestinationLocationById(destId) || {
             location: editData.location || '',
             municipality: editData.municipality || '',
             latitude: editData.latitude ?? null,
             longitude: editData.longitude ?? null,
+        };
+
+        const resolvedTransportOptions = normalizeTransportOptions(
+            Array.isArray(editData.transport_options) && editData.transport_options.length > 0
+                ? editData.transport_options
+                : [{
+                    vehicle_type: editData.vehicle_type,
+                    transport_capacities: Array.isArray(editData.transport_capacities) && editData.transport_capacities.length > 0
+                        ? editData.transport_capacities
+                        : [editData.transport_capacity],
+                }]
+        );
+
+        setFormData({
+            title: editData.title || '',
+            description: editData.description || '',
+            ...destinationLocation,
             price: editData.price || '',
             accommodation_type: editData.accommodation_type || 'Hotel',
             room_type: editData.room_type || 'Standard',
             offer_transportation: editData.offer_transportation || false,
-            vehicle_type: editData.vehicle_type || '',
-            transport_capacity: editData.transport_capacity?.toString() || '',
+            transport_options: resolvedTransportOptions,
+            draft_vehicle_type: '',
+            draft_transport_capacities: [],
+            draft_transport_capacity_input: '',
             destination_id: destId,
         });
 
@@ -102,10 +185,15 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
         editData?.accommodation_type,
         editData?.room_type,
         editData?.offer_transportation,
+        editData?.transport_options,
         editData?.vehicle_type,
+        editData?.transport_capacities,
         editData?.transport_capacity,
         editData?.destination,
         editData?.destination_detail?.id,
+        editData?.municipality,
+        editData?.latitude,
+        editData?.longitude,
         editData?.amenities?.wifi,
         editData?.amenities?.breakfast,
         editData?.amenities?.ac,
@@ -113,7 +201,8 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
         editData?.amenities?.pool,
         editData?.photo,
         editData?.room_image,
-        editData?.transport_image
+        editData?.transport_image,
+        getDestinationLocationById,
     ]);
 
     useEffect(() => {
@@ -122,6 +211,90 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
             else resetForm();
         }
     }, [isOpen, editData, destinations, populateEditData, resetForm]);
+
+    useEffect(() => {
+        if (!isOpen || !formData.destination_id) return;
+
+        const destinationLocation = getDestinationLocationById(formData.destination_id);
+        if (!destinationLocation) return;
+
+        setFormData((prev) => {
+            const isSameLocation =
+                String(prev.location || '') === String(destinationLocation.location || '') &&
+                String(prev.municipality || '') === String(destinationLocation.municipality || '') &&
+                String(prev.latitude ?? '') === String(destinationLocation.latitude ?? '') &&
+                String(prev.longitude ?? '') === String(destinationLocation.longitude ?? '');
+
+            if (isSameLocation) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                ...destinationLocation,
+            };
+        });
+    }, [isOpen, formData.destination_id, getDestinationLocationById]);
+
+    const addTransportCapacity = () => {
+        const nextCapacities = normalizeTransportCapacities([
+            ...(formData.draft_transport_capacities || []),
+            formData.draft_transport_capacity_input,
+        ]);
+
+        if (nextCapacities.length === (formData.draft_transport_capacities || []).length) {
+            setError('Enter a valid transport capacity before adding.');
+            return;
+        }
+
+        setError('');
+        setFormData((prev) => ({
+            ...prev,
+            draft_transport_capacities: nextCapacities,
+            draft_transport_capacity_input: '',
+        }));
+    };
+
+    const removeTransportCapacity = (capacityToRemove) => {
+        setFormData((prev) => ({
+            ...prev,
+            draft_transport_capacities: (prev.draft_transport_capacities || []).filter((capacity) => capacity !== capacityToRemove),
+        }));
+    };
+
+    const addTransportOption = () => {
+        const vehicleType = String(formData.draft_vehicle_type || '').trim();
+        const capacities = normalizeTransportCapacities(formData.draft_transport_capacities || []);
+
+        if (!vehicleType) {
+            setError('Select or type a vehicle type before adding transportation.');
+            return;
+        }
+
+        if (capacities.length === 0) {
+            setError('Add at least one capacity for this vehicle.');
+            return;
+        }
+
+        setError('');
+        setFormData((prev) => ({
+            ...prev,
+            transport_options: normalizeTransportOptions([
+                ...(prev.transport_options || []),
+                { vehicle_type: vehicleType, transport_capacities: capacities },
+            ]),
+            draft_vehicle_type: '',
+            draft_transport_capacities: [],
+            draft_transport_capacity_input: '',
+        }));
+    };
+
+    const removeTransportOption = (indexToRemove) => {
+        setFormData((prev) => ({
+            ...prev,
+            transport_options: (prev.transport_options || []).filter((_, index) => index !== indexToRemove),
+        }));
+    };
 
 
     const handleImageChange = (type, e) => {
@@ -134,8 +307,8 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
 
     const validateStep = (step) => {
         setError('');
-        if (step === 1 && (!formData.title || !formData.location || !formData.price || !formData.destination_id)) {
-            setError("Please fill in Title, Location, Destination, and Price.");
+        if (step === 1 && (!formData.title || !formData.price || !formData.destination_id)) {
+            setError("Please fill in Title, Destination, and Price.");
             return false;
         }
         // If creating new, require photo. If editing, they already have a photo so it's fine.
@@ -152,6 +325,16 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
 
     const handleSubmit = async () => {
         if (!validateStep(3)) return;
+
+        const finalTransportOptions = formData.offer_transportation
+            ? normalizeTransportOptions(formData.transport_options || [])
+            : [];
+
+        if (formData.offer_transportation && finalTransportOptions.length === 0) {
+            setError('Please add at least one transportation entry.');
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -165,13 +348,21 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
             submitData.append('price', formData.price);
             submitData.append('accommodation_type', formData.accommodation_type);
             submitData.append('room_type', formData.room_type);
-            submitData.append('destination_id', formData.destination_id);
+            submitData.append('destination', formData.destination_id);
             submitData.append('amenities', JSON.stringify(amenities));
             submitData.append('offer_transportation', formData.offer_transportation ? "true" : "false");
 
             if (formData.offer_transportation) {
-                submitData.append('vehicle_type', formData.vehicle_type);
-                submitData.append('transport_capacity', formData.transport_capacity || 0);
+                const firstTransport = finalTransportOptions[0] || null;
+                submitData.append('transport_options', JSON.stringify(finalTransportOptions));
+                submitData.append('vehicle_type', firstTransport?.vehicle_type || '');
+                submitData.append('transport_capacities', JSON.stringify(firstTransport?.transport_capacities || []));
+                submitData.append('transport_capacity', firstTransport?.transport_capacities?.[0] || 0);
+            } else {
+                submitData.append('vehicle_type', '');
+                submitData.append('transport_options', JSON.stringify([]));
+                submitData.append('transport_capacities', JSON.stringify([]));
+                submitData.append('transport_capacity', '');
             }
 
             // Only append the files if the user actually uploaded new ones
@@ -251,14 +442,32 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Linked Destination *</label>
-                                    <select value={formData.destination_id} onChange={e => setFormData({ ...formData, destination_id: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                                    <select
+                                        value={formData.destination_id}
+                                        onChange={(e) => {
+                                            const destinationId = e.target.value;
+                                            const destinationLocation = getDestinationLocationById(destinationId) || {
+                                                location: '',
+                                                municipality: '',
+                                                latitude: null,
+                                                longitude: null,
+                                            };
+
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                destination_id: destinationId,
+                                                ...destinationLocation,
+                                            }));
+                                        }}
+                                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                                    >
                                         <option value="" disabled>Select Destination</option>
                                         {destinations.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                     </select>
                                 </div>
                                 <div className="md:col-span-2">
                                     <LeafletLocationPicker
-                                        label="Exact Address"
+                                        label="Exact Address (From Destination)"
                                         idPrefix="accommodation-location"
                                         required
                                         value={{
@@ -267,7 +476,9 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
                                             latitude: formData.latitude,
                                             longitude: formData.longitude,
                                         }}
-                                        onChange={(nextLocation) => setFormData({ ...formData, ...nextLocation })}
+                                        onChange={() => {}}
+                                        readOnly
+                                        readOnlyReason="Destination location is managed by admin and cannot be edited here."
                                     />
                                 </div>
                                 <div>
@@ -361,7 +572,22 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
 
                             <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
                                 <label className="flex items-center gap-3 cursor-pointer mb-4 p-3 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                                    <input type="checkbox" checked={formData.offer_transportation} onChange={e => setFormData({ ...formData, offer_transportation: e.target.checked })} className="w-5 h-5 text-blue-600 rounded border-slate-300" />
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.offer_transportation}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                offer_transportation: checked,
+                                                transport_options: checked ? prev.transport_options : [],
+                                                draft_vehicle_type: '',
+                                                draft_transport_capacities: [],
+                                                draft_transport_capacity_input: '',
+                                            }));
+                                        }}
+                                        className="w-5 h-5 text-blue-600 rounded border-slate-300"
+                                    />
                                     <div className="flex flex-col">
                                         <span className="font-bold text-slate-900 dark:text-white flex items-center gap-2"><Car className="w-4 h-4 text-emerald-500" /> Offer Transportation?</span>
                                         <span className="text-xs text-slate-500">Check this if you provide guest pickup/dropoff</span>
@@ -371,19 +597,102 @@ export default function AddAgencyAccommodationModal({ isOpen, onClose, onAccommo
                                 {formData.offer_transportation && (
                                     <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2">
                                         <div className="col-span-2">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Vehicle Type</label>
-                                            <input type="text" value={formData.vehicle_type} onChange={e => setFormData({ ...formData, vehicle_type: e.target.value })} className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. Van, Boat" />
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Vehicle Selection</label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {VEHICLE_TYPE_OPTIONS.map((vehicleType) => (
+                                                    <button
+                                                        key={vehicleType}
+                                                        type="button"
+                                                        onClick={() => setFormData((prev) => ({ ...prev, draft_vehicle_type: vehicleType }))}
+                                                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${formData.draft_vehicle_type === vehicleType ? 'bg-blue-100 text-blue-700 border-blue-400 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700' : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600'}`}
+                                                    >
+                                                        {vehicleType}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Max Capacity</label>
-                                            <input type="number" min="1" value={formData.transport_capacity} onChange={e => setFormData({ ...formData, transport_capacity: e.target.value })} className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Pax" />
+
+                                        <div className="col-span-2">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Vehicle Type (Editable)</label>
+                                            <input
+                                                type="text"
+                                                value={formData.draft_vehicle_type}
+                                                onChange={e => setFormData({ ...formData, draft_vehicle_type: e.target.value })}
+                                                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                                placeholder="e.g. Van, Boat"
+                                            />
                                         </div>
+
+                                        <div className="col-span-2">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Transport Capacities (Pax)</label>
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    value={formData.draft_transport_capacity_input}
+                                                    onChange={e => setFormData({ ...formData, draft_transport_capacity_input: e.target.value })}
+                                                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="e.g. 4"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={addTransportCapacity}
+                                                    className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold"
+                                                >
+                                                    Add
+                                                </button>
+                                            </div>
+
+                                            <div className="mt-2 flex flex-wrap gap-2">
+                                                {(formData.draft_transport_capacities || []).map((capacity) => (
+                                                    <span key={`transport-capacity-${capacity}`} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 text-xs font-semibold border border-blue-200 dark:border-blue-700">
+                                                        {capacity} pax
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeTransportCapacity(capacity)}
+                                                            className="text-blue-700 dark:text-blue-200 hover:text-blue-900 dark:hover:text-white"
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+
                                         <div>
                                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Vehicle Photo</label>
                                             <label className="w-full h-[42px] border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex items-center justify-center bg-white dark:bg-slate-800 cursor-pointer overflow-hidden">
                                                 {previews.transport ? <img src={previews.transport} className="w-full h-full object-cover" alt="Transport" /> : <span className="text-xs font-bold text-slate-500">Upload</span>}
                                                 <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange('transport', e)} />
                                             </label>
+                                        </div>
+
+                                        <div className="col-span-2">
+                                            <button
+                                                type="button"
+                                                onClick={addTransportOption}
+                                                className="w-full px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold"
+                                            >
+                                                Add Transportation
+                                            </button>
+                                        </div>
+
+                                        <div className="col-span-2 space-y-2">
+                                            {(formData.transport_options || []).map((option, index) => (
+                                                <div key={`transport-option-${index}`} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">{option.vehicle_type}</p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">Capacities: {(option.transport_capacities || []).join(', ')} pax</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeTransportOption(index)}
+                                                        className="text-rose-600 hover:text-rose-700"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 )}

@@ -56,7 +56,7 @@ class AccommodationSerializer(serializers.ModelSerializer):
             'agency_id', 'agency_name', 'agency_user_id', 
             'title', 'description', 'location', 'municipality', 'latitude', 'longitude', 'price', 'photo',
             'accommodation_type', 'room_type', 'amenities',
-            'offer_transportation', 'vehicle_type', 'transport_capacity',
+            'offer_transportation', 'vehicle_type', 'transport_capacity', 'transport_capacities', 'transport_options',
             'transport_image', 'room_image',
             'destination', 'destination_detail',
             'is_approved', 'average_rating', 'created_at'
@@ -75,11 +75,111 @@ class AccommodationSerializer(serializers.ModelSerializer):
                 validated_data['amenities'] = {}
         return super().create(validated_data)
 
+    def _normalize_transport_capacities(self, raw_value):
+        if raw_value in (None, ''):
+            return []
+
+        source = raw_value
+        if isinstance(raw_value, str):
+            stripped = raw_value.strip()
+            if not stripped:
+                return []
+            try:
+                source = json.loads(stripped)
+            except json.JSONDecodeError:
+                source = stripped.split(',')
+        elif isinstance(raw_value, (int, float)):
+            source = [raw_value]
+
+        if not isinstance(source, (list, tuple)):
+            source = [source]
+
+        normalized = []
+        seen = set()
+
+        for item in source:
+            token = str(item).strip()
+            if not token:
+                continue
+            try:
+                value = int(float(token))
+            except (TypeError, ValueError):
+                continue
+
+            if value <= 0 or value in seen:
+                continue
+
+            seen.add(value)
+            normalized.append(value)
+
+        return normalized
+
+    def _normalize_transport_options(self, raw_value):
+        if raw_value in (None, ''):
+            return []
+
+        source = raw_value
+        if isinstance(raw_value, str):
+            stripped = raw_value.strip()
+            if not stripped:
+                return []
+            try:
+                source = json.loads(stripped)
+            except json.JSONDecodeError:
+                return []
+        elif isinstance(raw_value, dict):
+            source = [raw_value]
+
+        if not isinstance(source, (list, tuple)):
+            return []
+
+        normalized = []
+        for item in source:
+            if not isinstance(item, dict):
+                continue
+
+            vehicle_type = str(item.get('vehicle_type', '')).strip()
+            capacities = self._normalize_transport_capacities(item.get('transport_capacities', []))
+            if not vehicle_type or not capacities:
+                continue
+
+            normalized.append({
+                'vehicle_type': vehicle_type,
+                'transport_capacities': capacities,
+            })
+
+        return normalized
+
     def validate(self, attrs):
-        location = attrs.get('location', getattr(self.instance, 'location', None))
-        municipality = attrs.get('municipality', getattr(self.instance, 'municipality', None))
-        latitude = attrs.get('latitude', getattr(self.instance, 'latitude', None))
-        longitude = attrs.get('longitude', getattr(self.instance, 'longitude', None))
+        amenities_data = attrs.get('amenities', serializers.empty)
+        if amenities_data is not serializers.empty and isinstance(amenities_data, str):
+            try:
+                attrs['amenities'] = json.loads(amenities_data)
+            except json.JSONDecodeError:
+                attrs['amenities'] = {}
+
+        request = self.context.get('request')
+        destination = attrs.get('destination', getattr(self.instance, 'destination', None))
+        is_agency_request = bool(
+            request and
+            getattr(request, 'user', None) and
+            request.user.is_authenticated and
+            hasattr(request.user, 'agency_profile')
+        )
+
+        if is_agency_request:
+            if destination is None:
+                raise serializers.ValidationError({'destination': 'Linked destination is required for agency accommodations.'})
+
+            location = getattr(destination, 'location', None)
+            municipality = getattr(destination, 'municipality', None)
+            latitude = getattr(destination, 'latitude', None)
+            longitude = getattr(destination, 'longitude', None)
+        else:
+            location = attrs.get('location', getattr(self.instance, 'location', None))
+            municipality = attrs.get('municipality', getattr(self.instance, 'municipality', None))
+            latitude = attrs.get('latitude', getattr(self.instance, 'latitude', None))
+            longitude = attrs.get('longitude', getattr(self.instance, 'longitude', None))
 
         try:
             normalized = validate_zds_location_payload(
@@ -96,6 +196,83 @@ class AccommodationSerializer(serializers.ModelSerializer):
         attrs['municipality'] = normalized['municipality'] or None
         attrs['latitude'] = normalized['latitude']
         attrs['longitude'] = normalized['longitude']
+
+        offer_transportation = attrs.get(
+            'offer_transportation',
+            getattr(self.instance, 'offer_transportation', False),
+        )
+
+        incoming_options = attrs.get('transport_options', serializers.empty)
+        incoming_list = attrs.get('transport_capacities', serializers.empty)
+        incoming_single = attrs.get('transport_capacity', serializers.empty)
+        incoming_vehicle_type = attrs.get('vehicle_type', serializers.empty)
+
+        if incoming_options is not serializers.empty:
+            normalized_options = self._normalize_transport_options(incoming_options)
+        elif self.instance is not None:
+            existing_options = self._normalize_transport_options(getattr(self.instance, 'transport_options', []))
+            if existing_options:
+                normalized_options = existing_options
+            else:
+                if incoming_vehicle_type is serializers.empty:
+                    vehicle_type = getattr(self.instance, 'vehicle_type', '')
+                else:
+                    vehicle_type = incoming_vehicle_type
+
+                if incoming_list is not serializers.empty:
+                    capacities = self._normalize_transport_capacities(incoming_list)
+                elif incoming_single is not serializers.empty:
+                    capacities = self._normalize_transport_capacities([incoming_single])
+                else:
+                    capacities = self._normalize_transport_capacities(
+                        getattr(self.instance, 'transport_capacities', [])
+                    )
+                    if not capacities:
+                        capacities = self._normalize_transport_capacities([getattr(self.instance, 'transport_capacity', None)])
+
+                vehicle_type = str(vehicle_type or '').strip()
+                normalized_options = [
+                    {
+                        'vehicle_type': vehicle_type,
+                        'transport_capacities': capacities,
+                    }
+                ] if vehicle_type and capacities else []
+        else:
+            vehicle_type = ''
+            if incoming_vehicle_type is not serializers.empty:
+                vehicle_type = str(incoming_vehicle_type or '').strip()
+
+            if incoming_list is not serializers.empty:
+                capacities = self._normalize_transport_capacities(incoming_list)
+            elif incoming_single is not serializers.empty:
+                capacities = self._normalize_transport_capacities([incoming_single])
+            else:
+                capacities = []
+
+            normalized_options = [
+                {
+                    'vehicle_type': vehicle_type,
+                    'transport_capacities': capacities,
+                }
+            ] if vehicle_type and capacities else []
+
+        if offer_transportation:
+            if len(normalized_options) == 0:
+                raise serializers.ValidationError({'transport_options': 'Add at least one transportation entry when transportation is offered.'})
+
+            first_option = normalized_options[0]
+            first_capacities = self._normalize_transport_capacities(first_option.get('transport_capacities', []))
+
+            attrs['transport_options'] = normalized_options
+            attrs['vehicle_type'] = first_option.get('vehicle_type', '')
+            attrs['transport_capacities'] = first_capacities
+            attrs['transport_capacity'] = first_capacities[0] if first_capacities else None
+        else:
+            attrs['vehicle_type'] = ''
+            attrs['transport_capacities'] = []
+            attrs['transport_capacity'] = None
+            attrs['transport_options'] = []
+
         return attrs
 
 class BookingSerializer(serializers.ModelSerializer):
