@@ -5,14 +5,17 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser 
 from django.db.models import Q, F, Value, DecimalField, ExpressionWrapper, Case, When #type: ignore
 from django.db.models.functions import Coalesce #type: ignore
+from django.db import transaction
 from datetime import date, timedelta, datetime
 from django.utils import timezone #type: ignore
+from django.utils.text import slugify
+from django.shortcuts import get_object_or_404
 from django.conf import settings
 from decimal import Decimal
 import json
 
-from .models import Accommodation, Booking
-from .serializers import AccommodationSerializer, BookingSerializer
+from .models import Accommodation, Booking, BookingJourneyCheckpoint
+from .serializers import AccommodationSerializer, BookingSerializer, BookingJourneyCheckpointSerializer
 from system_management_module.models import SystemAlert
 from system_management_module.services.push_notifications import send_push_to_user, build_alert_push_data
 from system_management_module.services.email_preferences import send_preference_aware_email
@@ -123,6 +126,212 @@ def generate_itinerary_html_and_plain(instance):
                 itinerary_html += "</div>"
                 
     return itinerary_html, itinerary_plain
+
+
+def _parse_booking_itinerary_timeline(booking):
+    selected_package = booking.tour_package
+
+    if not selected_package and booking.destination:
+        provider = booking.guide or booking.agency
+        if provider:
+            trip_days = max((booking.check_out - booking.check_in).days + 1, 1)
+            candidates = TourPackage.objects.filter(
+                main_destination=booking.destination,
+                is_active=True,
+                duration_days=trip_days,
+            )
+            if booking.guide:
+                candidates = candidates.filter(guide=booking.guide)
+            elif booking.agency:
+                candidates = candidates.filter(agency__user=booking.agency)
+
+            selected_package = candidates.order_by('-created_at', '-id').first()
+
+    if not selected_package:
+        return []
+
+    timeline = selected_package.itinerary_timeline
+    if isinstance(timeline, str):
+        try:
+            timeline = json.loads(timeline)
+        except json.JSONDecodeError:
+            timeline = []
+
+    if not isinstance(timeline, list):
+        return []
+
+    trip_days = max((booking.check_out - booking.check_in).days + 1, 1)
+    filtered = []
+    for stop in timeline:
+        if not isinstance(stop, dict):
+            continue
+        raw_day = stop.get('day', 1)
+        try:
+            day_number = int(raw_day)
+        except (TypeError, ValueError):
+            day_number = 1
+        if day_number <= trip_days:
+            filtered.append(stop)
+
+    return filtered
+
+
+def _booking_participant_check(booking, user):
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    if booking.tourist_id == user.id:
+        return True
+    if booking.guide_id == user.id:
+        return True
+    if booking.agency_id == user.id:
+        return True
+    if booking.accommodation and booking.accommodation.host_id == user.id:
+        return True
+    return booking.assigned_guides.filter(id=user.id).exists()
+
+
+def _stop_display_name(stop_payload):
+    return (
+        stop_payload.get('activityName')
+        or stop_payload.get('name')
+        or stop_payload.get('title')
+        or stop_payload.get('location')
+        or 'Activity Stop'
+    )
+
+
+def _build_stop_key(day_number, stop_index, stop_name):
+    slug = slugify(str(stop_name or 'stop'))[:40] or 'stop'
+    return f"d{day_number}-s{stop_index}-{slug}"
+
+
+def ensure_booking_journey_checkpoints(booking):
+    existing = list(
+        BookingJourneyCheckpoint.objects.filter(booking=booking).order_by('day_number', 'stop_index', 'id')
+    )
+    if existing:
+        return existing, False
+
+    timeline = _parse_booking_itinerary_timeline(booking)
+    if not timeline:
+        return [], False
+
+    rows = []
+    day_counters = {}
+
+    for stop in timeline:
+        raw_day = stop.get('day', 1)
+        try:
+            day_number = max(int(raw_day), 1)
+        except (TypeError, ValueError):
+            day_number = 1
+
+        stop_index = day_counters.get(day_number, 0)
+        day_counters[day_number] = stop_index + 1
+
+        stop_name = _stop_display_name(stop)
+        rows.append(
+            BookingJourneyCheckpoint(
+                booking=booking,
+                stop_key=_build_stop_key(day_number, stop_index, stop_name),
+                day_number=day_number,
+                stop_index=stop_index,
+                stop_name=stop_name,
+                start_time=stop.get('startTime') or '',
+                end_time=stop.get('endTime') or '',
+                stop_type=str(stop.get('type') or ''),
+            )
+        )
+
+    if rows:
+        with transaction.atomic():
+            BookingJourneyCheckpoint.objects.bulk_create(rows, ignore_conflicts=True)
+
+    refreshed = list(
+        BookingJourneyCheckpoint.objects.filter(booking=booking).order_by('day_number', 'stop_index', 'id')
+    )
+    return refreshed, bool(rows)
+
+
+class BookingJourneyBaseView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (JSONParser,)
+
+    def get_booking_instance(self, request, booking_pk):
+        booking = get_object_or_404(
+            Booking.objects.select_related(
+                'tourist',
+                'guide',
+                'agency',
+                'accommodation__host',
+                'tour_package',
+                'destination',
+            ).prefetch_related('assigned_guides'),
+            pk=booking_pk,
+        )
+
+        if not _booking_participant_check(booking, request.user):
+            raise PermissionDenied("You cannot access this booking journey.")
+
+        return booking
+
+
+class BookingJourneyListCreateView(BookingJourneyBaseView):
+    def get(self, request, pk):
+        booking = self.get_booking_instance(request, pk)
+        checkpoints, _created = ensure_booking_journey_checkpoints(booking)
+        serializer = BookingJourneyCheckpointSerializer(
+            checkpoints,
+            many=True,
+            context={'request': request, 'booking': booking},
+        )
+        return Response(serializer.data)
+
+    def post(self, request, pk):
+        booking = self.get_booking_instance(request, pk)
+
+        raw_force_reset = str(request.data.get('force_reset', '')).strip().lower()
+        force_reset = raw_force_reset in {'1', 'true', 'yes'}
+        if force_reset:
+            if not (request.user.is_staff or request.user.is_superuser):
+                raise PermissionDenied("Only admins can reset journey checkpoints.")
+            booking.journey_checkpoints.all().delete()
+
+        checkpoints, created = ensure_booking_journey_checkpoints(booking)
+        serializer = BookingJourneyCheckpointSerializer(
+            checkpoints,
+            many=True,
+            context={'request': request, 'booking': booking},
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+class BookingJourneyCheckpointDetailView(BookingJourneyBaseView):
+    def get_checkpoint_instance(self, request, booking_pk, checkpoint_pk):
+        booking = self.get_booking_instance(request, booking_pk)
+        checkpoint = get_object_or_404(BookingJourneyCheckpoint, pk=checkpoint_pk, booking=booking)
+        return booking, checkpoint
+
+    def patch(self, request, pk, checkpoint_id):
+        booking, checkpoint = self.get_checkpoint_instance(request, pk, checkpoint_id)
+        serializer = BookingJourneyCheckpointSerializer(
+            checkpoint,
+            data=request.data,
+            partial=True,
+            context={'request': request, 'booking': booking},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def delete(self, request, pk, checkpoint_id):
+        _booking, checkpoint = self.get_checkpoint_instance(request, pk, checkpoint_id)
+        if not (request.user.is_staff or request.user.is_superuser):
+            raise PermissionDenied("Only admins can delete journey checkpoints.")
+        checkpoint.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class IsHostOrReadOnly(permissions.BasePermission):

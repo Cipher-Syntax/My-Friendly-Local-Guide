@@ -6,6 +6,8 @@ from .views import (
     BookingStatusUpdateView, 
     AssignGuidesView,
     AccommodationDropdownListView,
+    BookingJourneyListCreateView,
+    BookingJourneyCheckpointDetailView,
     CleanupZombieBookingsView,
 )
 from django.conf import settings
@@ -26,6 +28,16 @@ urlpatterns = [
         'bookings/<int:pk>/assign-guides/',
         AssignGuidesView.as_view(),
         name='assign-guides'
+    ),
+    path(
+        'bookings/<int:pk>/journey/',
+        BookingJourneyListCreateView.as_view(),
+        name='booking-journey-list-create',
+    ),
+    path(
+        'bookings/<int:pk>/journey/<int:checkpoint_id>/',
+        BookingJourneyCheckpointDetailView.as_view(),
+        name='booking-journey-checkpoint-detail',
     ),
     path('cleanup-zombies/', CleanupZombieBookingsView.as_view(), name='cleanup-zombies'),
     path('', include(router.urls)),

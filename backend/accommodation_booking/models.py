@@ -158,3 +158,56 @@ class Booking(models.Model):
             parts.append(f"Agency: {self.agency.username}")
             
         return f"Booking {self.id} ({', '.join(parts)}) - {self.status}"
+
+
+class BookingJourneyCheckpoint(models.Model):
+    """Mutable per-stop tracking state for a booking's itinerary timeline."""
+
+    booking = models.ForeignKey(
+        Booking,
+        related_name='journey_checkpoints',
+        on_delete=models.CASCADE,
+    )
+    stop_key = models.CharField(max_length=80)
+    day_number = models.PositiveIntegerField(default=1)
+    stop_index = models.PositiveIntegerField(default=0)
+
+    stop_name = models.CharField(max_length=255)
+    start_time = models.CharField(max_length=20, blank=True, null=True)
+    end_time = models.CharField(max_length=20, blank=True, null=True)
+    stop_type = models.CharField(max_length=60, blank=True, null=True)
+
+    is_checked = models.BooleanField(default=False)
+    guide_remarks = models.TextField(blank=True, default='')
+    tourist_remarks = models.TextField(blank=True, default='')
+
+    checked_by = models.ForeignKey(
+        User,
+        related_name='journey_checkpoints_checked',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    checked_at = models.DateTimeField(null=True, blank=True)
+
+    updated_by = models.ForeignKey(
+        User,
+        related_name='journey_checkpoints_updated',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['day_number', 'stop_index', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['booking', 'stop_key'],
+                name='unique_booking_journey_stop_key',
+            )
+        ]
+
+    def __str__(self):
+        return f"Booking {self.booking_id} - Day {self.day_number} Stop {self.stop_index + 1}"

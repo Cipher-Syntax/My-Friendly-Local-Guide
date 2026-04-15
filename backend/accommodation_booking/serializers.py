@@ -1,8 +1,9 @@
 from rest_framework import serializers 
-from .models import Accommodation, Booking
+from .models import Accommodation, Booking, BookingJourneyCheckpoint
 from destinations_and_attractions.models import Destination, TourPackage
 from django.contrib.auth import get_user_model
 from datetime import date, timedelta
+from django.utils import timezone
 import json
 
 from agency_management_module.models import TouristGuide
@@ -441,3 +442,132 @@ class BookingSerializer(serializers.ModelSerializer):
                     })
 
         return data
+
+
+class BookingJourneyCheckpointSerializer(serializers.ModelSerializer):
+    checked_by_detail = serializers.SerializerMethodField(read_only=True)
+    updated_by_detail = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = BookingJourneyCheckpoint
+        fields = [
+            'id',
+            'booking',
+            'stop_key',
+            'day_number',
+            'stop_index',
+            'stop_name',
+            'start_time',
+            'end_time',
+            'stop_type',
+            'is_checked',
+            'guide_remarks',
+            'tourist_remarks',
+            'checked_by',
+            'checked_by_detail',
+            'checked_at',
+            'updated_by',
+            'updated_by_detail',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'booking',
+            'stop_key',
+            'day_number',
+            'stop_index',
+            'stop_name',
+            'start_time',
+            'end_time',
+            'stop_type',
+            'checked_by',
+            'checked_by_detail',
+            'checked_at',
+            'updated_by',
+            'updated_by_detail',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_checked_by_detail(self, obj):
+        if not obj.checked_by:
+            return None
+        full_name = f"{obj.checked_by.first_name} {obj.checked_by.last_name}".strip() or obj.checked_by.username
+        return {
+            'id': obj.checked_by.id,
+            'username': obj.checked_by.username,
+            'full_name': full_name,
+        }
+
+    def get_updated_by_detail(self, obj):
+        if not obj.updated_by:
+            return None
+        full_name = f"{obj.updated_by.first_name} {obj.updated_by.last_name}".strip() or obj.updated_by.username
+        return {
+            'id': obj.updated_by.id,
+            'username': obj.updated_by.username,
+            'full_name': full_name,
+        }
+
+    def _resolve_booking(self):
+        booking = self.context.get('booking')
+        if booking:
+            return booking
+        if self.instance is not None:
+            return self.instance.booking
+        return None
+
+    def _is_provider_user(self, booking, user):
+        if not booking or not user:
+            return False
+        if booking.guide_id == user.id:
+            return True
+        if booking.agency_id == user.id:
+            return True
+        if booking.accommodation and booking.accommodation.host_id == user.id:
+            return True
+        return booking.assigned_guides.filter(id=user.id).exists()
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        booking = self._resolve_booking()
+
+        if not booking or not user or not user.is_authenticated:
+            return attrs
+
+        is_admin = bool(user.is_staff or user.is_superuser)
+        is_tourist = booking.tourist_id == user.id
+        is_provider = self._is_provider_user(booking, user)
+
+        if 'tourist_remarks' in attrs and not (is_tourist or is_admin):
+            raise serializers.ValidationError({'tourist_remarks': 'Only the tourist can edit tourist remarks.'})
+
+        if 'guide_remarks' in attrs and not (is_provider or is_admin):
+            raise serializers.ValidationError({'guide_remarks': 'Only the guide or agency side can edit guide remarks.'})
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+
+        if 'is_checked' in validated_data:
+            incoming_checked = bool(validated_data['is_checked'])
+            if incoming_checked:
+                instance.checked_by = user if user and user.is_authenticated else None
+                instance.checked_at = timezone.now()
+            else:
+                instance.checked_by = None
+                instance.checked_at = None
+
+        for attr in ('is_checked', 'guide_remarks', 'tourist_remarks'):
+            if attr in validated_data:
+                setattr(instance, attr, validated_data[attr])
+
+        if user and user.is_authenticated:
+            instance.updated_by = user
+
+        instance.save()
+        return instance

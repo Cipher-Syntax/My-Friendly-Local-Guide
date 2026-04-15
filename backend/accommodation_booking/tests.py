@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 from agency_management_module.models import Agency
 from destinations_and_attractions.models import Destination, TourPackage
 
-from .models import Accommodation, Booking
+from .models import Accommodation, Booking, BookingJourneyCheckpoint
 from .serializers import BookingSerializer
 
 User = get_user_model()
@@ -325,6 +325,131 @@ class AgencyConcurrentBookingsApiTests(TestCase):
 		returned_ids = {item["id"] for item in response.data}
 		self.assertNotIn(self.overlap_a.id, returned_ids)
 		self.assertIn(self.overlap_b.id, returned_ids)
+
+
+class BookingJourneyApiTests(TestCase):
+	def setUp(self):
+		self.client = APIClient()
+		self.tourist = User.objects.create_user(username="journey_tourist", password="Pass12345")
+		self.guide = User.objects.create_user(
+			username="journey_guide",
+			password="Pass12345",
+			is_local_guide=True,
+			guide_approved=True,
+		)
+		self.other_user = User.objects.create_user(username="journey_other", password="Pass12345")
+
+		self.destination = Destination.objects.create(
+			name="Camiguin",
+			description="Island of fire",
+			category="Islands",
+			location="Northern Mindanao",
+		)
+
+		self.package = TourPackage.objects.create(
+			guide=self.guide,
+			main_destination=self.destination,
+			name="Camiguin Highlights",
+			description="Guided island route",
+			duration="2 days",
+			duration_days=2,
+			max_group_size=5,
+			price_per_day="3500.00",
+			solo_price="4000.00",
+			additional_fee_per_head="500.00",
+			itinerary_timeline=[
+				{"day": 1, "activityName": "White Island", "startTime": "08:00", "endTime": "10:00", "type": "activity"},
+				{"day": 1, "activityName": "Sunken Cemetery", "startTime": "11:00", "endTime": "12:00", "type": "activity"},
+			],
+		)
+
+		self.booking = Booking.objects.create(
+			tourist=self.tourist,
+			guide=self.guide,
+			destination=self.destination,
+			tour_package=self.package,
+			check_in=date.today() + timedelta(days=3),
+			check_out=date.today() + timedelta(days=4),
+			num_guests=2,
+			status="Confirmed",
+		)
+
+		self.list_url = reverse("booking-journey-list-create", kwargs={"pk": self.booking.id})
+
+	def test_journey_list_requires_authentication(self):
+		response = self.client.get(self.list_url)
+		self.assertEqual(response.status_code, 401)
+
+	def test_participant_can_bootstrap_and_list_checkpoints(self):
+		self.client.force_authenticate(user=self.tourist)
+		response = self.client.get(self.list_url)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(len(response.data), 2)
+		self.assertEqual(BookingJourneyCheckpoint.objects.filter(booking=self.booking).count(), 2)
+
+	def test_non_participant_cannot_access_booking_journey(self):
+		self.client.force_authenticate(user=self.other_user)
+		response = self.client.get(self.list_url)
+		self.assertEqual(response.status_code, 403)
+
+	def test_tourist_can_update_check_and_tourist_remarks(self):
+		self.client.force_authenticate(user=self.tourist)
+		self.client.get(self.list_url)
+		checkpoint = BookingJourneyCheckpoint.objects.filter(booking=self.booking).order_by('id').first()
+
+		detail_url = reverse(
+			"booking-journey-checkpoint-detail",
+			kwargs={"pk": self.booking.id, "checkpoint_id": checkpoint.id},
+		)
+		response = self.client.patch(
+			detail_url,
+			{"is_checked": True, "tourist_remarks": "Visited as planned."},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		checkpoint.refresh_from_db()
+		self.assertTrue(checkpoint.is_checked)
+		self.assertEqual(checkpoint.tourist_remarks, "Visited as planned.")
+
+	def test_tourist_cannot_update_guide_remarks(self):
+		self.client.force_authenticate(user=self.tourist)
+		self.client.get(self.list_url)
+		checkpoint = BookingJourneyCheckpoint.objects.filter(booking=self.booking).order_by('id').first()
+
+		detail_url = reverse(
+			"booking-journey-checkpoint-detail",
+			kwargs={"pk": self.booking.id, "checkpoint_id": checkpoint.id},
+		)
+		response = self.client.patch(
+			detail_url,
+			{"guide_remarks": "Provider side note"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("guide_remarks", response.data)
+
+	def test_provider_can_update_guide_remarks(self):
+		self.client.force_authenticate(user=self.tourist)
+		self.client.get(self.list_url)
+		checkpoint = BookingJourneyCheckpoint.objects.filter(booking=self.booking).order_by('id').first()
+
+		self.client.force_authenticate(user=self.guide)
+		detail_url = reverse(
+			"booking-journey-checkpoint-detail",
+			kwargs={"pk": self.booking.id, "checkpoint_id": checkpoint.id},
+		)
+		response = self.client.patch(
+			detail_url,
+			{"guide_remarks": "Tourist arrived at correct stop."},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		checkpoint.refresh_from_db()
+		self.assertEqual(checkpoint.guide_remarks, "Tourist arrived at correct stop.")
 
 
 class AccommodationModelTests(TestCase):
