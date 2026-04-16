@@ -670,7 +670,15 @@ class BookingViewSet(viewsets.ModelViewSet):
         passed_down_payment = self.request.data.get('down_payment')
         passed_balance = self.request.data.get('balance_due')
 
-        instance = serializer.save(tourist=user, status='Pending_Payment')
+        # 3. Detect Food Skip-Provider mode
+        destination = serializer.validated_data.get('destination')
+        is_food_skip = False
+        if not serializer.validated_data.get('guide') and not serializer.validated_data.get('agency') and not serializer.validated_data.get('accommodation'):
+            if destination and destination.category and 'food' in destination.category.lower():
+                is_food_skip = True
+
+        # Assign status Confirmed immediately for skip mode
+        instance = serializer.save(tourist=user, status='Confirmed' if is_food_skip else 'Pending_Payment')
 
         requested_tour_id = self.request.data.get('tour_package_id')
         
@@ -685,7 +693,13 @@ class BookingViewSet(viewsets.ModelViewSet):
             if selected_tour:
                 instance.tour_package = selected_tour
         
-        if passed_total and passed_down_payment and passed_balance:
+        # Zero out fields for skip mode bypassing standard pricing
+        if is_food_skip:
+            instance.total_price = Decimal('0.00')
+            instance.down_payment = Decimal('0.00')
+            instance.balance_due = Decimal('0.00')
+            instance.downpayment_paid_at = timezone.now()
+        elif passed_total and passed_down_payment and passed_balance:
             instance.total_price = Decimal(str(passed_total)).quantize(Decimal('0.01'))
             instance.down_payment = Decimal(str(passed_down_payment)).quantize(Decimal('0.01'))
             instance.balance_due = Decimal(str(passed_balance)).quantize(Decimal('0.01'))
@@ -707,6 +721,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         instance.save()
         self.validate_booking_target(instance)
 
+        # 4. Provider notifications naturally guarded because provider resolves to None in skip mode.
         provider = instance.guide or instance.agency or (instance.accommodation.host if instance.accommodation else None)
         tourist_name = f"{user.first_name} {user.last_name}".strip() or user.username
         if provider and provider.email:

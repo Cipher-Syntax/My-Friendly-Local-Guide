@@ -146,8 +146,17 @@ class Booking(models.Model):
         is_guide = self.guide is not None
         is_agency = self.agency is not None
 
+        # 1. Food category check helper logic
+        is_food_destination = bool(
+            self.destination and 
+            self.destination.category and 
+            'food' in self.destination.category.lower()
+        )
+
+        # 2. Enforce target requirement with food destination exception
         if not (is_guide or is_accommodation or is_agency):
-            raise ValidationError("A booking must target a Guide, Accommodation, or Agency.")
+            if not is_food_destination:
+                raise ValidationError("A booking must target a Guide, Accommodation, or Agency.")
 
         # REMOVED: is_agency combining with is_accommodation restriction so Agencies can book accommodations
         if is_agency and is_guide:

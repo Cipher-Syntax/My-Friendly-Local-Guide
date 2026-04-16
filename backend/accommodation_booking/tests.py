@@ -25,13 +25,13 @@ class AccommodationBookingModelTests(TestCase):
 			guide_approved=True,
 		)
 		self.destination = Destination.objects.create(
-			name="Baguio",
-			description="Cool city",
+			name="Zamboanga Pasonanca",
+			description="Cool city park",
 			category="Nature",
-			location="Pagadian City",
-			municipality="Pagadian City",
-			latitude="7.825000",
-			longitude="123.437000",
+			location="Zamboanga City",
+			municipality="Zamboanga City",
+			latitude="6.920000",
+			longitude="122.070000",
 		)
 
 	def test_booking_requires_target(self):
@@ -66,6 +66,26 @@ class AccommodationBookingModelTests(TestCase):
 				num_guests=1,
 				status="Confirmed",
 			)
+            
+	def test_food_destination_skip_provider_succeeds(self):
+		food_dest = Destination.objects.create(
+			name="Zamboanga Food Street",
+			description="Street food",
+			category="Food & Dining",
+			location="Zamboanga City",
+			latitude="6.900000",
+			longitude="122.000000",
+		)
+		booking = Booking(
+			tourist=self.tourist,
+			destination=food_dest,
+			check_in=date.today() + timedelta(days=2),
+			check_out=date.today() + timedelta(days=3),
+			num_guests=1,
+		)
+		booking.full_clean()
+		booking.save()
+		self.assertTrue(booking.id)
 
 
 class AccommodationBookingSerializerTests(TestCase):
@@ -83,18 +103,18 @@ class AccommodationBookingSerializerTests(TestCase):
 		)
 		self.agency_profile = Agency.objects.create(
 			user=self.agency_user,
-			business_name="Island Movers",
+			business_name="Zamboanga Movers",
 			owner_name="Ana Cruz",
 			email="agency-owner-1@example.com",
 		)
 		self.destination = Destination.objects.create(
-			name="Palawan",
-			description="Island",
+			name="Santa Cruz Island",
+			description="Pink sand",
 			category="Islands",
-			location="Pagadian City",
-			municipality="Pagadian City",
-			latitude="7.826000",
-			longitude="123.438000",
+			location="Zamboanga City",
+			municipality="Zamboanga City",
+			latitude="6.870000",
+			longitude="122.050000",
 		)
 
 	def test_additional_guest_names_invalid_json_becomes_empty_list(self):
@@ -118,7 +138,7 @@ class AccommodationBookingSerializerTests(TestCase):
 		package = TourPackage.objects.create(
 			guide=self.guide,
 			main_destination=self.destination,
-			name="Palawan Day Tour",
+			name="Island Day Tour",
 			description="Island hopping",
 			duration="2 days",
 			duration_days=2,
@@ -193,6 +213,28 @@ class AccommodationBookingApiTests(TestCase):
 		response = self.client.get(reverse("booking-list"))
 		self.assertEqual(response.status_code, 200)
 
+	def test_food_destination_skip_mode_create_api_returns_confirmed_zero_price(self):
+		food_dest = Destination.objects.create(
+			name="Zamboanga Food Hub",
+			description="Street food",
+			category="Food & Dining",
+			location="Zamboanga City",
+			latitude="6.910000",
+			longitude="122.060000",
+		)
+		self.client.force_authenticate(user=self.user)
+		response = self.client.post(reverse("booking-list"), {
+			"destination": food_dest.id,
+			"check_in": str(date.today() + timedelta(days=2)),
+			"check_out": str(date.today() + timedelta(days=3)),
+			"num_guests": 2,
+		}, format="json")
+		
+		self.assertEqual(response.status_code, 201)
+		self.assertEqual(response.data["status"], "Confirmed")
+		self.assertEqual(float(response.data["total_price"]), 0.0)
+		self.assertEqual(float(response.data["down_payment"]), 0.0)
+
 
 class AgencyConcurrentBookingsApiTests(TestCase):
 	def setUp(self):
@@ -212,22 +254,22 @@ class AgencyConcurrentBookingsApiTests(TestCase):
 		)
 
 		self.destination = Destination.objects.create(
-			name="Siargao",
+			name="Zamboanga Great Sta Cruz",
 			description="Island destination",
 			category="Islands",
-			location="Pagadian City",
-			municipality="Pagadian City",
-			latitude="7.827000",
-			longitude="123.439000",
+			location="Zamboanga City",
+			municipality="Zamboanga City",
+			latitude="6.870000",
+			longitude="122.050000",
 		)
 		self.other_destination = Destination.objects.create(
-			name="Bohol",
-			description="Chocolate hills",
+			name="Zamboanga City Hall",
+			description="Heritage",
 			category="Nature",
-			location="Tukuran",
-			municipality="Tukuran",
-			latitude="7.854000",
-			longitude="123.574000",
+			location="Zamboanga City",
+			municipality="Zamboanga City",
+			latitude="6.903000",
+			longitude="122.076000",
 		)
 
 		self.window_start = date.today() + timedelta(days=6)
@@ -352,20 +394,20 @@ class BookingJourneyApiTests(TestCase):
 		self.other_user = User.objects.create_user(username="journey_other", password="Pass12345")
 
 		self.destination = Destination.objects.create(
-			name="Camiguin",
-			description="Island of fire",
-			category="Islands",
-			location="Pagadian City",
-			municipality="Pagadian City",
-			latitude="7.828000",
-			longitude="123.440000",
+			name="Zamboanga Paseo",
+			description="City Walk",
+			category="City",
+			location="Zamboanga City",
+			municipality="Zamboanga City",
+			latitude="6.905000",
+			longitude="122.080000",
 		)
 
 		self.package = TourPackage.objects.create(
 			guide=self.guide,
 			main_destination=self.destination,
-			name="Camiguin Highlights",
-			description="Guided island route",
+			name="Paseo Highlights",
+			description="Guided walk",
 			duration="2 days",
 			duration_days=2,
 			max_group_size=5,
@@ -373,8 +415,8 @@ class BookingJourneyApiTests(TestCase):
 			solo_price="4000.00",
 			additional_fee_per_head="500.00",
 			itinerary_timeline=[
-				{"day": 1, "activityName": "White Island", "startTime": "08:00", "endTime": "10:00", "type": "activity"},
-				{"day": 1, "activityName": "Sunken Cemetery", "startTime": "11:00", "endTime": "12:00", "type": "activity"},
+				{"day": 1, "activityName": "Paseo del Mar", "startTime": "08:00", "endTime": "10:00", "type": "activity"},
+				{"day": 1, "activityName": "Fort Pilar", "startTime": "11:00", "endTime": "12:00", "type": "activity"},
 			],
 		)
 
@@ -478,13 +520,13 @@ class BookingMeetupLocationValidationTests(TestCase):
 			guide_approved=True,
 		)
 		self.destination = Destination.objects.create(
-			name="Tukuran Falls",
-			description="Waterfall destination",
+			name="Zamboanga Pasonanca Park",
+			description="Nature destination",
 			category="Nature",
-			location="Tukuran",
-			municipality="Tukuran",
-			latitude="7.850000",
-			longitude="123.570000",
+			location="Zamboanga City",
+			municipality="Zamboanga City",
+			latitude="6.920000",
+			longitude="122.070000",
 		)
 		self.booking = Booking.objects.create(
 			tourist=self.tourist,
@@ -503,7 +545,7 @@ class BookingMeetupLocationValidationTests(TestCase):
 			{
 				"status": "Accepted",
 				"meetup_location": "Outside scope",
-				"meetup_municipality": "Pagadian City",
+				"meetup_municipality": "Zamboanga City",
 				"meetup_latitude": "6.000000",
 				"meetup_longitude": "120.000000",
 				"meetup_time": "09:00:00",
@@ -520,10 +562,10 @@ class BookingMeetupLocationValidationTests(TestCase):
 			reverse("booking-status-update", kwargs={"pk": self.booking.id}),
 			{
 				"status": "Accepted",
-				"meetup_location": "Pagadian City Rotonda",
-				"meetup_municipality": "Pagadian City",
-				"meetup_latitude": "7.826000",
-				"meetup_longitude": "123.439000",
+				"meetup_location": "Zamboanga City Rotonda",
+				"meetup_municipality": "Zamboanga City",
+				"meetup_latitude": "6.901000",
+				"meetup_longitude": "122.001000",
 				"meetup_time": "09:00:00",
 				"meetup_instructions": "Look for the blue umbrella.",
 			},
@@ -533,8 +575,8 @@ class BookingMeetupLocationValidationTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.booking.refresh_from_db()
 		self.assertEqual(self.booking.status, "Accepted")
-		self.assertEqual(str(self.booking.meetup_latitude), "7.826000")
-		self.assertEqual(str(self.booking.meetup_longitude), "123.439000")
+		self.assertEqual(str(self.booking.meetup_latitude), "6.901000")
+		self.assertEqual(str(self.booking.meetup_longitude), "122.001000")
 
 
 class AccommodationModelTests(TestCase):
