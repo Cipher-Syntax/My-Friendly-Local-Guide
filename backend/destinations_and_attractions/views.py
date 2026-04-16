@@ -326,17 +326,84 @@ class MunicipalityChoicesView(APIView):
 class LocationSearchView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    def _search_with_nominatim(self, candidate_queries, limit):
+        results = []
+        seen_result_ids = set()
+
+        # Nominatim expects viewbox as: left,top,right,bottom
+        viewbox = f"{ZDS_MAPBOX_BBOX[0]},{ZDS_MAPBOX_BBOX[3]},{ZDS_MAPBOX_BBOX[2]},{ZDS_MAPBOX_BBOX[1]}"
+        headers = {
+            'Accept': 'application/json',
+            'Accept-Language': 'en',
+            'User-Agent': 'localynk-backend/1.0',
+        }
+
+        for candidate_query in candidate_queries:
+            params = {
+                'q': candidate_query,
+                'format': 'jsonv2',
+                'limit': limit,
+                'countrycodes': 'ph',
+                'addressdetails': 1,
+                'viewbox': viewbox,
+                'bounded': 1,
+            }
+
+            try:
+                response = requests.get(
+                    'https://nominatim.openstreetmap.org/search',
+                    params=params,
+                    headers=headers,
+                    timeout=8,
+                )
+                response.raise_for_status()
+                payload = response.json()
+            except requests.RequestException:
+                continue
+
+            if not isinstance(payload, list):
+                continue
+
+            for item in payload:
+                latitude = item.get('lat')
+                longitude = item.get('lon')
+
+                try:
+                    lat_value, lng_value = validate_zds_coordinates(latitude, longitude)
+                except ValueError:
+                    continue
+
+                result_id = str(item.get('place_id') or f"{lat_value}:{lng_value}")
+                if result_id in seen_result_ids:
+                    continue
+
+                seen_result_ids.add(result_id)
+
+                label = item.get('display_name') or candidate_query
+                municipality = extract_municipality_from_text(label) or CITY_SCOPE_LABEL
+
+                results.append(
+                    {
+                        'id': result_id,
+                        'label': label,
+                        'name': item.get('name') or label,
+                        'municipality': municipality,
+                        'latitude': lat_value,
+                        'longitude': lng_value,
+                    }
+                )
+
+                if len(results) >= limit:
+                    return results
+
+        return results
+
     def get(self, request):
         query = str(request.query_params.get('q') or request.query_params.get('query') or '').strip()
         if len(query) < 2:
             return Response([])
 
-        mapbox_token = getattr(settings, 'MAPBOX_ACCESS_TOKEN', '')
-        if not mapbox_token:
-            return Response(
-                {'detail': 'Map search is not configured yet.'},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
+        mapbox_token = str(getattr(settings, 'MAPBOX_ACCESS_TOKEN', '') or '').strip()
 
         limit_raw = request.query_params.get('limit', 8)
         try:
@@ -359,49 +426,44 @@ class LocationSearchView(APIView):
         center_lng = (ZDS_MAPBOX_BBOX[0] + ZDS_MAPBOX_BBOX[2]) / 2
         center_lat = (ZDS_MAPBOX_BBOX[1] + ZDS_MAPBOX_BBOX[3]) / 2
 
-        base_params = {
-            'access_token': mapbox_token,
-            'country': 'PH',
-            'bbox': ','.join(str(value) for value in ZDS_MAPBOX_BBOX),
-            'types': 'place,locality,neighborhood,address,poi',
-            'autocomplete': 'true',
-            'proximity': f"{center_lng},{center_lat}",
-            'limit': limit,
-        }
-
         features = []
         seen_feature_ids = set()
-        had_successful_request = False
+        had_successful_mapbox_request = False
 
-        for candidate_query in candidate_queries:
-            endpoint = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{quote(candidate_query)}.json"
+        if mapbox_token:
+            base_params = {
+                'access_token': mapbox_token,
+                'country': 'PH',
+                'bbox': ','.join(str(value) for value in ZDS_MAPBOX_BBOX),
+                'types': 'place,locality,neighborhood,address,poi',
+                'autocomplete': 'true',
+                'proximity': f"{center_lng},{center_lat}",
+                'limit': limit,
+            }
 
-            try:
-                provider_response = requests.get(endpoint, params=base_params, timeout=8)
-                provider_response.raise_for_status()
-                payload = provider_response.json()
-                had_successful_request = True
-            except requests.RequestException:
-                continue
+            for candidate_query in candidate_queries:
+                endpoint = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{quote(candidate_query)}.json"
 
-            for feature in payload.get('features', []):
-                feature_id = str(feature.get('id') or '')
-                if feature_id and feature_id in seen_feature_ids:
+                try:
+                    provider_response = requests.get(endpoint, params=base_params, timeout=8)
+                    provider_response.raise_for_status()
+                    payload = provider_response.json()
+                    had_successful_mapbox_request = True
+                except requests.RequestException:
                     continue
 
-                if feature_id:
-                    seen_feature_ids.add(feature_id)
+                for feature in payload.get('features', []):
+                    feature_id = str(feature.get('id') or '')
+                    if feature_id and feature_id in seen_feature_ids:
+                        continue
 
-                features.append(feature)
+                    if feature_id:
+                        seen_feature_ids.add(feature_id)
 
-            if len(features) >= limit:
-                break
+                    features.append(feature)
 
-        if not had_successful_request:
-            return Response(
-                {'detail': 'Location search provider is currently unavailable.'},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+                if len(features) >= limit:
+                    break
 
         results = []
         for feature in features:
@@ -434,7 +496,20 @@ class LocationSearchView(APIView):
             if len(results) >= limit:
                 break
 
-        return Response(results)
+        if results:
+            return Response(results)
+
+        nominatim_results = self._search_with_nominatim(candidate_queries, limit)
+        if nominatim_results:
+            return Response(nominatim_results)
+
+        if mapbox_token and not had_successful_mapbox_request:
+            return Response(
+                {'detail': 'Location search providers are currently unavailable.'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return Response([])
 
 
 class LocationCorrectionListCreateView(APIView):

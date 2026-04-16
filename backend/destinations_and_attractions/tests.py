@@ -1,8 +1,10 @@
 import json
 from datetime import timedelta
+from unittest.mock import patch
 
+import requests
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
 
@@ -11,6 +13,19 @@ from .serializers import TourPackageSerializer
 from .views import _get_previous_day_window
 
 User = get_user_model()
+
+
+class _MockHttpResponse:
+	def __init__(self, payload, status_code=200):
+		self._payload = payload
+		self.status_code = status_code
+
+	def raise_for_status(self):
+		if self.status_code >= 400:
+			raise requests.HTTPError(f"status={self.status_code}")
+
+	def json(self):
+		return self._payload
 
 
 class DestinationsModelTests(TestCase):
@@ -400,3 +415,43 @@ class DestinationHighlightsApiTests(TestCase):
 		packages = destination_entry.get("packages", [])
 		self.assertEqual(len(packages), 2)
 		self.assertEqual([pkg.get("id") for pkg in packages], [latest_pkg.id, second_pkg.id])
+
+
+class LocationSearchFallbackTests(TestCase):
+	def setUp(self):
+		self.client = APIClient()
+
+	@override_settings(MAPBOX_ACCESS_TOKEN='')
+	@patch('destinations_and_attractions.views.requests.get')
+	def test_location_search_uses_nominatim_when_mapbox_not_configured(self, mock_get):
+		mock_get.return_value = _MockHttpResponse(
+			[
+				{
+					'place_id': 123,
+					'name': 'Pasonanca',
+					'display_name': 'Pasonanca, Zamboanga City, Philippines',
+					'lat': '6.951000',
+					'lon': '122.090000',
+				}
+			]
+		)
+
+		response = self.client.get(reverse('location-search'), {'q': 'Pasonanca', 'limit': 1})
+
+		self.assertEqual(response.status_code, 200)
+		payload = response.json()
+		self.assertEqual(len(payload), 1)
+		self.assertEqual(payload[0]['municipality'], 'Zamboanga City')
+		self.assertEqual(str(payload[0]['latitude']), '6.951000')
+		self.assertEqual(str(payload[0]['longitude']), '122.090000')
+
+	@override_settings(MAPBOX_ACCESS_TOKEN='dummy-token')
+	@patch('destinations_and_attractions.views.requests.get', side_effect=requests.RequestException('upstream down'))
+	def test_location_search_returns_502_when_all_providers_fail(self, _mock_get):
+		response = self.client.get(reverse('location-search'), {'q': 'Pasonanca'})
+
+		self.assertEqual(response.status_code, 502)
+		self.assertEqual(
+			response.json().get('detail'),
+			'Location search providers are currently unavailable.',
+		)
