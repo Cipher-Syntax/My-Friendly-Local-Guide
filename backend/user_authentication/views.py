@@ -27,7 +27,8 @@ from .serializers import (
     AdminTokenObtainPairSerializer,
     AgencyTokenObtainPairSerializer,
     FavoriteGuideSerializer,
-    CustomTokenObtainPairSerializer 
+    CustomTokenObtainPairSerializer,
+    enforce_minimum_login_age,
 )
 from .models import GuideApplication, FavoriteGuide
 from .utils import verify_google_token
@@ -743,6 +744,8 @@ class GoogleLoginAPIView(APIView):
         if user is None:
             return Response({"detail": "Invalid Google token"}, status=status.HTTP_401_UNAUTHORIZED)
 
+        enforce_minimum_login_age(user)
+
         refresh = RefreshToken.for_user(user)
         return Response({
             "access": str(refresh.access_token),
@@ -785,6 +788,8 @@ class ReactivateAccountView(APIView):
 
         if user.scheduled_deletion_date is None and user.deactivated_at is None:
             return Response({"detail": "Account is not deactivated."}, status=status.HTTP_400_BAD_REQUEST)
+
+        enforce_minimum_login_age(user)
 
         user.is_active = True
         user.deactivated_at = None

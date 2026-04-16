@@ -11,6 +11,40 @@ from backend.location_policy import validate_zds_location_payload
 
 User = get_user_model()
 
+MINIMUM_ACCOUNT_AGE = 18
+REGISTRATION_AGE_ERROR = f'You must be at least {MINIMUM_ACCOUNT_AGE} years old to register.'
+LOGIN_AGE_ERROR = f'Only users {MINIMUM_ACCOUNT_AGE} years old and above can log in.'
+
+
+def _get_age_from_date_of_birth(date_of_birth):
+    if not date_of_birth:
+        return None
+
+    today = timezone.localdate()
+    age = today.year - date_of_birth.year
+    if (today.month, today.day) < (date_of_birth.month, date_of_birth.day):
+        age -= 1
+    return age
+
+
+def _enforce_valid_birthdate(date_of_birth):
+    if not date_of_birth:
+        return
+
+    today = timezone.localdate()
+    if date_of_birth > today:
+        raise serializers.ValidationError('Birthdate cannot be in the future.')
+
+
+def enforce_minimum_login_age(user):
+    date_of_birth = getattr(user, 'date_of_birth', None)
+    if not date_of_birth:
+        return
+
+    age = _get_age_from_date_of_birth(date_of_birth)
+    if age is not None and age < MINIMUM_ACCOUNT_AGE:
+        raise AuthenticationFailed(LOGIN_AGE_ERROR)
+
 
 def _normalize_string_list(raw_value):
     if raw_value is None:
@@ -123,7 +157,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'password', 'confirm_password', 'agency_profile',
             'first_name', 'middle_name', 'last_name', 'date_joined',
-            'profile_picture', 'bio', 'phone_number',
+            'profile_picture', 'bio', 'phone_number', 'date_of_birth', 'gender', 'religion', 'dialect',
             'payout_account_type', 'payout_account_name', 'payout_account_number', 'payout_account_notes',
             'location', 'municipality', 'latitude', 'longitude', 'valid_id_image', 'personalization_profile', 'is_active',
             'is_staff', 'is_superuser',
@@ -193,6 +227,13 @@ class UserSerializer(serializers.ModelSerializer):
 
     def validate_phone_number(self, value):
         return normalize_ph_phone(value, "phone_number")
+
+    def validate_date_of_birth(self, value):
+        _enforce_valid_birthdate(value)
+        age = _get_age_from_date_of_birth(value)
+        if age is not None and age < MINIMUM_ACCOUNT_AGE:
+            raise serializers.ValidationError(REGISTRATION_AGE_ERROR)
+        return value
     
     def validate(self, data):
         password = data.get('password')
@@ -200,6 +241,29 @@ class UserSerializer(serializers.ModelSerializer):
         if password or confirm_password:
             if password != confirm_password:
                 raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
+
+        for field_name in ('first_name', 'last_name'):
+            if field_name in data:
+                data[field_name] = str(data.get(field_name) or '').strip()
+
+        if 'middle_name' in data:
+            middle_name = str(data.get('middle_name') or '').strip()
+            data['middle_name'] = middle_name or None
+
+        if self.instance is None:
+            if not str(data.get('first_name') or '').strip():
+                raise serializers.ValidationError({'first_name': 'First name is required for registration.'})
+
+            if not str(data.get('last_name') or '').strip():
+                raise serializers.ValidationError({'last_name': 'Last name is required for registration.'})
+
+            if not data.get('date_of_birth'):
+                raise serializers.ValidationError({'date_of_birth': 'Birthdate is required for registration.'})
+
+        for field_name in ('gender', 'religion', 'dialect'):
+            if field_name in data:
+                normalized_value = str(data.get(field_name) or '').strip()
+                data[field_name] = normalized_value or None
 
         if 'languages' in data:
             data['languages'] = _normalize_string_list(data.get('languages'))
@@ -303,6 +367,8 @@ class AgencyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # 1. Intercept Deactivated Accounts ONLY if the password is correct
         if user_exists and user_exists.check_password(password):
+            enforce_minimum_login_age(user_exists)
+
             if user_exists.scheduled_deletion_date is not None:
                 days_left = (user_exists.scheduled_deletion_date - timezone.now()).days
                 msg = f"Account deactivated. Scheduled for deletion in {days_left} days."
@@ -318,6 +384,8 @@ class AgencyTokenObtainPairSerializer(TokenObtainPairSerializer):
             data = super().validate(attrs)
         except AuthenticationFailed:
             raise AuthenticationFailed('Invalid Credentials.')
+
+        enforce_minimum_login_age(self.user)
 
         if self.user.is_superuser:
             raise AuthenticationFailed('Admin accounts must sign in through the Admin Portal.')
@@ -350,9 +418,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         username = attrs.get(self.username_field)
+        password = attrs.get('password')
         
         user_exists = User.objects.filter(username=username).first()
         
+        if user_exists and user_exists.check_password(password):
+            enforce_minimum_login_age(user_exists)
+
         if user_exists:
             if user_exists.scheduled_deletion_date is not None:
                 days_left = (user_exists.scheduled_deletion_date - timezone.now()).days
@@ -371,6 +443,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             data = super().validate(attrs)
         except AuthenticationFailed:
             raise AuthenticationFailed('Invalid Credentials.')
+
+        enforce_minimum_login_age(self.user)
 
         if self.user.is_superuser:
             raise AuthenticationFailed('Admin accounts must sign in through the Admin Portal.')
