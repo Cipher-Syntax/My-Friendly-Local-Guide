@@ -398,6 +398,8 @@ class LocationSearchView(APIView):
 
         return results
 
+    # Replace your existing LocationSearchView.get method with this updated version:
+
     def get(self, request):
         query = str(request.query_params.get('q') or request.query_params.get('query') or '').strip()
         if len(query) < 2:
@@ -423,6 +425,35 @@ class LocationSearchView(APIView):
         elif 'sta cruz' in query_lower:
             candidate_queries.append(f"Santa Cruz Island, {CITY_SCOPE_LABEL}")
 
+        results = []
+        seen_coordinates = set()
+
+        # 1. NEW: Provide existing destinations as suggestions first
+        existing_dests = Destination.objects.filter(
+            Q(name__icontains=query) | Q(location__icontains=query)
+        ).exclude(latitude__isnull=True).exclude(longitude__isnull=True)[:limit]
+
+        for dest in existing_dests:
+            try:
+                lat_val = float(dest.latitude)
+                lng_val = float(dest.longitude)
+                coord_key = f"{lat_val:.4f},{lng_val:.4f}"
+                
+                if coord_key not in seen_coordinates:
+                    seen_coordinates.add(coord_key)
+                    results.append({
+                        'id': f"local_dest_{dest.id}",
+                        'label': dest.location,
+                        'name': dest.location,
+                        'municipality': dest.municipality or CITY_SCOPE_LABEL,
+                        'latitude': lat_val,
+                        'longitude': lng_val,
+                        'is_existing': True,
+                        'existing_name': dest.name
+                    })
+            except (TypeError, ValueError):
+                pass
+
         center_lng = (ZDS_MAPBOX_BBOX[0] + ZDS_MAPBOX_BBOX[2]) / 2
         center_lat = (ZDS_MAPBOX_BBOX[1] + ZDS_MAPBOX_BBOX[3]) / 2
 
@@ -430,7 +461,7 @@ class LocationSearchView(APIView):
         seen_feature_ids = set()
         had_successful_mapbox_request = False
 
-        if mapbox_token:
+        if mapbox_token and len(results) < limit:
             base_params = {
                 'access_token': mapbox_token,
                 'country': 'PH',
@@ -465,8 +496,10 @@ class LocationSearchView(APIView):
                 if len(features) >= limit:
                     break
 
-        results = []
         for feature in features:
+            if len(results) >= limit:
+                break
+
             center = feature.get('center') or []
             if len(center) != 2:
                 continue
@@ -476,6 +509,12 @@ class LocationSearchView(APIView):
                 lat_value, lng_value = validate_zds_coordinates(latitude, longitude)
             except ValueError:
                 continue
+
+            # Prevent duplicating identical coordinates
+            coord_key = f"{lat_value:.4f},{lng_value:.4f}"
+            if coord_key in seen_coordinates:
+                continue
+            seen_coordinates.add(coord_key)
 
             label = feature.get('place_name') or feature.get('text') or ''
             municipality = extract_municipality_from_text(label)
@@ -492,9 +531,6 @@ class LocationSearchView(APIView):
                     'longitude': lng_value,
                 }
             )
-
-            if len(results) >= limit:
-                break
 
         if results:
             return Response(results)

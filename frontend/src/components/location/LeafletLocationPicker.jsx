@@ -196,7 +196,7 @@ export default function LeafletLocationPicker({
                 />
             </div>
 
-            <div className="relative">
+            <div className="relative z-50">
                 <input
                     id={`${idPrefix}-search`}
                     type="text"
@@ -211,7 +211,7 @@ export default function LeafletLocationPicker({
                 )}
 
                 {results.length > 0 && (
-                    <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700/50 bg-white dark:bg-slate-900 shadow-lg max-h-56 overflow-auto">
+                    <div className="absolute top-full left-0 z-50 mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700/50 bg-white dark:bg-slate-900 shadow-lg max-h-56 overflow-auto">
                         {results.map((item) => (
                             <button
                                 key={item.id || `${item.latitude}-${item.longitude}-${item.label}`}
@@ -219,19 +219,26 @@ export default function LeafletLocationPicker({
                                 onClick={() => handleResultPick(item)}
                                 className="w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800 last:border-b-0"
                             >
-                                <p className="text-sm font-medium text-slate-900 dark:text-white">
-                                    {item.label || item.name}
-                                </p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">
-                                    {item.municipality || CITY_SCOPE}
-                                </p>
+                                <div className="flex flex-col gap-0.5">
+                                    {item.is_existing && (
+                                        <span className="text-xs font-bold text-cyan-600 dark:text-cyan-400 tracking-wide mb-0.5 flex items-center gap-1">
+                                            <MapPin className="w-3 h-3" /> Existing: {item.existing_name}
+                                        </span>
+                                    )}
+                                    <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                        {item.label || item.name}
+                                    </p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        {item.municipality || CITY_SCOPE}
+                                    </p>
+                                </div>
                             </button>
                         ))}
                     </div>
                 )}
             </div>
 
-            <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
+            <div className="relative z-0 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700/50">
                 <MapContainer
                     center={ZDS_CENTER}
                     zoom={11}
