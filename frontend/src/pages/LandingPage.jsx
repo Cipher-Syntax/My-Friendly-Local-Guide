@@ -406,7 +406,7 @@ const LandingPage = () => {
 
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
                         <a
-                            href="https://expo.dev/artifacts/eas/ksGWKaNHx3zqJZsK7eQfXs.apk"
+                            href="https://expo.dev/artifacts/eas/mMUAPp5sZFexg8gvmFy1rR.apk"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-8 py-4 bg-white text-slate-900 rounded-xl font-bold text-lg hover:bg-slate-100 transition-all flex items-center justify-center gap-3"
