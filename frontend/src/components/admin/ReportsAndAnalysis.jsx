@@ -278,24 +278,28 @@ export default function ReportsAndAnalysis() {
         const dateStr = new Date().toISOString().split('T')[0];
 
         const combineRankingRows = (topRows = [], leastRows = [], metricKey) => ([
-            ...topRows.map((entry, index) => ({
-                rank_group: 'Top',
-                position: index + 1,
-                display_name: entry.display_name,
-                username: entry.username,
-                bookings_count: entry.bookings_count,
-                earnings: entry.earnings,
-                metric: entry?.[metricKey] ?? 0,
-            })),
-            ...leastRows.map((entry, index) => ({
-                rank_group: 'Least',
-                position: index + 1,
-                display_name: entry.display_name,
-                username: entry.username,
-                bookings_count: entry.bookings_count,
-                earnings: entry.earnings,
-                metric: entry?.[metricKey] ?? 0,
-            })),
+            ...topRows
+                .filter(entry => (entry[metricKey] || 0) > 0)
+                .map((entry, index) => ({
+                    rank_group: 'Top',
+                    position: index + 1,
+                    display_name: entry.display_name,
+                    username: entry.username,
+                    bookings_count: entry.bookings_count,
+                    earnings: entry.earnings,
+                    metric: entry?.[metricKey] ?? 0,
+                })),
+            ...leastRows
+                .filter(entry => (entry[metricKey] || 0) === 0)
+                .map((entry, index) => ({
+                    rank_group: 'Least',
+                    position: index + 1,
+                    display_name: entry.display_name,
+                    username: entry.username,
+                    bookings_count: entry.bookings_count,
+                    earnings: entry.earnings,
+                    metric: entry?.[metricKey] ?? 0,
+                })),
         ]);
 
         exportStyledWorkbook({
@@ -344,68 +348,35 @@ export default function ReportsAndAnalysis() {
                     ],
                 },
                 {
-                    name: 'Guide Bookings Rank',
-                    tableTitle: 'Guide Rankings by Bookings',
-                    rows: combineRankingRows(
-                        rankings.top_guides_by_bookings,
-                        rankings.least_guides_by_bookings,
-                        'bookings_count'
-                    ),
-                    columns: [
-                        { key: 'rank_group', header: 'Rank Group' },
-                        { key: 'position', header: 'Position' },
-                        { key: 'display_name', header: 'Guide' },
-                        { key: 'username', header: 'Username' },
-                        { key: 'bookings_count', header: 'Bookings' },
-                        { key: 'earnings', header: 'Earnings (PHP)' },
+                    name: 'All Rankings',
+                    tableTitle: 'Top and Least Performing Partners',
+                    rows: [
+                        ...combineRankingRows(
+                            rankings.top_guides_by_bookings,
+                            rankings.least_guides_by_bookings,
+                            'bookings_count'
+                        ).map(r => ({ category: 'Guide - Bookings', ...r })),
+                        ...combineRankingRows(
+                            rankings.top_guides_by_earnings,
+                            rankings.least_guides_by_earnings,
+                            'earnings'
+                        ).map(r => ({ category: 'Guide - Earnings', ...r })),
+                        ...combineRankingRows(
+                            rankings.top_agencies_by_bookings,
+                            rankings.least_agencies_by_bookings,
+                            'bookings_count'
+                        ).map(r => ({ category: 'Agency - Bookings', ...r })),
+                        ...combineRankingRows(
+                            rankings.top_agencies_by_earnings,
+                            rankings.least_agencies_by_earnings,
+                            'earnings'
+                        ).map(r => ({ category: 'Agency - Earnings', ...r })),
                     ],
-                },
-                {
-                    name: 'Guide Earnings Rank',
-                    tableTitle: 'Guide Rankings by Earnings',
-                    rows: combineRankingRows(
-                        rankings.top_guides_by_earnings,
-                        rankings.least_guides_by_earnings,
-                        'earnings'
-                    ),
                     columns: [
+                        { key: 'category', header: 'Category' },
                         { key: 'rank_group', header: 'Rank Group' },
                         { key: 'position', header: 'Position' },
-                        { key: 'display_name', header: 'Guide' },
-                        { key: 'username', header: 'Username' },
-                        { key: 'bookings_count', header: 'Bookings' },
-                        { key: 'earnings', header: 'Earnings (PHP)' },
-                    ],
-                },
-                {
-                    name: 'Agency Bookings Rank',
-                    tableTitle: 'Agency Rankings by Bookings',
-                    rows: combineRankingRows(
-                        rankings.top_agencies_by_bookings,
-                        rankings.least_agencies_by_bookings,
-                        'bookings_count'
-                    ),
-                    columns: [
-                        { key: 'rank_group', header: 'Rank Group' },
-                        { key: 'position', header: 'Position' },
-                        { key: 'display_name', header: 'Agency' },
-                        { key: 'username', header: 'Username' },
-                        { key: 'bookings_count', header: 'Bookings' },
-                        { key: 'earnings', header: 'Earnings (PHP)' },
-                    ],
-                },
-                {
-                    name: 'Agency Earnings Rank',
-                    tableTitle: 'Agency Rankings by Earnings',
-                    rows: combineRankingRows(
-                        rankings.top_agencies_by_earnings,
-                        rankings.least_agencies_by_earnings,
-                        'earnings'
-                    ),
-                    columns: [
-                        { key: 'rank_group', header: 'Rank Group' },
-                        { key: 'position', header: 'Position' },
-                        { key: 'display_name', header: 'Agency' },
+                        { key: 'display_name', header: 'Name' },
                         { key: 'username', header: 'Username' },
                         { key: 'bookings_count', header: 'Bookings' },
                         { key: 'earnings', header: 'Earnings (PHP)' },
@@ -498,28 +469,28 @@ export default function ReportsAndAnalysis() {
                     <RankingPanel
                         title="Guide Rankings by Bookings"
                         metricLabel="Bookings"
-                        topRows={(rankings.top_guides_by_bookings || []).map((entry) => ({ ...entry, metric: entry.bookings_count }))}
-                        leastRows={(rankings.least_guides_by_bookings || []).map((entry) => ({ ...entry, metric: entry.bookings_count }))}
+                        topRows={(rankings.top_guides_by_bookings || []).filter(e => (e.bookings_count || 0) > 0).map((entry) => ({ ...entry, metric: entry.bookings_count }))}
+                        leastRows={(rankings.least_guides_by_bookings || []).filter(e => (e.bookings_count || 0) === 0).map((entry) => ({ ...entry, metric: entry.bookings_count }))}
                     />
                     <RankingPanel
                         title="Guide Rankings by Earnings"
                         metricLabel="Earnings"
                         isCurrency
-                        topRows={(rankings.top_guides_by_earnings || []).map((entry) => ({ ...entry, metric: entry.earnings }))}
-                        leastRows={(rankings.least_guides_by_earnings || []).map((entry) => ({ ...entry, metric: entry.earnings }))}
+                        topRows={(rankings.top_guides_by_earnings || []).filter(e => (e.earnings || 0) > 0).map((entry) => ({ ...entry, metric: entry.earnings }))}
+                        leastRows={(rankings.least_guides_by_earnings || []).filter(e => (e.earnings || 0) === 0).map((entry) => ({ ...entry, metric: entry.earnings }))}
                     />
                     <RankingPanel
                         title="Agency Rankings by Bookings"
                         metricLabel="Bookings"
-                        topRows={(rankings.top_agencies_by_bookings || []).map((entry) => ({ ...entry, metric: entry.bookings_count }))}
-                        leastRows={(rankings.least_agencies_by_bookings || []).map((entry) => ({ ...entry, metric: entry.bookings_count }))}
+                        topRows={(rankings.top_agencies_by_bookings || []).filter(e => (e.bookings_count || 0) > 0).map((entry) => ({ ...entry, metric: entry.bookings_count }))}
+                        leastRows={(rankings.least_agencies_by_bookings || []).filter(e => (e.bookings_count || 0) === 0).map((entry) => ({ ...entry, metric: entry.bookings_count }))}
                     />
                     <RankingPanel
                         title="Agency Rankings by Earnings"
                         metricLabel="Earnings"
                         isCurrency
-                        topRows={(rankings.top_agencies_by_earnings || []).map((entry) => ({ ...entry, metric: entry.earnings }))}
-                        leastRows={(rankings.least_agencies_by_earnings || []).map((entry) => ({ ...entry, metric: entry.earnings }))}
+                        topRows={(rankings.top_agencies_by_earnings || []).filter(e => (e.earnings || 0) > 0).map((entry) => ({ ...entry, metric: entry.earnings }))}
+                        leastRows={(rankings.least_agencies_by_earnings || []).filter(e => (e.earnings || 0) === 0).map((entry) => ({ ...entry, metric: entry.earnings }))}
                     />
                 </div>
             </div>
