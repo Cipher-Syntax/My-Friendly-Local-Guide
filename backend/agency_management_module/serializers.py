@@ -70,6 +70,9 @@ class AgencySerializer(serializers.ModelSerializer):
     is_active = serializers.BooleanField(source='user.is_active', read_only=True)
     is_guide_visible = serializers.BooleanField(source='user.is_guide_visible', read_only=True)
 
+    tour_packages = serializers.SerializerMethodField()
+    user_details = serializers.SerializerMethodField()
+
     class Meta:
         model = Agency
         fields = [
@@ -93,9 +96,24 @@ class AgencySerializer(serializers.ModelSerializer):
             # NEW: Added availability schedule fields
             'available_days',
             'opening_time',
-            'closing_time'
+            'closing_time',
+
+            'tour_packages',
+            'user_details'
         ]
         read_only_fields = ("status", "created_at")
+
+    def get_tour_packages(self, obj):
+        from destinations_and_attractions.serializers import TourPackageSerializer
+        return TourPackageSerializer(obj.tour_packages.all(), many=True, context=self.context).data
+
+    def get_user_details(self, obj):
+        if obj.user:
+            return {
+                "municipality": obj.user.municipality,
+                "location": obj.user.location,
+            }
+        return None
 
     def validate_phone(self, value):
         return normalize_ph_phone(value, "phone")

@@ -5,12 +5,14 @@ from .views import (
     TouristGuideCreateView,
     TouristGuideListView,
     AgencyListView,
+    AgencyDetailView,
     TouristGuideDetailView,
     AgencyProfileView
 )
 
 urlpatterns = [
     path("agencies/", AgencyListView.as_view(), name="agency-list"), 
+    path("agency-profile-public/<int:pk>/", AgencyDetailView.as_view(), name="agency-public-detail"),
     path("agency/register/", AgencyRegisterView.as_view(), name="agency-register"),
     path("agency/<int:pk>/approve/", AgencyApproveView.as_view(), name="agency-approve"),
     

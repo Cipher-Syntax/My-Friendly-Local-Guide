@@ -214,9 +214,17 @@ class TourPackageSerializer(serializers.ModelSerializer):
             new_stop = TourStop(tour=tour, name=name, order=index)
             
             existing_url = existing_images_urls[index] if index < len(existing_images_urls) else ""
-            if not existing_url and img_file_index < len(stops_images):
-                new_stop.image = stops_images[img_file_index]
-                img_file_index += 1
+            
+            if existing_url and existing_url.strip() != "":
+                from urllib.parse import urlparse
+                path = urlparse(existing_url).path
+                if path.startswith('/media/'):
+                    relative_path = path.replace('/media/', '', 1)
+                    new_stop.image = relative_path
+            else:
+                if img_file_index < len(stops_images):
+                    new_stop.image = stops_images[img_file_index]
+                    img_file_index += 1
                 
             new_stop.save()
 

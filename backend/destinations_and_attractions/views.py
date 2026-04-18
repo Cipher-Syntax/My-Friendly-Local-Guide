@@ -752,6 +752,7 @@ class DestinationNewPackageHighlightsView(APIView):
                     'owner_name': owner_name,
                     'guide_id': guide_id,
                     'agency_user_id': agency_user_id,
+                    'agency_id': package.agency_id,
                     'destination_id': destination_id,
                     'destination_name': destination_entry['destination_name'],
                 }

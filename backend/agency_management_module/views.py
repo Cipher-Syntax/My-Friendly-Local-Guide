@@ -22,6 +22,15 @@ class AgencyListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
 
+class AgencyDetailView(generics.RetrieveAPIView):
+    """
+    Returns a single agency's public profile data.
+    """
+    queryset = Agency.objects.all()
+    serializer_class = AgencySerializer
+    permission_classes = [permissions.AllowAny]
+
+
 class AgencyProfileView(generics.RetrieveUpdateAPIView):
     """Allows an Agency to view and update their profile (including availability settings)"""
     serializer_class = AgencySerializer
