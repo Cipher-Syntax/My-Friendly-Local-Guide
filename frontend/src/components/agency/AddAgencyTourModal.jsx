@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, Map, DollarSign, Users, Clock, Image as ImageIcon, Plus, Trash2 } from 'lucide-react';
 import api from '../../api/api';
 
-export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTourUpdated, editData }) {
+export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTourUpdated, editData, isCopying = false }) {
     const [destinations, setDestinations] = useState([]);
     const [accommodations, setAccommodations] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -59,7 +59,7 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
 
     const populateEditData = useCallback(() => {
         setFormData({
-            name: editData.name || '',
+            name: editData.name ? (isCopying ? `${editData.name} (Copy)` : editData.name) : '',
             description: editData.description || '',
             duration: editData.duration || '',
             durationDays: editData.duration_days?.toString() || '1',
@@ -68,7 +68,7 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
             pricePerDay: editData.price_per_day || '',
             soloPricePerDay: editData.solo_price || '',
             additionalPerHeadPerDay: editData.additional_fee_per_head || '0',
-            destination_id: editData.main_destination || destinations[0]?.id || '',
+            destination_id: (typeof editData.main_destination === 'object' ? editData.main_destination?.id : editData.main_destination) || destinations[0]?.id || '',
         });
 
         if (editData.stops && editData.stops.length > 0) {
@@ -267,7 +267,7 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
                 }
             });
 
-            if (editData) {
+            if (editData && !isCopying) {
                 const response = await api.patch(`api/tours/${editData.id}/`, submitData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
@@ -309,7 +309,7 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
 
                 <div className="flex justify-between items-center p-5 border-b border-slate-100 dark:border-slate-700">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Map className="w-5 h-5 text-cyan-500" /> {editData ? 'Edit Tour Package' : 'Create Tour Package'}
+                        <Map className="w-5 h-5 text-cyan-500" /> {editData && !isCopying ? 'Edit Tour Package' : (isCopying ? 'Copy Tour Package' : 'Create Tour Package')}
                     </h3>
                     <button onClick={onClose} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-500">
                         <X className="w-5 h-5" />
@@ -513,7 +513,7 @@ export default function AddAgencyTourModal({ isOpen, onClose, onTourAdded, onTou
                             disabled={isLoading}
                             className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
                         >
-                            {isLoading ? 'Processing...' : (currentStep === 3 ? (editData ? 'Save Changes' : 'Publish Tour') : 'Next Step')}
+                            {isLoading ? 'Processing...' : (currentStep === 3 ? (editData && !isCopying ? 'Save Changes' : 'Publish Tour') : 'Next Step')}
                         </button>
                     </div>
                 </div>

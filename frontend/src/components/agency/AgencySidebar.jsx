@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, Wallet, Settings, Map, Home, MessageSquare, History, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, BookOpen, UsersRound, User, LogOut, Star, Sun, Moon, Wallet, Settings, Map, Home, MessageSquare, History, BarChart3, Compass } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, unreadMessages = 0 }) {
@@ -24,6 +24,7 @@ export default function AgencySidebar({ activeTab, setActiveTab, handleSignOut, 
 
     const menuItems = [
         { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+        { id: 'explore', icon: Compass, label: 'Explore Directory' },
         { id: 'bookings', icon: BookOpen, label: 'Bookings Management' },
         { id: 'messages', icon: MessageSquare, label: 'Messages' },
         { id: 'guides', icon: UsersRound, label: 'Guide Management' },
