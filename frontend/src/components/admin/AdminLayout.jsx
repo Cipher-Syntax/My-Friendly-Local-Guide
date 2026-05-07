@@ -106,7 +106,7 @@ export default function AdminLayout() {
                     </div>
                 </header>
 
-                <div className="flex-1 overflow-auto p-8">
+                <div className="flex-1 overflow-auto p-8 scroll-smooth" style={{ scrollbarWidth: "thin" }}>
                     <Outlet />
                 </div>
             </div>

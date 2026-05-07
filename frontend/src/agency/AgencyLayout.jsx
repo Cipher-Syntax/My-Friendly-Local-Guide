@@ -791,7 +791,7 @@ export default function AgencyLayout() {
                     </div>
                 </header>
 
-                <main className={`flex-1 ${activeTab === 'messages' ? 'overflow-hidden p-0' : 'overflow-auto p-8'}`}>
+                <main className={`flex-1 ${activeTab === 'messages' ? 'overflow-hidden p-0' : 'overflow-auto scroll-smooth p-8'}`} style={{ scrollbarWidth: "thin" }}>
                     {loading ? (
                         <div className="flex justify-center items-center h-64">
                             <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
